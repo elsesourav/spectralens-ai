@@ -1,19 +1,18 @@
 /* eslint-disable no-undef */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
-  IoAlertCircleOutline,
   IoChevronDownOutline,
   IoChevronUpOutline,
   IoDesktopOutline,
   IoFlashOutline,
   IoMoonOutline,
-  IoRefreshOutline,
   IoShieldCheckmarkOutline,
   IoSunnyOutline,
 } from "react-icons/io5";
 import { useTheme } from "../hooks/useThemeHook.jsx";
 import extensionUtils from "./../utils/utilsModule.js";
 import { ProviderIcon } from "./Icons.jsx";
+import Toast from "./Toast.jsx";
 
 const DEFAULT_AI_OPTIONS = [
   { id: "google", name: "Google AI", enabled: true },
@@ -27,7 +26,13 @@ export default function Controls() {
   const { theme, setTheme, contrastMode, setContrastMode } = useTheme();
 
   const [aiList, setAiList] = useState(DEFAULT_AI_OPTIONS);
-  const [maxProviderWarning, setMaxProviderWarning] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+  const [isToastVisible, setIsToastVisible] = useState(false);
+
+  const showToast = (msg) => {
+    setToastMessage(msg);
+    setIsToastVisible(true);
+  };
 
   // Widget settings
   const [widgetEnabled, setWidgetEnabled] = useState(false);
@@ -39,7 +44,6 @@ export default function Controls() {
   const [enableCopy, setEnableCopy] = useState(false);
 
   const [isInitialized, setIsInitialized] = useState(false);
-  const warningTimerRef = useRef(null);
 
   const enabledCount = aiList.filter((ai) => ai.enabled).length;
 
@@ -194,7 +198,7 @@ export default function Controls() {
     [aiList, concurrentRequests, autoHideDelay, isInitialized],
   );
 
-  // Toggle Provider with strict MAX 3 limit
+  // Toggle Provider: if 3 already active and turning on 4th, turn off 3rd and move new one to 3rd position
   const handleToggleProvider = (providerId) => {
     setAiList((prevList) => {
       const target = prevList.find((p) => p.id === providerId);
@@ -202,32 +206,54 @@ export default function Controls() {
 
       const willEnable = !target.enabled;
 
-      // Check max 3 limit
-      if (willEnable && enabledCount >= 3) {
-        setMaxProviderWarning(true);
-        if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
-        warningTimerRef.current = setTimeout(() => {
-          setMaxProviderWarning(false);
-        }, 3500);
-        return prevList;
-      }
-
-      // Hide warning if disabling
       if (!willEnable) {
-        setMaxProviderWarning(false);
+        // Disabling provider
+        const updated = prevList.map((p) =>
+          p.id === providerId ? { ...p, enabled: false } : p,
+        );
+        saveControlsSettings(updated);
+        return updated;
       }
 
+      // User is enabling a model:
+      const activeList = prevList.filter((p) => p.enabled);
+
+      if (activeList.length >= 3) {
+        // Turn OFF the 3rd active model and activate the new model
+        const thirdActive = activeList[2];
+
+        const updated = prevList.map((p) => {
+          if (p.id === providerId) return { ...p, enabled: true };
+          if (p.id === thirdActive.id) return { ...p, enabled: false };
+          return p;
+        });
+
+        // Ensure newly enabled model is placed in active slot 3
+        const newActive = updated.filter((p) => p.enabled);
+        const newInactive = updated.filter((p) => !p.enabled);
+        const ordered = [...newActive, ...newInactive];
+
+        saveControlsSettings(ordered);
+        showToast(`Switched "${thirdActive.name}" to "${target.name}" (Max 3 active)`);
+        return ordered;
+      }
+
+      // Less than 3 active models
       const updated = prevList.map((p) =>
-        p.id === providerId ? { ...p, enabled: willEnable } : p,
+        p.id === providerId ? { ...p, enabled: true } : p,
       );
       saveControlsSettings(updated);
       return updated;
     });
   };
 
-  // Move Priority Up / Down
+  // Move Priority Up / Down (Only active among enabled models)
   const handleMoveUp = (index) => {
-    if (index <= 0) return;
+    const item = aiList[index];
+    if (!item?.enabled || index <= 0) return;
+    const prevItem = aiList[index - 1];
+    if (!prevItem?.enabled) return;
+
     setAiList((prev) => {
       const next = [...prev];
       const temp = next[index];
@@ -239,7 +265,11 @@ export default function Controls() {
   };
 
   const handleMoveDown = (index) => {
-    if (index >= aiList.length - 1) return;
+    const item = aiList[index];
+    if (!item?.enabled || index >= aiList.length - 1) return;
+    const nextItem = aiList[index + 1];
+    if (!nextItem?.enabled) return;
+
     setAiList((prev) => {
       const next = [...prev];
       const temp = next[index];
@@ -324,17 +354,6 @@ export default function Controls() {
     );
   };
 
-  // Reset floating widget position
-  const handleResetWidgetPosition = () => {
-    extensionUtils.chromeStorageSetLocal(
-      "menu_window_location",
-      { x: 20, y: 20 },
-      () => {
-        extensionUtils.runtimeSendMessage("P_B_RESET_WIDGET_POSITION");
-      },
-    );
-  };
-
   const cardBgClass =
     contrastMode === "solid"
       ? "bg-white dark:bg-[#191c25] border-slate-200/90 dark:border-white/[0.08]"
@@ -363,21 +382,10 @@ export default function Controls() {
             </h3>
             <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
               {enabledCount >= 3
-                ? "Limit Reached"
+                ? "Max Active"
                 : `${3 - enabledCount} slots open`}
             </span>
           </div>
-
-          {/* Warning Banner when exceeding max 3 limit */}
-          {maxProviderWarning && (
-            <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-700 dark:text-amber-300 text-xs font-medium flex items-center gap-2 animate-fade-in">
-              <IoAlertCircleOutline className="w-4 h-4 shrink-0" />
-              <span>
-                Maximum 3 providers can be active simultaneously. Please disable
-                one first.
-              </span>
-            </div>
-          )}
 
           {/* Providers List with Up/Down Priority Ordering */}
           <div className="space-y-1.5">
@@ -394,21 +402,21 @@ export default function Controls() {
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    {/* Up / Down Priority Buttons */}
+                    {/* Up / Down Priority Buttons (Only active for enabled models) */}
                     <div className="flex flex-col items-center -space-y-0.5">
                       <button
                         onClick={() => handleMoveUp(index)}
-                        disabled={index === 0}
+                        disabled={!isEnabled || index === 0 || !aiList[index - 1]?.enabled}
                         className="p-0.5 rounded text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-200/60 dark:hover:bg-white/[0.06] disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:text-slate-400 transition-colors focus:outline-none cursor-pointer disabled:cursor-not-allowed"
-                        title="Increase Priority"
+                        title={isEnabled ? "Increase Priority" : "Enable model first"}
                       >
                         <IoChevronUpOutline className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => handleMoveDown(index)}
-                        disabled={index === aiList.length - 1}
+                        disabled={!isEnabled || index === aiList.length - 1 || !aiList[index + 1]?.enabled}
                         className="p-0.5 rounded text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-200/60 dark:hover:bg-white/[0.06] disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:text-slate-400 transition-colors focus:outline-none cursor-pointer disabled:cursor-not-allowed"
-                        title="Decrease Priority"
+                        title={isEnabled ? "Decrease Priority" : "Enable model first"}
                       >
                         <IoChevronDownOutline className="w-3.5 h-3.5" />
                       </button>
@@ -482,12 +490,13 @@ export default function Controls() {
             <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
               Auto-Hide Minimized Widget
             </span>
-            <div className="grid grid-cols-4 gap-1.5">
+            <div className="grid grid-cols-5 gap-1">
               {[
                 { label: "Never", val: 0 },
                 { label: "5s", val: 5 },
                 { label: "10s", val: 10 },
                 { label: "30s", val: 30 },
+                { label: "60s", val: 60 },
               ].map((opt) => (
                 <button
                   key={opt.val}
@@ -495,7 +504,7 @@ export default function Controls() {
                     setAutoHideDelay(opt.val);
                     saveControlsSettings(aiList, concurrentRequests, opt.val);
                   }}
-                  className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all focus:outline-none cursor-pointer ${
+                  className={`py-1.5 px-1 rounded-lg text-xs font-bold text-center transition-all focus:outline-none cursor-pointer ${
                     autoHideDelay === opt.val
                       ? "bg-blue-600 text-white shadow-xs"
                       : "bg-slate-100/90 dark:bg-white/[0.05] text-slate-700 dark:text-slate-300 hover:bg-slate-200/90 dark:hover:bg-white/10 border border-slate-200/60 dark:border-white/[0.06]"
@@ -505,20 +514,6 @@ export default function Controls() {
                 </button>
               ))}
             </div>
-          </div>
-
-          {/* Reset Position Button */}
-          <div className="pt-2 border-t border-slate-100 dark:border-white/[0.05] flex items-center justify-between">
-            <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
-              Widget placement on screen
-            </span>
-            <button
-              onClick={handleResetWidgetPosition}
-              className="flex items-center gap-1 text-[11px] text-blue-600 dark:text-blue-400 hover:underline font-bold focus:outline-none cursor-pointer"
-            >
-              <IoRefreshOutline className="w-3.5 h-3.5" />
-              <span>Reset Position</span>
-            </button>
           </div>
         </section>
 
@@ -687,6 +682,13 @@ export default function Controls() {
           </div>
         </section>
       </div>
+
+      {/* Toast Notification */}
+      <Toast
+        message={toastMessage}
+        isVisible={isToastVisible}
+        onClose={() => setIsToastVisible(false)}
+      />
     </div>
   );
 }

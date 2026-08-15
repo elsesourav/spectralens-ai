@@ -153,7 +153,7 @@ export default function Menu() {
         return "bg-black/15 dark:bg-black/25 backdrop-blur-sm border border-white/20 shadow-2xl";
       }
       if (contrastMode === "medium") {
-        return "bg-[#16171d]/75 backdrop-blur-xl border border-white/20 shadow-2xl";
+        return "bg-[#16171d]/60 backdrop-blur-md border border-white/20 shadow-2xl";
       }
       return "bg-[#16171d] border border-white/20 shadow-2xl";
     } else {
@@ -161,7 +161,7 @@ export default function Menu() {
         return "bg-white/20 dark:bg-black/20 backdrop-blur-sm border border-slate-200/40 dark:border-white/10 shadow-2xl";
       }
       if (contrastMode === "medium") {
-        return "bg-[#f8fafc]/75 dark:bg-[#0e1015]/75 backdrop-blur-xl border border-slate-200/60 dark:border-white/10 shadow-2xl";
+        return "bg-[#f8fafc]/60 dark:bg-[#0e1015]/60 backdrop-blur-md border border-slate-200/60 dark:border-white/10 shadow-2xl";
       }
       return "bg-[#f8fafc] dark:bg-[#0e1015] border border-slate-200/90 dark:border-white/10 shadow-2xl";
     }
@@ -176,7 +176,7 @@ export default function Menu() {
     root.setAttribute("data-contrast", contrastMode);
   }, [effectiveTheme, contrastMode]);
 
-  // Auto-hide inactivity timer when minimized
+  // Auto-hide / idle dim inactivity timer when minimized
   useEffect(() => {
     if (isChatOpen || autoHideDelay <= 0) {
       setMenuOpacity("1");
@@ -184,27 +184,29 @@ export default function Menu() {
     }
 
     let timer;
-    const resetTimer = () => {
-      setMenuOpacity("1");
+    const startTimer = () => {
       clearTimeout(timer);
       timer = setTimeout(() => {
-        setMenuOpacity("0");
+        setMenuOpacity("0.25");
       }, autoHideDelay * 1000);
     };
 
-    resetTimer();
-
-    const handleUserActivity = () => {
-      resetTimer();
+    const wakeUp = () => {
+      setMenuOpacity("1");
+      startTimer();
     };
 
-    window.addEventListener("mousemove", handleUserActivity);
-    window.addEventListener("pointerdown", handleUserActivity);
+    wakeUp();
+
+    window.addEventListener("mousemove", wakeUp);
+    window.addEventListener("pointerdown", wakeUp);
+    window.addEventListener("mouseenter", wakeUp);
 
     return () => {
       clearTimeout(timer);
-      window.removeEventListener("mousemove", handleUserActivity);
-      window.removeEventListener("pointerdown", handleUserActivity);
+      window.removeEventListener("mousemove", wakeUp);
+      window.removeEventListener("pointerdown", wakeUp);
+      window.removeEventListener("mouseenter", wakeUp);
     };
   }, [isChatOpen, autoHideDelay]);
 
