@@ -26,7 +26,6 @@ export default function Menu() {
   const [activeTab, setActiveTab] = useState("chat"); // 'chat' | 'selector' | 'history' | 'settings'
   const [size, setSize] = useState(SIZES.min);
   const [menuOpacity, setMenuOpacity] = useState("1");
-  const [isDragging, setIsDragging] = useState(false);
   const [autoHideDelay, setAutoHideDelay] = useState(0);
   const [chatbotTheme, setChatbotTheme] = useState(() => {
     return localStorage.getItem("app-theme") || "system";
@@ -219,7 +218,6 @@ export default function Menu() {
 
     const onPointerDown = (e) => {
       e.preventDefault();
-      setIsDragging(true);
       startX = e.clientX;
       startY = e.clientY;
 
@@ -241,7 +239,6 @@ export default function Menu() {
     };
 
     const onPointerUp = () => {
-      setIsDragging(false);
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
     };
@@ -360,12 +357,10 @@ export default function Menu() {
                 </span>
               </div>
 
-              {/* Draggable Center Window Region (no visible icon) */}
+              {/* Draggable Center Window Region (no visible icon, clean transparent drag area) */}
               <div
                 ref={dragRef}
-                className={`flex-1 mx-3 h-6 rounded-lg cursor-grab active:cursor-grabbing hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${
-                  isDragging ? "bg-blue-500/10" : ""
-                }`}
+                className="flex-1 mx-2 h-full cursor-grab active:cursor-grabbing select-none"
                 title="Drag to move chat window"
               />
 

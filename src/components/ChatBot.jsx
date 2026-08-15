@@ -345,26 +345,6 @@ export default function ChatBot({
       ref={rootRef}
       className="flex flex-col h-full bg-[#f8fafc] dark:bg-[#0e1015] text-[#0f172a] dark:text-[#f8fafc] overflow-hidden select-none"
     >
-      {/* Top Header Bar */}
-      <header className="flex items-center justify-between px-4 py-2.5 border-b border-slate-200/80 dark:border-white/[0.07] bg-white/60 dark:bg-[#14161e]/60 backdrop-blur-md shrink-0">
-        <div className="flex items-center gap-2">
-          <h1 className="text-sm font-semibold tracking-tight text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
-            SpectraLens AI
-          </h1>
-        </div>
-
-        <div className="flex items-center gap-1">
-          {/* New Chat Button */}
-          <button
-            onClick={handleNewChat}
-            title="Start New Chat"
-            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-white/[0.08] transition-all focus:outline-none cursor-pointer"
-          >
-            <IoAdd className="w-4 h-4" />
-          </button>
-        </div>
-      </header>
-
       {/* Provider Selector Pills Bar */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-slate-200/60 dark:border-white/[0.05] bg-slate-100/60 dark:bg-[#12141c]/80 shrink-0 gap-1.5">
         <div className="flex items-center gap-1.5 flex-1 overflow-x-auto custom-scrollbar">
@@ -392,44 +372,55 @@ export default function ChatBot({
           })}
         </div>
 
-        {/* Overflow 3-dots Menu for 4+ providers */}
-        {overflowProviders.length > 0 && (
-          <div className="relative shrink-0" ref={moreMenuRef}>
-            <button
-              onClick={() => setIsMoreMenuOpen((v) => !v)}
-              title="More AI Models"
-              className={`p-2 rounded-xl transition-all border focus:outline-none cursor-pointer ${
-                isMoreMenuOpen
-                  ? "bg-blue-600 text-white border-blue-500"
-                  : "bg-white dark:bg-[#1a1d26] text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-[#222634] border-slate-200 dark:border-white/[0.06]"
-              }`}
-            >
-              <ThreeDotsIcon className="w-3.5 h-3.5" size={14} />
-            </button>
+        <div className="flex items-center gap-1 shrink-0">
+          {/* New Chat Button */}
+          <button
+            onClick={handleNewChat}
+            title="Start New Chat"
+            className="p-1.5 rounded-xl text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white bg-white dark:bg-[#1a1d26] hover:bg-slate-200/70 dark:hover:bg-[#222634] border border-slate-200 dark:border-white/[0.06] transition-all focus:outline-none cursor-pointer"
+          >
+            <IoAdd className="w-4 h-4" />
+          </button>
 
-            {isMoreMenuOpen && (
-              <div className="absolute right-0 top-full mt-1.5 w-44 rounded-xl bg-white dark:bg-[#1a1d26] border border-slate-200 dark:border-white/10 shadow-xl py-1 z-30 animate-fade-in">
-                {overflowProviders.map((provider) => (
-                  <button
-                    key={provider.id}
-                    onClick={() => {
-                      setSelectedProvider(provider.id);
-                      setIsMoreMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-left transition-colors focus:outline-none cursor-pointer ${
-                      selectedProvider === provider.id
-                        ? "bg-blue-600/15 text-blue-600 dark:text-blue-400 font-semibold"
-                        : "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5"
-                    }`}
-                  >
-                    <ProviderIcon id={provider.id} className="w-4 h-4 shrink-0" size={16} />
-                    <span className="truncate">{provider.name}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+          {/* Overflow 3-dots Menu for 4+ providers */}
+          {overflowProviders.length > 0 && (
+            <div className="relative" ref={moreMenuRef}>
+              <button
+                onClick={() => setIsMoreMenuOpen((v) => !v)}
+                title="More AI Models"
+                className={`p-1.5 rounded-xl transition-all border focus:outline-none cursor-pointer ${
+                  isMoreMenuOpen
+                    ? "bg-blue-600 text-white border-blue-500"
+                    : "bg-white dark:bg-[#1a1d26] text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-[#222634] border-slate-200 dark:border-white/[0.06]"
+                }`}
+              >
+                <ThreeDotsIcon className="w-4 h-4" size={16} />
+              </button>
+
+              {isMoreMenuOpen && (
+                <div className="absolute right-0 top-full mt-1.5 w-44 rounded-xl bg-white dark:bg-[#1a1d26] border border-slate-200 dark:border-white/10 shadow-xl py-1 z-30 animate-fade-in">
+                  {overflowProviders.map((provider) => (
+                    <button
+                      key={provider.id}
+                      onClick={() => {
+                        setSelectedProvider(provider.id);
+                        setIsMoreMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-left transition-colors focus:outline-none cursor-pointer ${
+                        selectedProvider === provider.id
+                          ? "bg-blue-600/15 text-blue-600 dark:text-blue-400 font-semibold"
+                          : "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5"
+                      }`}
+                    >
+                      <ProviderIcon id={provider.id} className="w-4 h-4 shrink-0" size={16} />
+                      <span className="truncate">{provider.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Main Messages Scroll Area */}

@@ -6,7 +6,6 @@ import {
 } from "./Icons.jsx";
 import { IoSunny, IoMoon } from "react-icons/io5";
 import { useTheme } from "../hooks/useThemeHook.jsx";
-import appIconUrl from "../assets/icons/icon.png";
 
 export default function Sidebar({ activeTab, onSelectTab }) {
   const { isDarkMode, setTheme } = useTheme();
@@ -35,23 +34,9 @@ export default function Sidebar({ activeTab, onSelectTab }) {
 
   return (
     <aside className="w-[56px] h-full flex flex-col items-center justify-between py-3 bg-[#f1f5f9] dark:bg-[#14161e] border-r border-slate-200/80 dark:border-white/[0.07] shrink-0 select-none z-20">
-      {/* Top App Logo & Navigation */}
-      <div className="flex flex-col items-center gap-3.5 w-full">
-        {/* App Logo */}
-        <button
-          onClick={() => onSelectTab("chat")}
-          className="p-1 rounded-xl transition-transform hover:scale-105 active:scale-95 focus:outline-none cursor-pointer"
-          title="SpectraLens AI"
-        >
-          <img
-            src={appIconUrl}
-            alt="SpectraLens AI"
-            className="w-8 h-8 rounded-xl object-contain shadow-xs"
-          />
-        </button>
-
-        {/* Navigation Tabs (Chat, History, Settings) */}
-        <nav className="flex flex-col items-center gap-2 w-full px-2">
+      {/* Top Navigation */}
+      <div className="flex flex-col items-center gap-2 w-full px-2">
+        <nav className="flex flex-col items-center gap-2 w-full">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
