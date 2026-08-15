@@ -4,8 +4,10 @@ import PropTypes from "prop-types";
 import { ElementSelectorIcon } from "./Icons.jsx";
 import { IoCheckmarkCircleOutline, IoScanOutline } from "react-icons/io5";
 import UTILS from "../utils/utilsModule.js";
+import { useTheme } from "../hooks/useThemeHook.jsx";
 
 export default function SelectorView({ onTriggerComplete }) {
+  const { contrastMode } = useTheme();
   const [isActivating, setIsActivating] = useState(false);
 
   const handleLaunchInspector = async () => {
@@ -36,7 +38,15 @@ export default function SelectorView({ onTriggerComplete }) {
   return (
     <div className="flex flex-col h-full bg-transparent text-[#0f172a] dark:text-[#f8fafc] overflow-hidden">
       {/* View Header */}
-      <div className="flex items-center gap-2.5 px-4 py-3.5 border-b border-slate-200/80 dark:border-white/[0.07] bg-slate-100/50 dark:bg-black/20 backdrop-blur-sm shrink-0">
+      <div
+        className={`flex items-center gap-2.5 px-4 py-3.5 border-b shrink-0 ${
+          contrastMode === "solid"
+            ? "bg-slate-100 dark:bg-[#14161e] border-slate-200 dark:border-white/[0.08]"
+            : contrastMode === "medium"
+            ? "bg-slate-100/30 dark:bg-black/20 backdrop-blur-sm border-slate-200/40 dark:border-white/[0.06]"
+            : "bg-transparent border-slate-200/20 dark:border-white/[0.04]"
+        }`}
+      >
         <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-500 dark:text-blue-400">
           <ElementSelectorIcon className="w-5 h-5" size={20} />
         </div>
@@ -51,7 +61,15 @@ export default function SelectorView({ onTriggerComplete }) {
       {/* Main Content & Instructions */}
       <div className="flex-1 p-4 overflow-y-auto custom-scrollbar flex flex-col justify-between">
         <div className="space-y-4">
-          <div className="p-3.5 rounded-2xl bg-white/80 dark:bg-[#191c25]/80 backdrop-blur-md border border-slate-200/80 dark:border-white/[0.07] shadow-xs space-y-2.5">
+          <div
+            className={`p-3.5 rounded-2xl border shadow-xs space-y-2.5 ${
+              contrastMode === "solid"
+                ? "bg-white dark:bg-[#191c25] border-slate-200 dark:border-white/[0.08]"
+                : contrastMode === "medium"
+                ? "bg-white/35 dark:bg-white/[0.06] backdrop-blur-sm border-slate-200/40 dark:border-white/[0.06]"
+                : "bg-white/[0.06] dark:bg-white/[0.02] border-slate-200/15 dark:border-white/[0.03]"
+            }`}
+          >
             <h3 className="text-xs font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
               <IoScanOutline className="w-4 h-4 text-blue-500" />
               How Element Selection Works

@@ -145,18 +145,18 @@ export default function Menu() {
   const contrastClass = useMemo(() => {
     if (!isChatOpen) {
       if (contrastMode === "transparent") {
-        return "bg-black/15 dark:bg-black/25 backdrop-blur-md border border-white/20 shadow-2xl";
+        return "bg-black/5 dark:bg-black/10 border border-white/15 shadow-2xl";
       }
       if (contrastMode === "medium") {
-        return "bg-[#16171d]/75 backdrop-blur-xl border border-white/20 shadow-2xl";
+        return "bg-black/20 dark:bg-black/35 backdrop-blur-md border border-white/20 shadow-2xl";
       }
       return "bg-[#16171d] border border-white/20 shadow-2xl";
     } else {
       if (contrastMode === "transparent") {
-        return "bg-slate-900/10 dark:bg-black/20 backdrop-blur-md border border-slate-200/40 dark:border-white/10 shadow-2xl";
+        return "bg-slate-900/[0.02] dark:bg-black/[0.05] border border-slate-200/20 dark:border-white/[0.06] shadow-2xl";
       }
       if (contrastMode === "medium") {
-        return "bg-[#f8fafc]/80 dark:bg-[#0e1015]/80 backdrop-blur-xl border border-slate-200/70 dark:border-white/10 shadow-2xl";
+        return "bg-slate-900/10 dark:bg-black/25 backdrop-blur-md border border-slate-200/40 dark:border-white/10 shadow-2xl";
       }
       return "bg-[#f8fafc] dark:bg-[#0e1015] border border-slate-200 dark:border-white/10 shadow-2xl";
     }
@@ -406,8 +406,8 @@ export default function Menu() {
                 contrastMode === "solid"
                   ? "bg-slate-100 dark:bg-[#14161e] border-slate-200 dark:border-white/[0.08]"
                   : contrastMode === "medium"
-                  ? "bg-slate-100/60 dark:bg-black/30 backdrop-blur-sm border-slate-200/80 dark:border-white/[0.08]"
-                  : "bg-slate-100/20 dark:bg-black/15 border-slate-200/40 dark:border-white/[0.06]"
+                  ? "bg-slate-100/30 dark:bg-black/20 backdrop-blur-sm border-slate-200/40 dark:border-white/[0.06]"
+                  : "bg-transparent border-slate-200/20 dark:border-white/[0.04]"
               }`}
             >
               <div className="flex items-center gap-2 select-none pointer-events-none">

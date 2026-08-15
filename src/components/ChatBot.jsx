@@ -2,6 +2,7 @@ import PropTypes from "prop-types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { IoClose, IoSquare } from "react-icons/io5";
 import UTILS from "./../utils/utilsModule.js";
+import { useTheme } from "../hooks/useThemeHook.jsx";
 import {
   DoubleCheckIcon,
   ElementSelectorIcon,
@@ -17,6 +18,7 @@ export default function ChatBot({
   onClearLoadedHistory,
   onOpenSelector,
 }) {
+  const { contrastMode } = useTheme();
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [lastQuestion, setLastQuestion] = useState("");
@@ -559,7 +561,15 @@ export default function ChatBot({
         {/* AI Response Card */}
         {(selectedAnswerContent || (isLoading && !selectedAnswerContent)) && (
           <div className="flex flex-col gap-2 animate-fade-in">
-            <div className="p-4 rounded-2xl bg-white/80 dark:bg-[#181920]/80 backdrop-blur-md border border-slate-200/80 dark:border-white/[0.08] shadow-xs space-y-3">
+            <div
+              className={`p-4 rounded-2xl border shadow-xs space-y-3 ${
+                contrastMode === "solid"
+                  ? "bg-white dark:bg-[#181920] border-slate-200 dark:border-white/[0.08]"
+                  : contrastMode === "medium"
+                  ? "bg-white/35 dark:bg-white/[0.06] backdrop-blur-sm border-slate-200/40 dark:border-white/[0.06]"
+                  : "bg-white/[0.06] dark:bg-white/[0.02] border-slate-200/15 dark:border-white/[0.03]"
+              }`}
+            >
               {/* Provider Header Badge */}
               <div className="flex items-center justify-between pb-1 border-b border-slate-100 dark:border-white/[0.04]">
                 <div className="flex items-center gap-2">
@@ -618,8 +628,24 @@ export default function ChatBot({
       </div>
 
       {/* Bottom Input Dock Bar */}
-      <div className="p-3 border-t border-slate-200/80 dark:border-white/[0.07] bg-slate-100/40 dark:bg-black/25 backdrop-blur-sm shrink-0">
-        <div className="relative flex items-center w-full px-3 py-2 rounded-2xl bg-white/80 dark:bg-[#191c25]/80 backdrop-blur-md border border-slate-200/90 dark:border-white/[0.09] focus-within:border-blue-500 dark:focus-within:border-blue-500/80 focus-within:ring-1 focus-within:ring-blue-500/50 shadow-xs transition-all">
+      <div
+        className={`p-3 border-t shrink-0 ${
+          contrastMode === "solid"
+            ? "bg-slate-100 dark:bg-[#14161e] border-slate-200 dark:border-white/[0.08]"
+            : contrastMode === "medium"
+            ? "bg-slate-100/30 dark:bg-black/20 backdrop-blur-sm border-slate-200/40 dark:border-white/[0.06]"
+            : "bg-transparent border-slate-200/20 dark:border-white/[0.04]"
+        }`}
+      >
+        <div
+          className={`relative flex items-center w-full px-3 py-2 rounded-2xl border focus-within:border-blue-500 dark:focus-within:border-blue-500/80 focus-within:ring-1 focus-within:ring-blue-500/50 shadow-xs transition-all ${
+            contrastMode === "solid"
+              ? "bg-white dark:bg-[#191c25] border-slate-200/90 dark:border-white/[0.09]"
+              : contrastMode === "medium"
+              ? "bg-white/40 dark:bg-white/[0.08] backdrop-blur-sm border-slate-200/40 dark:border-white/[0.06]"
+              : "bg-white/[0.08] dark:bg-white/[0.04] border-slate-200/20 dark:border-white/[0.05]"
+          }`}
+        >
           <input
             ref={textareaRef}
             type="text"

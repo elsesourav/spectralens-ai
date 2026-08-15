@@ -3,8 +3,10 @@ import PropTypes from "prop-types";
 import { HistoryIcon } from "./Icons.jsx";
 import { IoTrashOutline, IoTimeOutline, IoChevronForward, IoAlertCircleOutline } from "react-icons/io5";
 import UTILS from "../utils/utilsModule.js";
+import { useTheme } from "../hooks/useThemeHook.jsx";
 
 export default function HistoryView({ onLoadQuery }) {
+  const { contrastMode } = useTheme();
   const [history, setHistory] = useState([]);
   const [showConfirmClear, setShowConfirmClear] = useState(false);
 
@@ -35,7 +37,15 @@ export default function HistoryView({ onLoadQuery }) {
   return (
     <div className="flex flex-col h-full bg-transparent text-[#0f172a] dark:text-[#f8fafc] overflow-hidden">
       {/* View Header */}
-      <div className="flex items-center justify-between px-4 py-3.5 border-b border-slate-200/80 dark:border-white/[0.07] bg-slate-100/50 dark:bg-black/20 backdrop-blur-sm shrink-0">
+      <div
+        className={`flex items-center justify-between px-4 py-3.5 border-b shrink-0 ${
+          contrastMode === "solid"
+            ? "bg-slate-100 dark:bg-[#14161e] border-slate-200 dark:border-white/[0.08]"
+            : contrastMode === "medium"
+            ? "bg-slate-100/30 dark:bg-black/20 backdrop-blur-sm border-slate-200/40 dark:border-white/[0.06]"
+            : "bg-transparent border-slate-200/20 dark:border-white/[0.04]"
+        }`}
+      >
         <div className="flex items-center gap-2.5">
           <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-500 dark:text-blue-400">
             <HistoryIcon className="w-5 h-5" size={20} />
@@ -78,7 +88,13 @@ export default function HistoryView({ onLoadQuery }) {
             <div
               key={idx}
               onClick={() => onLoadQuery && onLoadQuery(item)}
-              className="group relative flex items-center justify-between p-3 rounded-xl bg-white/80 dark:bg-[#191c25]/80 backdrop-blur-md hover:bg-blue-50/70 dark:hover:bg-[#202430]/90 border border-slate-200/80 dark:border-white/[0.07] hover:border-blue-300 dark:hover:border-blue-500/30 transition-all cursor-pointer shadow-xs"
+              className={`group relative flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer shadow-xs ${
+                contrastMode === "solid"
+                  ? "bg-white dark:bg-[#191c25] hover:bg-blue-50/70 dark:hover:bg-[#202430]/90 border-slate-200 dark:border-white/[0.08]"
+                  : contrastMode === "medium"
+                  ? "bg-white/35 dark:bg-white/[0.06] backdrop-blur-sm hover:bg-blue-50/70 dark:hover:bg-white/[0.12] border-slate-200/40 dark:border-white/[0.06]"
+                  : "bg-white/[0.06] dark:bg-white/[0.02] hover:bg-white/15 dark:hover:bg-white/[0.06] border-slate-200/15 dark:border-white/[0.03]"
+              }`}
             >
               <div className="flex flex-col gap-1 pr-2 overflow-hidden flex-1">
                 <span className="text-xs font-medium text-slate-800 dark:text-slate-200 line-clamp-2 leading-relaxed">
