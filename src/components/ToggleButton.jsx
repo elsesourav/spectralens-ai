@@ -36,7 +36,7 @@ export default function ToggleButton() {
   return (
     <div className="w-full">
       <div
-        className="relative w-full h-[52px] rounded-xl flex items-center bg-white dark:bg-[#181a24] border border-slate-200/90 dark:border-white/[0.08] hover:border-blue-400/40 dark:hover:border-white/[0.15] shadow-xs transition-all duration-200 overflow-hidden cursor-pointer select-none"
+        className="relative w-full h-[48px] rounded-xl flex items-center bg-white dark:bg-[#181a24] border border-slate-200/90 dark:border-white/[0.08] hover:border-blue-400/40 dark:hover:border-white/[0.15] shadow-xs transition-all duration-200 overflow-hidden cursor-pointer select-none"
         onClick={handleClick}
       >
         <div className="flex items-center justify-between w-full px-4 pointer-events-none">
