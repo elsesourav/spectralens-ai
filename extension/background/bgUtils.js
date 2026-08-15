@@ -199,14 +199,14 @@ function __PUSH_MENU__(tabId) {
                   position: fixed;
                   top: 0px;
                   left: 0px;
-                  width: 176px;
-                  height: 48px;
+                  width: 164px;
+                  height: 46px;
                   background: transparent !important;
                   background-color: transparent !important;
                   color-scheme: normal !important;
                   border: none !important;
                   border-radius: 9999px;
-                  z-index: 2147483647;
+                  z-index: 2147483646;
                   overscroll-behavior: contain !important;
                   transition: opacity 200ms ease-in-out;
                }
@@ -226,16 +226,16 @@ function __PUSH_MENU__(tabId) {
             back.setAttribute(
                "style",
                `
-                position: fixed;
-                top: 80px;
-                left: ${defaultLeft}px;
-                width: 64px;
-                height: 48px;
-                background: transparent !important;
-                z-index: 2147483645;
-                cursor: move;
-                border-radius: 24px 0 0 24px;
-                `
+                 position: fixed;
+                 top: 80px;
+                 left: ${defaultLeft}px;
+                 width: 84px;
+                 height: 46px;
+                 background: transparent !important;
+                 z-index: 2147483647;
+                 cursor: move;
+                 border-radius: 24px 0 0 24px;
+                 `
             );
             document.body.append(back);
 

@@ -19,7 +19,7 @@ export default function Menu() {
 
   const SIZES = useMemo(
     () => ({
-      min: { w: "176px", h: "48px" },
+      min: { w: "164px", h: "46px" },
       max: { w: "440px", h: "600px" },
     }),
     [],
@@ -290,7 +290,7 @@ export default function Menu() {
   }, [isChatOpen, SIZES]);
 
   useEffect(() => {
-    const isOpen = parseInt(size.w) > 160;
+    const isOpen = isChatOpen;
     ES.pagePostMessage(
       "IF_C_MENU_WINDOW_RESIZE",
       {
@@ -300,7 +300,7 @@ export default function Menu() {
       },
       window.parent,
     );
-  }, [size]);
+  }, [size, isChatOpen]);
 
   // Drag logic:
   // - Minimized: Only left 6-dot drag handle (`dragRef`).
@@ -319,8 +319,6 @@ export default function Menu() {
           return;
         }
       }
-
-      e.preventDefault();
 
       let lastX = e.clientX;
       let lastY = e.clientY;
@@ -436,25 +434,25 @@ export default function Menu() {
         {/* Minimized Pill Mode (Pixel-perfect matching user image)  */}
         {/* ======================================================== */}
         {!isChatOpen ? (
-          <div className="relative w-full h-full px-2 py-1 flex items-center justify-between gap-1 select-none overflow-hidden rounded-[24px]">
+          <div className="relative w-full h-full px-2 py-1 flex items-center justify-between select-none overflow-hidden rounded-[24px]">
             {/* Background ambient violet-blue gradient on the right section */}
             <div className="absolute right-0 top-0 bottom-0 w-2/3 bg-gradient-to-r from-transparent via-[#8b5cf6]/15 dark:via-[#8b5cf6]/20 to-[#3b82f6]/20 dark:to-[#3b82f6]/25 rounded-r-[24px] pointer-events-none" />
 
-            {/* 1. Left Drag Section (Full Left Part is Draggable) */}
+            {/* Left section: App Logo & 6-Dots Drag Handle (Covered by __menuWindowBack: 0px to 84px) */}
             <div
               ref={dragRef}
-              className="flex items-center gap-1 cursor-grab active:cursor-grabbing select-none py-0.5 pl-0.5 pr-1.5 rounded-full hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors z-10 shrink-0"
+              className="flex items-center gap-3 pl-1 z-10 shrink-0 cursor-grab active:cursor-grabbing select-none"
               title="Drag to reposition widget"
             >
-              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500/20 via-indigo-500/20 to-purple-500/20 ring-2 ring-blue-400/50 dark:ring-blue-400/40 flex items-center justify-center shadow-xs shrink-0">
+              <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-blue-500/20 via-indigo-500/20 to-purple-500/20 ring-2 ring-blue-400/50 dark:ring-blue-400/40 flex items-center justify-center shadow-xs shrink-0 pointer-events-none">
                 {appIconUrl ? (
                   <img
                     src={appIconUrl}
                     alt="SpectraLens AI"
-                    className="w-5 h-5 rounded-md object-contain pointer-events-none"
+                    className="w-4.5 h-4.5 rounded-md object-contain pointer-events-none"
                   />
                 ) : (
-                  <div className="w-4 h-4 rounded-full bg-blue-600" />
+                  <div className="w-3.5 h-3.5 rounded-full bg-blue-600" />
                 )}
               </div>
               <DragHandleIcon
@@ -463,37 +461,40 @@ export default function Menu() {
               />
             </div>
 
-            {/* 2. Scan / Element Selector Button */}
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleSelectElement();
-              }}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-slate-700 dark:text-white hover:bg-slate-200/60 dark:hover:bg-white/15 active:scale-95 transition-all focus:outline-none cursor-pointer z-10 shrink-0"
-              title="Select Page Element / Area"
-            >
-              <ElementSelectorIcon
-                className="w-5 h-5 text-slate-700 dark:text-white"
-                size={21}
-              />
-            </button>
+            {/* Right section: 2 Action Buttons (Scan & Chat) (84px to 164px) */}
+            <div className="flex items-center gap-2 pr-1 z-10 shrink-0">
+              {/* Button 1: Scan Element Selector */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSelectElement();
+                }}
+                className="w-7 h-7 rounded-full flex items-center justify-center text-slate-700 dark:text-white hover:bg-slate-200/60 dark:hover:bg-white/15 hover:text-blue-600 dark:hover:text-blue-400 active:scale-95 transition-all focus:outline-none cursor-pointer"
+                title="Select Page Element / Area"
+              >
+                <ElementSelectorIcon
+                  className="w-4.5 h-4.5 text-slate-700 dark:text-white"
+                  size={19}
+                />
+              </button>
 
-            {/* 3. Chat Toggle Button */}
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleChat();
-              }}
-              className="w-8 h-8 rounded-full flex items-center justify-center p-1.5 border border-slate-300/80 dark:border-white/25 bg-white/40 dark:bg-white/10 hover:bg-white/80 dark:hover:bg-white/20 hover:border-blue-400/70 dark:hover:border-blue-400/60 text-slate-800 dark:text-white shadow-2xs hover:scale-105 active:scale-95 transition-all focus:outline-none cursor-pointer z-10 shrink-0"
-              title="Open Chat Window"
-            >
-              <ChatIcon
-                className="w-[18px] h-[18px] text-slate-800 dark:text-white"
-                size={18}
-              />
-            </button>
+              {/* Button 2: Chat Button */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleChat();
+                }}
+                className="w-7 h-7 rounded-full flex items-center justify-center p-1 border border-slate-300/80 dark:border-white/25 bg-white/40 dark:bg-white/10 hover:bg-white/80 dark:hover:bg-white/20 hover:border-blue-400/70 dark:hover:border-blue-400/60 text-slate-800 dark:text-white shadow-2xs hover:scale-105 active:scale-95 transition-all focus:outline-none cursor-pointer"
+                title="Open Chat Window"
+              >
+                <ChatIcon
+                  className="w-4 h-4 text-slate-800 dark:text-white"
+                  size={16}
+                />
+              </button>
+            </div>
           </div>
         ) : (
           /* ======================================================== */
@@ -537,17 +538,8 @@ export default function Menu() {
                 </div>
               </div>
 
-              {/* Right Controls */}
-              <div className="flex items-center gap-1">
-                {/* Drag Handle */}
-                <div
-                  className="p-1 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white cursor-move transition-colors rounded-lg"
-                  title="Drag window"
-                >
-                  <DragHandleIcon className="w-4 h-4" size={16} />
-                </div>
-
-                {/* Close Button */}
+              {/* Right Controls - Only Close button */}
+              <div className="flex items-center">
                 <button
                   onClick={toggleChat}
                   title="Minimize window"
