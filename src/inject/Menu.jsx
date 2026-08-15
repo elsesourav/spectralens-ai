@@ -16,12 +16,7 @@ import { useTheme } from "../hooks/useThemeHook.jsx";
 import ES from "./../utils/utilsModule.js";
 
 export default function Menu() {
-  const {
-    isDarkMode,
-    contrastMode,
-    setTheme: setChatbotTheme,
-    setContrastMode,
-  } = useTheme();
+  const { isDarkMode, contrastMode } = useTheme();
 
   const SIZES = useMemo(
     () => ({
@@ -45,36 +40,25 @@ export default function Menu() {
   const [newChatKey, setNewChatKey] = useState(0);
 
   useEffect(() => {
-    // Request controls & page theme from parent frame
+    // Request controls from parent frame
     ES.pagePostMessage("IF_C_GET_CURRENT_CONTROLS", {}, window.parent);
 
     // Initial storage read
     ES.chromeStorageGetLocal(ES.KEYS.CONTROLS, (controls) => {
-      if (controls) {
-        if (controls.autoHideDelay !== undefined) {
-          setAutoHideDelay(Number(controls.autoHideDelay));
-        }
-        if (controls.chatbotTheme) {
-          setChatbotTheme(controls.chatbotTheme);
-        }
-        if (controls.contrastMode) {
-          setContrastMode(controls.contrastMode);
-        }
+      if (controls && controls.autoHideDelay !== undefined) {
+        setAutoHideDelay(Number(controls.autoHideDelay));
       }
     });
 
-    // Listen for storage changes directly
+    // Listen for storage changes
     let storageListener;
     if (typeof chrome !== "undefined" && chrome.storage?.onChanged) {
       storageListener = (changes) => {
         if (changes[ES.KEYS.CONTROLS]) {
           const val = changes[ES.KEYS.CONTROLS].newValue;
           const controls = typeof val === "string" ? JSON.parse(val) : val;
-          if (controls?.chatbotTheme) {
-            setChatbotTheme(controls.chatbotTheme);
-          }
-          if (controls?.contrastMode) {
-            setContrastMode(controls.contrastMode);
+          if (controls?.autoHideDelay !== undefined) {
+            setAutoHideDelay(Number(controls.autoHideDelay));
           }
         }
       };
@@ -100,28 +84,14 @@ export default function Menu() {
     // Receive initial/live controls
     ES.pageOnMessage("IF_C_GET_CURRENT_CONTROLS", (data) => {
       const controls = data?.controls;
-      if (controls) {
-        if (controls.autoHideDelay !== undefined) {
-          setAutoHideDelay(Number(controls.autoHideDelay));
-        }
-        if (controls.chatbotTheme) {
-          setChatbotTheme(controls.chatbotTheme);
-        }
-        if (controls.contrastMode) {
-          setContrastMode(controls.contrastMode);
-        }
+      if (controls?.autoHideDelay !== undefined) {
+        setAutoHideDelay(Number(controls.autoHideDelay));
       }
     });
 
     ES.pageOnMessage("C_IF_CURRENT_CONTROLS", (data) => {
       if (data?.autoHideDelay !== undefined) {
         setAutoHideDelay(Number(data.autoHideDelay));
-      }
-      if (data?.chatbotTheme) {
-        setChatbotTheme(data.chatbotTheme);
-      }
-      if (data?.contrastMode) {
-        setContrastMode(data.contrastMode);
       }
     });
 
@@ -134,7 +104,7 @@ export default function Menu() {
         chrome.storage.onChanged.removeListener(storageListener);
       }
     };
-  }, [setChatbotTheme, setContrastMode]);
+  }, []);
 
   // Compute effective theme based on user settings
   const effectiveTheme = isDarkMode ? "dark" : "light";

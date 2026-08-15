@@ -23,18 +23,17 @@ export function ThemeProvider({
       console.log("[useTheme] Initializing theme provider, current theme:", theme, "contrast:", contrastMode);
       if (typeof chrome !== "undefined" && chrome.storage?.local) {
          chrome.storage.local.get([CONTROLS_KEY]).then((res) => {
-            console.log("[useTheme] Storage initial get response:", res?.[CONTROLS_KEY]);
             if (res && res[CONTROLS_KEY]) {
                const controls =
                   typeof res[CONTROLS_KEY] === "string"
                      ? JSON.parse(res[CONTROLS_KEY])
                      : res[CONTROLS_KEY];
-               if (controls?.chatbotTheme) {
-                  console.log("[useTheme] Setting initial theme from storage:", controls.chatbotTheme);
+               if (controls?.chatbotTheme && controls.chatbotTheme !== theme) {
+                  console.log("[useTheme] Initial theme from storage:", controls.chatbotTheme);
                   setThemeState(controls.chatbotTheme);
                }
-               if (controls?.contrastMode) {
-                  console.log("[useTheme] Setting initial contrast from storage:", controls.contrastMode);
+               if (controls?.contrastMode && controls.contrastMode !== contrastMode) {
+                  console.log("[useTheme] Initial contrast from storage:", controls.contrastMode);
                   setContrastModeState(controls.contrastMode);
                }
             }
@@ -45,12 +44,23 @@ export function ThemeProvider({
                const val = changes[CONTROLS_KEY].newValue;
                const controls =
                   typeof val === "string" ? JSON.parse(val) : val;
-               console.log("[useTheme] chrome.storage onChanged detected:", controls);
                if (controls?.chatbotTheme) {
-                  setThemeState(controls.chatbotTheme);
+                  setThemeState((prev) => {
+                     if (prev !== controls.chatbotTheme) {
+                        console.log("[useTheme] Storage changed theme to:", controls.chatbotTheme);
+                        return controls.chatbotTheme;
+                     }
+                     return prev;
+                  });
                }
                if (controls?.contrastMode) {
-                  setContrastModeState(controls.contrastMode);
+                  setContrastModeState((prev) => {
+                     if (prev !== controls.contrastMode) {
+                        console.log("[useTheme] Storage changed contrast to:", controls.contrastMode);
+                        return controls.contrastMode;
+                     }
+                     return prev;
+                  });
                }
             }
          };
@@ -116,11 +126,13 @@ export function ThemeProvider({
                   ? JSON.parse(res[CONTROLS_KEY])
                   : res[CONTROLS_KEY]
                : {};
-            controls.chatbotTheme = newTheme;
-            console.log("[useTheme] Updating chrome.storage with new theme:", controls);
-            chrome.storage.local.set({
-               [CONTROLS_KEY]: controls,
-            });
+            if (controls.chatbotTheme !== newTheme) {
+               controls.chatbotTheme = newTheme;
+               console.log("[useTheme] Writing updated theme to storage:", controls);
+               chrome.storage.local.set({
+                  [CONTROLS_KEY]: controls,
+               });
+            }
          });
       }
    };
@@ -137,11 +149,13 @@ export function ThemeProvider({
                   ? JSON.parse(res[CONTROLS_KEY])
                   : res[CONTROLS_KEY]
                : {};
-            controls.contrastMode = newContrast;
-            console.log("[useTheme] Updating chrome.storage with new contrast:", controls);
-            chrome.storage.local.set({
-               [CONTROLS_KEY]: controls,
-            });
+            if (controls.contrastMode !== newContrast) {
+               controls.contrastMode = newContrast;
+               console.log("[useTheme] Writing updated contrast to storage:", controls);
+               chrome.storage.local.set({
+                  [CONTROLS_KEY]: controls,
+               });
+            }
          });
       }
    };

@@ -147,15 +147,22 @@ export default function Controls({ onBack }) {
   const saveControlsSettings = useCallback(
     (newAiList = aiList, newConcurrent = concurrentRequests, newDelay = autoHideDelay) => {
       if (!isInitialized) return;
-      const controlsData = {
-        aiProviders: newAiList,
-        concurrentRequests: newConcurrent,
-        autoHideDelay: newDelay,
-        chatbotTheme: theme,
-      };
-      extensionUtils.chromeStorageSetLocal(extensionUtils.KEYS.CONTROLS, controlsData);
+      extensionUtils.chromeStorageGetLocal(extensionUtils.KEYS.CONTROLS, (existingControls = {}) => {
+        const controls =
+          existingControls && typeof existingControls === "object"
+            ? existingControls
+            : {};
+        const controlsData = {
+          ...controls,
+          aiProviders: newAiList,
+          concurrentRequests: newConcurrent,
+          autoHideDelay: newDelay,
+        };
+        console.log("[Controls] Saving controls settings (without touching theme):", controlsData);
+        extensionUtils.chromeStorageSetLocal(extensionUtils.KEYS.CONTROLS, controlsData);
+      });
     },
-    [aiList, concurrentRequests, autoHideDelay, theme, isInitialized]
+    [aiList, concurrentRequests, autoHideDelay, isInitialized]
   );
 
   // Toggle Provider with strict MAX 3 limit
