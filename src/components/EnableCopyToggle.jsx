@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 import { useEffect, useState } from "react";
 import extensionUtils from "./../utils/utilsModule.js";
 
@@ -7,23 +6,29 @@ export default function EnableCopyToggle() {
 
   useEffect(() => {
     const checkStatus = async () => {
-      // Get the active tab's hostname
       const tab = await extensionUtils.getActiveTab();
       let hostname = "";
-      if (tab && tab.url?.startsWith("http")) {
+      if (tab?.url?.startsWith("http")) {
         try {
           hostname = new URL(tab.url).hostname;
         } catch {
-          // ignore invalid url
+          // Ignore
         }
       }
 
-      // Check if hostname is in the list of active hosts
       extensionUtils.chromeStorageGetLocal(
         extensionUtils.KEYS.ENABLE_COPY_HOSTS,
         (hosts) => {
-          const activeHosts = hosts || [];
+          let activeHosts = hosts;
+          if (typeof activeHosts === "string") {
+            try {
+              activeHosts = JSON.parse(activeHosts);
+            } catch {
+              activeHosts = [];
+            }
+          }
           if (
+            Array.isArray(activeHosts) &&
             hostname &&
             (activeHosts.includes(hostname) || activeHosts.includes("*"))
           ) {
@@ -44,14 +49,13 @@ export default function EnableCopyToggle() {
 
     const tab = await extensionUtils.getActiveTab();
     let hostname = "";
-    if (tab && tab.url?.startsWith("http")) {
+    if (tab?.url?.startsWith("http")) {
       try {
         hostname = new URL(tab.url).hostname;
       } catch {
-        // ignore invalid url
+        // Ignore
       }
     }
-
     if (!tab || !hostname) return;
 
     extensionUtils.chromeStorageGetLocal(
@@ -69,81 +73,28 @@ export default function EnableCopyToggle() {
 
         if (nextState) {
           if (!hosts.includes(hostname)) hosts.push(hostname);
-          extensionUtils.chromeStorageSetLocal(
-            extensionUtils.KEYS.ENABLE_COPY_HOSTS,
-            hosts,
-            () => {
-              // 1. Send tab message
-              try {
-                if (chrome.tabs?.sendMessage && tab.id) {
-                  chrome.tabs.sendMessage(
-                    tab.id,
-                    { action: "enable_function" },
-                    () => {
-                      void chrome.runtime.lastError;
-                    }
-                  );
-                }
-              } catch {
-                // Ignore if tab is not reachable
-              }
-              // 2. Dispatch custom event across all frames
-              try {
-                if (chrome.scripting?.executeScript && tab.id) {
-                  chrome.scripting
-                    .executeScript({
-                      target: { tabId: tab.id, allFrames: true },
-                      func: () =>
-                        window.dispatchEvent(
-                          new CustomEvent("__enableCopy__enable")
-                        ),
-                    })
-                    .catch(() => {});
-                }
-              } catch {
-                // Ignore if tab is not reachable
-              }
-            }
-          );
         } else {
           hosts = hosts.filter((h) => h !== hostname && h !== "*");
-          extensionUtils.chromeStorageSetLocal(
-            extensionUtils.KEYS.ENABLE_COPY_HOSTS,
-            hosts,
-            () => {
-              // 1. Send tab message
-              try {
-                if (chrome.tabs?.sendMessage && tab.id) {
-                  chrome.tabs.sendMessage(
-                    tab.id,
-                    { action: "disable_function" },
-                    () => {
-                      void chrome.runtime.lastError;
-                    }
-                  );
-                }
-              } catch {
-                // Ignore if tab is not reachable
-              }
-              // 2. Dispatch custom event across all frames
-              try {
-                if (chrome.scripting?.executeScript && tab.id) {
-                  chrome.scripting
-                    .executeScript({
-                      target: { tabId: tab.id, allFrames: true },
-                      func: () =>
-                        window.dispatchEvent(
-                          new CustomEvent("__enableCopy__disable")
-                        ),
-                    })
-                    .catch(() => {});
-                }
-              } catch {
-                // Ignore if tab is not reachable
-              }
-            }
-          );
         }
+
+        extensionUtils.chromeStorageSetLocal(
+          extensionUtils.KEYS.ENABLE_COPY_HOSTS,
+          hosts,
+          () => {
+            // eslint-disable-next-line no-undef
+            if (typeof chrome !== "undefined" && chrome.tabs?.sendMessage && tab.id) {
+              // eslint-disable-next-line no-undef
+              chrome.tabs.sendMessage(
+                tab.id,
+                { action: nextState ? "enable_function" : "disable_function" },
+                () => {
+                  // eslint-disable-next-line no-undef
+                  void chrome.runtime?.lastError;
+                }
+              );
+            }
+          }
+        );
       }
     );
   };
@@ -151,7 +102,7 @@ export default function EnableCopyToggle() {
   return (
     <div className="w-full">
       <div
-        className={`animated-button relative w-full h-16 rounded-xl grid place-items-center shadow-lg transition-[filter,opacity] duration-150 overflow-hidden cursor-pointer ${
+        className={`animated-button relative w-full h-[52px] rounded-xl flex items-center shadow-md transition-[filter,opacity] duration-150 overflow-hidden cursor-pointer ${
           !checked ? "grayscale opacity-80" : ""
         }`}
         style={{
@@ -160,22 +111,22 @@ export default function EnableCopyToggle() {
         }}
         onClick={handleClick}
       >
-        <div className="flex items-center justify-between w-full px-6 pointer-events-none">
-          <div className="flex flex-col items-start">
-            <span className="font-bold text-xl text-white z-4 relative leading-tight">
+        <div className="flex items-center justify-between w-full px-4 pointer-events-none">
+          <div className="flex flex-col items-start justify-center">
+            <span className="font-bold text-[15px] text-white z-4 relative leading-tight">
               Enable Copy & Right Click
             </span>
-            <span className="text-sm text-white/80 z-4 relative">
+            <span className="text-[11px] text-white/80 z-4 relative leading-normal">
               {checked ? "Copy & right-click unlocked" : "Click to activate"}
             </span>
           </div>
 
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center">
             <input
               type="checkbox"
               checked={checked}
               onChange={() => {}}
-              className="scale-125 pointer-events-none"
+              className="pointer-events-none"
               style={{
                 "--switch-color-off": "var(--toggle-switch-off)",
                 "--switch-color-on": "var(--toggle-switch-on)",
