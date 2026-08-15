@@ -206,34 +206,34 @@ export default function Menu() {
         }}
       >
         {/* ======================================================== */}
-        {/* Minimized Pill Bar Mode (Pixel-perfect matching Image 2) */}
+        {/* Minimized Pill Bar Mode (Pixel-perfect matching Image)   */}
         {/* ======================================================== */}
         {!isChatOpen ? (
-          <div className="w-full h-full px-2 py-1 flex items-center justify-between gap-1">
+          <div className="w-full h-full px-3 py-1 flex items-center justify-between gap-2">
             {/* Drag Handle (6 Dots) */}
             <div
               ref={dragRef}
-              className="p-1 text-slate-400 hover:text-white cursor-grab active:cursor-grabbing transition-colors flex items-center justify-center"
+              className="p-1 text-slate-400 hover:text-slate-200 cursor-grab active:cursor-grabbing transition-colors flex items-center justify-center"
               title="Drag to reposition widget"
             >
               <DragHandleIcon className="w-4 h-4 text-slate-400" size={16} />
             </div>
 
             {/* Tool Actions Container */}
-            <div className="flex items-center gap-1.5 flex-1 justify-end">
+            <div className="flex items-center gap-2 flex-1 justify-end">
               {/* Chat Button (with gradient active pill) */}
               <button
                 onClick={toggleChat}
-                className="relative w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 focus:outline-none cursor-pointer bg-gradient-to-r from-[#8b5cf6] to-[#3b82f6] text-white shadow-md scale-105"
+                className="relative w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 focus:outline-none cursor-pointer bg-gradient-to-tr from-[#6366f1] via-[#8b5cf6] to-[#3b82f6] text-white shadow-md hover:scale-105 active:scale-95"
                 title="Open SpectraLens AI Chat"
               >
-                <ChatIcon className="w-4 h-4" size={16} />
+                <ChatIcon className="w-4 h-4 text-white" size={16} />
               </button>
 
               {/* Element Selector Button */}
               <button
                 onClick={handleSelectElement}
-                className="relative w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 focus:outline-none cursor-pointer text-slate-300 hover:text-white hover:bg-white/10"
+                className="relative w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 focus:outline-none cursor-pointer text-slate-300 hover:text-white hover:bg-white/10 active:scale-95"
                 title="Select Page Element / Area"
               >
                 <ElementSelectorIcon className="w-4 h-4" size={16} />
