@@ -422,7 +422,7 @@ export default function Menu() {
       <main
         data-theme={effectiveTheme}
         data-contrast={contrastMode}
-        className={`relative overflow-hidden transition-all duration-300 ease-in-out shadow-2xl ${
+        className={`relative overflow-hidden transition-all duration-300 ease-out shadow-2xl ${
           isChatOpen ? "rounded-[20px]" : "rounded-[24px]"
         } ${contrastClass} ${!isChatOpen && !isDimmed ? "animated-pill-glow" : ""}`}
         style={{

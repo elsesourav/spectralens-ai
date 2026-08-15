@@ -12,7 +12,7 @@ let __isFirstSetup = true;
 let __isNoMoveOpenToClose = false;
 const __lastLocation = { x: 0, y: 0 };
 
-// Collision detection function to keep back within viewport bounds with screen margin
+// Collision detection function to keep back within viewport bounds
 const __applyCollisionDetection__ = (left, top) => {
   const menuWidth = parseInt(__iframeSize.width);
   const menuHeight = parseInt(__iframeSize.height);
@@ -21,13 +21,9 @@ const __applyCollisionDetection__ = (left, top) => {
   const VW = window.innerWidth;
   const VH = window.innerHeight;
 
-  const margin = 10;
-  const maxLeft = Math.max(margin, VW - menuWidth - margin);
-  const maxTop = Math.max(margin, VH - menuHeight - margin);
-
-  // Constrain position to viewport bounds with margin
-  const constrainedLeft = Math.max(margin, Math.min(left, maxLeft));
-  const constrainedTop = Math.max(margin, Math.min(top, maxTop));
+  // Constrain position to viewport bounds
+  const constrainedLeft = Math.max(0, Math.min(left, VW - menuWidth));
+  const constrainedTop = Math.max(0, Math.min(top, VH - menuHeight));
 
   return { x: constrainedLeft, y: constrainedTop };
 };
@@ -200,7 +196,6 @@ pageOnMessage("IF_C_MENU_WINDOW_MOVE", async (data) => {
   __menu_back__ = document.getElementById("__menuWindowBack");
   __main_menu__ = document.getElementById("__menuWindowIframe");
   if (__main_menu__ && deltaX !== undefined && deltaY !== undefined) {
-    __isNoMoveOpenToClose = false;
     const curLeft = Number.parseFloat(__main_menu__.style.left) || 0;
     const curTop = Number.parseFloat(__main_menu__.style.top) || 0;
     const constrainedPosition = __applyCollisionDetection__(
@@ -225,69 +220,60 @@ pageOnMessage("IF_C_MENU_WINDOW_RESIZE", async (data) => {
   __iframeSize.width = width;
   __iframeSize.height = height;
 
+  if (__main_menu__) {
+    __main_menu__.style.borderRadius = isOpen ? "16px" : "9999px";
+  }
+
   const w = parseInt(width) || 440;
   __spacing = 0;
   const newBackWidth = isOpen ? w - 44 : 84;
   const newBackHeight = isOpen ? 44 : 46;
-
-  const curLeft =
-    Number.parseFloat(__main_menu__?.style.left) ||
-    (__menu_back__ ? Number.parseFloat(__menu_back__.style.left) : 0);
-  const curTop =
-    Number.parseFloat(__main_menu__?.style.top) ||
-    (__menu_back__ ? Number.parseFloat(__menu_back__.style.top) : 0);
-
-  let constrainedPosition = __applyCollisionDetection__(curLeft, curTop);
-
-  // If opening: save minimized location and auto-fit into screen if space is tight
-  if (isOpen && !__isNoMoveOpenToClose) {
-    __lastLocation.x = curLeft;
-    __lastLocation.y = curTop;
-    __isNoMoveOpenToClose = true;
-    constrainedPosition = __applyCollisionDetection__(curLeft, curTop);
-  } else if (!isOpen && __isNoMoveOpenToClose) {
-    // If closing and wasn't dragged while open: restore to original minimized location
-    __isNoMoveOpenToClose = false;
-    constrainedPosition = __applyCollisionDetection__(
-      __lastLocation.x,
-      __lastLocation.y,
-    );
-  }
-
-  __pointerOffset.x = constrainedPosition.x;
-  __pointerOffset.y = constrainedPosition.y;
-
-  // Apply smooth synchronized transition
-  if (!__isFirstSetup) {
-    __main_menu__.style.transition =
-      "left 300ms ease-in-out, top 300ms ease-in-out, width 300ms ease-in-out, height 300ms ease-in-out, border-radius 300ms ease-in-out";
-    if (__menu_back__) {
-      __menu_back__.style.transition =
-        "left 300ms ease-in-out, top 300ms ease-in-out, width 300ms ease-in-out, height 300ms ease-in-out";
-    }
-  } else {
-    __isFirstSetup = false;
-  }
-
-  if (__main_menu__) {
-    __main_menu__.style.left = `${constrainedPosition.x}px`;
-    __main_menu__.style.top = `${constrainedPosition.y}px`;
-    __main_menu__.style.width = __iframeSize.width;
-    __main_menu__.style.height = __iframeSize.height;
-    __main_menu__.style.borderRadius = isOpen ? "20px" : "9999px";
-  }
-
   if (__menu_back__) {
-    __menu_back__.style.left = `${constrainedPosition.x}px`;
-    __menu_back__.style.top = `${constrainedPosition.y}px`;
     __menu_back__.style.width = `${newBackWidth}px`;
     __menu_back__.style.height = `${newBackHeight}px`;
   }
 
+  const rect = __menu_back__.getBoundingClientRect();
+  let constrainedPosition = __applyCollisionDetection__(
+    rect.left - __spacing,
+    rect.top,
+  );
+
+  // if no change open and close then set old position
+  if (isOpen && !__isNoMoveOpenToClose) {
+    __lastLocation.x = parseInt(rect.left);
+    __lastLocation.y = parseInt(rect.top);
+    __isNoMoveOpenToClose = true;
+  } else if (__isNoMoveOpenToClose) {
+    __isNoMoveOpenToClose = false;
+    constrainedPosition = {
+      x: __lastLocation.x - __spacing,
+      y: __lastLocation.y,
+    };
+  }
+
+  __pointerOffset.x = constrainedPosition.x + __spacing;
+  __pointerOffset.y = constrainedPosition.y;
+  __menu_back__.style.left = `${constrainedPosition.x + __spacing}px`;
+  __menu_back__.style.top = `${constrainedPosition.y}px`;
+  __main_menu__.style.left = `${constrainedPosition.x}px`;
+  __main_menu__.style.top = `${constrainedPosition.y}px`;
+
+  // for first time remove transition
+  if (!__isFirstSetup) {
+    __main_menu__.style.transition =
+      "left 300ms cubic-bezier(0.16, 1, 0.3, 1), top 300ms cubic-bezier(0.16, 1, 0.3, 1), width 300ms cubic-bezier(0.16, 1, 0.3, 1), height 300ms cubic-bezier(0.16, 1, 0.3, 1), border-radius 300ms cubic-bezier(0.16, 1, 0.3, 1)";
+  } else {
+    __isFirstSetup = false;
+  }
+
+  __main_menu__.style.borderRadius = isOpen ? "20px" : "24px";
+  __main_menu__.style.width = __iframeSize.width;
+  __main_menu__.style.height = __iframeSize.height;
+
   setTimeout(() => {
-    if (__main_menu__) __main_menu__.style.transition = "";
-    if (__menu_back__) __menu_back__.style.transition = "";
-  }, 300);
+    __main_menu__.style.transition = "";
+  }, 320);
 });
 
 runtimeSendMessage("C_B_ON_LOAD", async (r) => {
