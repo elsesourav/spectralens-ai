@@ -47,7 +47,8 @@ export default function Menu() {
 
   const menuRef = useRef(null);
   const dragRef = useRef(null);
-  const headerDragRef = useRef(null);
+  const windowContainerRef = useRef(null);
+  const [newChatKey, setNewChatKey] = useState(0);
 
   useEffect(() => {
     // Request controls & page theme from parent frame
@@ -182,15 +183,11 @@ export default function Menu() {
 
   // Sync theme class to document element
   useEffect(() => {
-    if (effectiveTheme === "dark") {
-      document.documentElement.classList.remove("light");
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-      document.documentElement.classList.add("light");
-    }
-    document.documentElement.setAttribute("data-theme", effectiveTheme);
-    document.documentElement.setAttribute("data-contrast", contrastMode);
+    const root = document.documentElement;
+    root.classList.remove("light", "dark");
+    root.classList.add(effectiveTheme);
+    root.setAttribute("data-theme", effectiveTheme);
+    root.setAttribute("data-contrast", contrastMode);
   }, [effectiveTheme, contrastMode]);
 
   // Auto-hide inactivity timer when minimized
@@ -200,16 +197,19 @@ export default function Menu() {
       return;
     }
 
-    let timer = setTimeout(() => {
-      setMenuOpacity("0.2");
-    }, autoHideDelay * 1000);
-
-    const handleUserActivity = () => {
+    let timer;
+    const resetTimer = () => {
       setMenuOpacity("1");
       clearTimeout(timer);
       timer = setTimeout(() => {
-        setMenuOpacity("0.2");
+        setMenuOpacity("0");
       }, autoHideDelay * 1000);
+    };
+
+    resetTimer();
+
+    const handleUserActivity = () => {
+      resetTimer();
     };
 
     window.addEventListener("mousemove", handleUserActivity);
@@ -239,10 +239,24 @@ export default function Menu() {
     );
   }, [size]);
 
-  // Drag logic: Only left 6-dot handle (minimized) & top header (expanded)
+  // Drag logic:
+  // - Minimized: Only left 6-dot drag handle (`dragRef`).
+  // - Expanded: Drag from anywhere across the window (except interactive buttons/inputs/text selection).
   useEffect(() => {
     const handlePointerDown = (e) => {
       if (e.button !== 0) return;
+
+      if (isChatOpen) {
+        const target = e.target;
+        if (
+          target.closest(
+            "button, input, textarea, a, select, [role='button'], .no-drag, pre, code, .custom-scrollbar"
+          )
+        ) {
+          return;
+        }
+      }
+
       e.preventDefault();
 
       let lastX = e.clientX;
@@ -275,21 +289,20 @@ export default function Menu() {
     };
 
     const dragEl = dragRef.current;
-    const headerEl = headerDragRef.current;
+    const windowEl = windowContainerRef.current;
 
-    if (dragEl) {
+    if (!isChatOpen && dragEl) {
       dragEl.addEventListener("pointerdown", handlePointerDown);
-    }
-    if (headerEl) {
-      headerEl.addEventListener("pointerdown", handlePointerDown);
+    } else if (isChatOpen && windowEl) {
+      windowEl.addEventListener("pointerdown", handlePointerDown);
     }
 
     return () => {
       if (dragEl) {
         dragEl.removeEventListener("pointerdown", handlePointerDown);
       }
-      if (headerEl) {
-        headerEl.removeEventListener("pointerdown", handlePointerDown);
+      if (windowEl) {
+        windowEl.removeEventListener("pointerdown", handlePointerDown);
       }
     };
   }, [isChatOpen]);
@@ -328,6 +341,12 @@ export default function Menu() {
 
   const handleLoadQuery = useCallback((historyItem) => {
     setLoadedHistoryItem(historyItem);
+    setActiveTab("chat");
+  }, []);
+
+  const handleNewChat = useCallback(() => {
+    setLoadedHistoryItem(null);
+    setNewChatKey((k) => k + 1);
     setActiveTab("chat");
   }, []);
 
@@ -392,12 +411,9 @@ export default function Menu() {
           /* ======================================================== */
           /* Expanded Mode: Full 2-Pane Window Matching Image 1       */
           /* ======================================================== */
-          <div className="flex flex-col h-full w-full">
+          <div ref={windowContainerRef} className="flex flex-col h-full w-full cursor-default">
             {/* Top Draggable Window Control Bar */}
-            <div
-              ref={headerDragRef}
-              className="flex items-center justify-between px-3.5 py-2 bg-slate-100/90 dark:bg-[#14161e] border-b border-slate-200/80 dark:border-white/[0.08] shrink-0 cursor-grab active:cursor-grabbing"
-            >
+            <div className="flex items-center justify-between px-3.5 py-2 bg-slate-100/90 dark:bg-[#14161e] border-b border-slate-200/80 dark:border-white/[0.08] shrink-0 cursor-grab active:cursor-grabbing">
               <div className="flex items-center gap-2 select-none pointer-events-none">
                 <img
                   src={appIconUrl}
@@ -434,8 +450,12 @@ export default function Menu() {
 
             {/* 2-Pane Content Area with Sidebar & Multi-Views */}
             <div className="flex-1 flex overflow-hidden relative">
-              {/* Left Vertical Sidebar */}
-              <Sidebar activeTab={activeTab} onSelectTab={setActiveTab} />
+              {/* Left Vertical Sidebar with New Chat button at top */}
+              <Sidebar
+                activeTab={activeTab}
+                onSelectTab={setActiveTab}
+                onNewChat={handleNewChat}
+              />
 
               {/* Right View Container */}
               <div className="flex-1 h-full flex flex-col overflow-hidden relative">
@@ -448,6 +468,7 @@ export default function Menu() {
                   <ChatBot
                     isOpen={isChatOpen}
                     initialHistoryItem={loadedHistoryItem}
+                    newChatTrigger={newChatKey}
                     onClearLoadedHistory={() => setLoadedHistoryItem(null)}
                     onOpenSelector={() => handleSelectElement()}
                   />

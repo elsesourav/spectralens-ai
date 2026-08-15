@@ -4,10 +4,10 @@ import {
   HistoryIcon,
   SettingsIcon,
 } from "./Icons.jsx";
-import { IoSunny, IoMoon } from "react-icons/io5";
+import { IoSunny, IoMoon, IoAdd } from "react-icons/io5";
 import { useTheme } from "../hooks/useThemeHook.jsx";
 
-export default function Sidebar({ activeTab, onSelectTab }) {
+export default function Sidebar({ activeTab, onSelectTab, onNewChat }) {
   const { isDarkMode, setTheme } = useTheme();
 
   const navItems = [
@@ -32,10 +32,28 @@ export default function Sidebar({ activeTab, onSelectTab }) {
     setTheme(isDarkMode ? "light" : "dark");
   };
 
+  const handleNewChatClick = () => {
+    if (onNewChat) {
+      onNewChat();
+    }
+    onSelectTab("chat");
+  };
+
   return (
     <aside className="w-[56px] h-full flex flex-col items-center justify-between py-3 bg-[#f1f5f9] dark:bg-[#14161e] border-r border-slate-200/80 dark:border-white/[0.07] shrink-0 select-none z-20">
       {/* Top Navigation */}
       <div className="flex flex-col items-center gap-2 w-full px-2">
+        {/* New Chat Button (Very First in Left Panel) */}
+        <button
+          onClick={handleNewChatClick}
+          title="New Chat"
+          className="w-10 h-10 rounded-xl flex items-center justify-center bg-blue-600 hover:bg-blue-500 text-white shadow-sm hover:scale-105 active:scale-95 transition-all duration-150 focus:outline-none cursor-pointer"
+        >
+          <IoAdd className="w-5 h-5 text-white" />
+        </button>
+
+        <div className="w-6 h-[1px] bg-slate-200 dark:bg-white/10 my-0.5" />
+
         <nav className="flex flex-col items-center gap-2 w-full">
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -84,4 +102,5 @@ export default function Sidebar({ activeTab, onSelectTab }) {
 Sidebar.propTypes = {
   activeTab: PropTypes.string.isRequired,
   onSelectTab: PropTypes.func.isRequired,
+  onNewChat: PropTypes.func,
 };

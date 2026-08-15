@@ -17,6 +17,7 @@ import UTILS from "./../utils/utilsModule.js";
 export default function ChatBot({
   isOpen,
   initialHistoryItem = null,
+  newChatTrigger = 0,
   onClearLoadedHistory,
   onOpenSelector,
 }) {
@@ -333,6 +334,12 @@ export default function ChatBot({
     }
   };
 
+  useEffect(() => {
+    if (newChatTrigger > 0) {
+      handleNewChat();
+    }
+  }, [newChatTrigger, handleNewChat]);
+
   const selectedAnswer = answers[selectedProvider];
   const activeProviderObj =
     displayedProviders.find((p) => p.id === selectedProvider) || {
@@ -372,30 +379,20 @@ export default function ChatBot({
           })}
         </div>
 
-        <div className="flex items-center gap-1 shrink-0">
-          {/* New Chat Button */}
-          <button
-            onClick={handleNewChat}
-            title="Start New Chat"
-            className="p-1.5 rounded-xl text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white bg-white dark:bg-[#1a1d26] hover:bg-slate-200/70 dark:hover:bg-[#222634] border border-slate-200 dark:border-white/[0.06] transition-all focus:outline-none cursor-pointer"
-          >
-            <IoAdd className="w-4 h-4" />
-          </button>
-
-          {/* Overflow 3-dots Menu for 4+ providers */}
-          {overflowProviders.length > 0 && (
-            <div className="relative" ref={moreMenuRef}>
-              <button
-                onClick={() => setIsMoreMenuOpen((v) => !v)}
-                title="More AI Models"
-                className={`p-1.5 rounded-xl transition-all border focus:outline-none cursor-pointer ${
-                  isMoreMenuOpen
-                    ? "bg-blue-600 text-white border-blue-500"
-                    : "bg-white dark:bg-[#1a1d26] text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-[#222634] border-slate-200 dark:border-white/[0.06]"
-                }`}
-              >
-                <ThreeDotsIcon className="w-4 h-4" size={16} />
-              </button>
+        {/* Overflow 3-dots Menu for 4+ providers */}
+        {overflowProviders.length > 0 && (
+          <div className="relative shrink-0" ref={moreMenuRef}>
+            <button
+              onClick={() => setIsMoreMenuOpen((v) => !v)}
+              title="More AI Models"
+              className={`p-1.5 rounded-xl transition-all border focus:outline-none cursor-pointer ${
+                isMoreMenuOpen
+                  ? "bg-blue-600 text-white border-blue-500"
+                  : "bg-white dark:bg-[#1a1d26] text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-[#222634] border-slate-200 dark:border-white/[0.06]"
+              }`}
+            >
+              <ThreeDotsIcon className="w-4 h-4" size={16} />
+            </button>
 
               {isMoreMenuOpen && (
                 <div className="absolute right-0 top-full mt-1.5 w-44 rounded-xl bg-white dark:bg-[#1a1d26] border border-slate-200 dark:border-white/10 shadow-xl py-1 z-30 animate-fade-in">
@@ -420,7 +417,6 @@ export default function ChatBot({
               )}
             </div>
           )}
-        </div>
       </div>
 
       {/* Main Messages Scroll Area */}
@@ -587,6 +583,7 @@ export default function ChatBot({
 ChatBot.propTypes = {
   isOpen: PropTypes.bool,
   initialHistoryItem: PropTypes.object,
+  newChatTrigger: PropTypes.number,
   onClearLoadedHistory: PropTypes.func,
   onOpenSelector: PropTypes.func,
 };
