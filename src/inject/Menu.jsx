@@ -1,5 +1,7 @@
+/* eslint-disable no-undef */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FiX } from "react-icons/fi";
+import appIconUrl from "../assets/icons/icon.png";
 import ChatBot from "../components/ChatBot.jsx";
 import Controls from "../components/Controls.jsx";
 import HistoryView from "../components/HistoryView.jsx";
@@ -66,6 +68,24 @@ export default function Menu() {
       }
     });
 
+    // Listen for storage changes directly
+    let storageListener;
+    if (typeof chrome !== "undefined" && chrome.storage?.onChanged) {
+      storageListener = (changes) => {
+        if (changes[ES.KEYS.CONTROLS]) {
+          const val = changes[ES.KEYS.CONTROLS].newValue;
+          const controls = typeof val === "string" ? JSON.parse(val) : val;
+          if (controls?.chatbotTheme) {
+            setChatbotTheme(controls.chatbotTheme);
+          }
+          if (controls?.contrastMode) {
+            setContrastMode(controls.contrastMode);
+          }
+        }
+      };
+      chrome.storage.onChanged.addListener(storageListener);
+    }
+
     ES.pageOnMessage("C_IF_OPEN_CHAT", () => {
       setIsChatOpen(true);
       setActiveTab("chat");
@@ -119,6 +139,12 @@ export default function Menu() {
         setContrastMode(data.contrastMode);
       }
     });
+
+    return () => {
+      if (storageListener && typeof chrome !== "undefined" && chrome.storage?.onChanged) {
+        chrome.storage.onChanged.removeListener(storageListener);
+      }
+    };
   }, []);
 
   // Compute effective theme based on user settings
@@ -368,7 +394,12 @@ export default function Menu() {
               ref={headerDragRef}
               className="flex items-center justify-between px-3.5 py-2 bg-slate-100/90 dark:bg-[#14161e] border-b border-slate-200/80 dark:border-white/[0.08] shrink-0 cursor-grab active:cursor-grabbing"
             >
-              <div className="flex items-center select-none pointer-events-none">
+              <div className="flex items-center gap-2 select-none pointer-events-none">
+                <img
+                  src={appIconUrl}
+                  alt="SpectraLens AI"
+                  className="w-4 h-4 rounded-md object-contain shadow-2xs"
+                />
                 <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
                   SpectraLens AI
                 </span>
