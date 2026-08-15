@@ -1,26 +1,35 @@
 /* ---------------- offscreen utils ---------------- */
 async function ensureOffscreen() {
-   if (!(await chrome.offscreen.hasDocument())) {
-      await chrome.offscreen.createDocument({
-         url: "./../offscreen/offscreen.html",
-         reasons: ["BLOBS"],
-         justification: "Need hidden DOM/canvas",
-      });
+   try {
+      if (chrome.offscreen?.hasDocument && !(await chrome.offscreen.hasDocument())) {
+         console.log("[Background] Creating offscreen document for OCR worker...");
+         await chrome.offscreen.createDocument({
+            url: chrome.runtime.getURL("offscreen/offscreen.html"),
+            reasons: ["BLOBS"],
+            justification: "Need hidden DOM/canvas for OCR processing",
+         });
+         console.log("[Background] Offscreen document created successfully.");
+      }
+   } catch (e) {
+      console.warn("[Background] ensureOffscreen notice:", e?.message);
    }
 }
 
 /* ---------------- offscreen ---------------- */
 async function __OCR__(imageData, rectInfo) {
+   console.log("[Background] __OCR__ initializing offscreen document...");
    await ensureOffscreen();
-   await wait(100);
+   await wait(120);
 
    return new Promise((resolve) => {
+      console.log("[Background] Posting C_OF_START_QRC to offscreen OCR worker...");
       runtimeSendMessage("C_OF_START_QRC", { imageData, rectInfo }, (res) => {
-         if (res.success) {
+         console.log("[Background] OCR Worker response received:", res);
+         if (res && res.success) {
             resolve(res);
          } else {
-            console.error("OCR failed:", res.message);
-            resolve(res.message);
+            console.error("[Background] OCR failed:", res?.error || res?.message);
+            resolve(res || { success: false });
          }
       });
    });
@@ -77,76 +86,97 @@ function __PUSH_MENU__(tabId) {
          if (!existingMWF) {
             /* ---------------- theme detection ---------------- */
             function detectPageTheme() {
-               // Check if page has dark mode indicators
-               const body = document.body;
-               const html = document.documentElement;
+               try {
+                  const html = document.documentElement;
+                  const body = document.body;
 
-               // Get computed styles
-               const bodyStyles = getComputedStyle(body);
-               const htmlStyles = getComputedStyle(html);
+                  const docCls = (html.className || "").toLowerCase();
+                  const bodyCls = (body?.className || "").toLowerCase();
+                  const docTheme = (
+                     html.getAttribute("data-theme") ||
+                     html.getAttribute("data-mode") ||
+                     html.getAttribute("data-color-mode") ||
+                     html.getAttribute("data-bs-theme") ||
+                     html.getAttribute("color-scheme") ||
+                     body?.getAttribute("data-theme") ||
+                     body?.getAttribute("data-mode") ||
+                     body?.getAttribute("data-color-mode") ||
+                     body?.getAttribute("data-bs-theme") ||
+                     ""
+                  ).toLowerCase();
 
-               // Check background colors
-               const bodyBg = bodyStyles.backgroundColor;
-               const htmlBg = htmlStyles.backgroundColor;
-
-               // Convert rgb to brightness
-               function getBrightness(rgb) {
-                  const match = rgb.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
-                  if (match) {
-                     const r = parseInt(match[1]);
-                     const g = parseInt(match[2]);
-                     const b = parseInt(match[3]);
-                     return (r * 299 + g * 587 + b * 114) / 1000;
+                  if (
+                     docCls.includes("dark") ||
+                     docCls.includes("night") ||
+                     bodyCls.includes("dark") ||
+                     bodyCls.includes("night") ||
+                     docTheme.includes("dark") ||
+                     docTheme.includes("night")
+                  ) {
+                     return "dark";
                   }
-                  return 255; // default to light if can't parse
+
+                  if (
+                     docCls.includes("light") ||
+                     bodyCls.includes("light") ||
+                     docTheme.includes("light")
+                  ) {
+                     return "light";
+                  }
+
+                  const htmlStyle = window.getComputedStyle(html);
+                  const bodyStyle = body ? window.getComputedStyle(body) : null;
+                  if (htmlStyle.colorScheme === "dark" || bodyStyle?.colorScheme === "dark") {
+                     return "dark";
+                  }
+                  if (htmlStyle.colorScheme === "light" || bodyStyle?.colorScheme === "light") {
+                     return "light";
+                  }
+
+                  const bgColors = [
+                     bodyStyle?.backgroundColor,
+                     htmlStyle.backgroundColor,
+                  ].filter(Boolean);
+
+                  for (const bg of bgColors) {
+                     const match = bg.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+                     if (match) {
+                        const alpha = match[4] !== undefined ? parseFloat(match[4]) : 1;
+                        if (alpha > 0.2) {
+                           const r = parseInt(match[1], 10);
+                           const g = parseInt(match[2], 10);
+                           const b = parseInt(match[3], 10);
+                           const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+                           return brightness < 128 ? "dark" : "light";
+                        }
+                     }
+                  }
+
+                  if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+                     return "dark";
+                  }
+               } catch {
+                  // ignore
                }
-
-               // Focus on page content brightness only
-               const hasDataTheme =
-                  html.getAttribute("data-theme") === "dark" ||
-                  body.getAttribute("data-theme") === "dark";
-               const hasThemeClass =
-                  html.classList.contains("dark") ||
-                  body.classList.contains("dark") ||
-                  html.classList.contains("dark-mode") ||
-                  body.classList.contains("dark-mode");
-
-               // Check background brightness - primary indicator
-               const bodyBrightness = getBrightness(bodyBg);
-               const htmlBrightness = getBrightness(htmlBg);
-               const isDarkBackground =
-                  bodyBrightness < 128 || htmlBrightness < 128;
-
-               // Return theme based on content page indicators only (no system theme)
-               if (hasDataTheme || hasThemeClass || isDarkBackground) {
-                  return "dark";
-               }
-
                return "light";
             }
 
             function setupThemeObserver(callback) {
-               // Watch for theme changes
                const observer = new MutationObserver(() => {
                   callback(detectPageTheme());
                });
 
-               // Observe changes to class and data attributes
                observer.observe(document.documentElement, {
                   attributes: true,
-                  attributeFilter: ["class", "data-theme", "data-color-scheme"],
+                  attributeFilter: ["class", "data-theme", "data-mode", "data-color-mode", "data-bs-theme", "color-scheme", "theme"],
                });
 
-               observer.observe(document.body, {
-                  attributes: true,
-                  attributeFilter: ["class", "data-theme", "data-color-scheme"],
-               });
-
-               // Watch for media query changes - removed system theme dependency
-               // const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-               // mediaQuery.addListener(() => {
-               //    callback(detectPageTheme());
-               // });
+               if (document.body) {
+                  observer.observe(document.body, {
+                     attributes: true,
+                     attributeFilter: ["class", "data-theme", "data-mode", "data-color-mode", "data-bs-theme", "color-scheme", "theme"],
+                  });
+               }
 
                return observer;
             }
@@ -169,21 +199,21 @@ function __PUSH_MENU__(tabId) {
                   position: fixed;
                   top: 0px;
                   left: 0px;
-                  width: 148px;
+                  width: 176px;
                   height: 48px;
                   background: transparent !important;
                   background-color: transparent !important;
                   color-scheme: normal !important;
                   border: none !important;
                   border-radius: 9999px;
-                  z-index: 825003263;
+                  z-index: 2147483647;
                   overscroll-behavior: contain !important;
                   transition: opacity 200ms ease-in-out;
                }
             `;
 
             document.head.appendChild(style);
-            frame.src = chrome.runtime.getURL("./inject/menuWindow.html");
+            frame.src = chrome.runtime.getURL(`./inject/menuWindow.html?pageTheme=${currentTheme}`);
             document.body.append(frame);
          } else {
             existingMWF.style.display = "block";
@@ -192,20 +222,20 @@ function __PUSH_MENU__(tabId) {
          if (!existingMWB) {
             const back = document.createElement("div");
             back.setAttribute("id", "__menuWindowBack");
-            const defaultLeft = window.innerWidth - 160;
+            const defaultLeft = window.innerWidth - 180;
             back.setAttribute(
                "style",
                `
-               position: fixed;
-               top: 80px;
-               left: ${defaultLeft}px;
-               width: 40px;
-               height: 48px;
-               background: transparent !important;
-               z-index: 2147483646;
-               cursor: move;
-               border-radius: 12px 0 0 12px;
-               `
+                position: fixed;
+                top: 80px;
+                left: ${defaultLeft}px;
+                width: 64px;
+                height: 48px;
+                background: transparent !important;
+                z-index: 2147483645;
+                cursor: move;
+                border-radius: 24px 0 0 24px;
+                `
             );
             document.body.append(back);
 

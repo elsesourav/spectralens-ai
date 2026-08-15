@@ -54,10 +54,10 @@ const requiredPermissions = ["scripting", "storage", "activeTab", "tabs", "decla
 const hasAllRequired = requiredPermissions.every((p) => manifest.permissions.includes(p));
 assert(hasAllRequired, "All required functional permissions are present");
 
-// Verify host_permissions are clean
+// Verify host_permissions for OCR capture
 assert(
-  !manifest.host_permissions.includes("<all_urls>"),
-  "Broad <all_urls> is replaced by specific http/https host permissions",
+  manifest.host_permissions.includes("<all_urls>"),
+  "Host permissions include <all_urls> for programmatic captureVisibleTab OCR",
 );
 
 // Verify CSP

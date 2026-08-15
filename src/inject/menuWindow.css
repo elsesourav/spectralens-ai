@@ -98,3 +98,62 @@ body::-webkit-scrollbar {
     @apply relative grid place-items-center rounded-lg text-lg cursor-pointer border border-black/10 dark:border-white/15 transition-all duration-200 focus:outline-none hover:bg-blue-600 hover:text-white;
   }
 }
+
+/* Closed Pill Luxury Shine Sweep Glow (Matching Popup Header) */
+.animated-pill-glow {
+  position: relative;
+  overflow: hidden;
+}
+
+.animated-pill-glow::before {
+  position: absolute;
+  content: "";
+  display: inline-block;
+  top: -110%;
+  left: -60%;
+  width: 50%;
+  height: 320%;
+  background: linear-gradient(
+    90deg,
+    rgba(59, 130, 246, 0) 0%,
+    rgba(59, 130, 246, 0.4) 25%,
+    rgba(255, 255, 255, 0.9) 50%,
+    rgba(139, 92, 246, 0.4) 75%,
+    rgba(139, 92, 246, 0) 100%
+  );
+  transform: rotate(25deg);
+  z-index: 5;
+  pointer-events: none;
+  animation: pill-glow-sweep 4s ease-in-out infinite;
+}
+
+.dark .animated-pill-glow::before,
+[data-theme="dark"] .animated-pill-glow::before,
+html.dark .animated-pill-glow::before {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(96, 165, 250, 0.35) 25%,
+    rgba(255, 255, 255, 0.65) 50%,
+    rgba(168, 85, 247, 0.35) 75%,
+    rgba(255, 255, 255, 0) 100%
+  );
+}
+
+@keyframes pill-glow-sweep {
+  0% {
+    left: -60%;
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  30% {
+    left: 140%;
+    opacity: 0;
+  }
+  100% {
+    left: 140%;
+    opacity: 0;
+  }
+}

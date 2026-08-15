@@ -10,7 +10,6 @@ import {
   DragHandleIcon,
   ElementSelectorIcon,
 } from "../components/Icons.jsx";
-import SelectorView from "../components/SelectorView.jsx";
 import Sidebar from "../components/Sidebar.jsx";
 import { useTheme } from "../hooks/useThemeHook.jsx";
 import ES from "./../utils/utilsModule.js";
@@ -20,7 +19,7 @@ export default function Menu() {
 
   const SIZES = useMemo(
     () => ({
-      min: { w: "148px", h: "48px" },
+      min: { w: "176px", h: "48px" },
       max: { w: "440px", h: "600px" },
     }),
     [],
@@ -32,6 +31,8 @@ export default function Menu() {
   const [size, setSize] = useState(SIZES.min);
   const [menuOpacity, setMenuOpacity] = useState("1");
   const [autoHideDelay, setAutoHideDelay] = useState(0);
+  const [autoMinimizeDelay, setAutoMinimizeDelay] = useState(0);
+  const [pendingScanInput, setPendingScanInput] = useState(null);
   const [loadedHistoryItem, setLoadedHistoryItem] = useState(null);
 
   const menuRef = useRef(null);
@@ -49,25 +50,20 @@ export default function Menu() {
         try {
           hostname = new URL(tab.url).hostname;
         } catch {
-          // ignore
+          // Ignore
         }
       }
+
       ES.chromeStorageGetLocal(ES.KEYS.ALWAYS_ACTIVE_HOSTS, (hosts = []) => {
-        let activeHosts = hosts;
-        if (typeof activeHosts === "string") {
-          try {
-            activeHosts = JSON.parse(activeHosts);
-          } catch {
-            activeHosts = [];
-          }
+        const activeHosts = Array.isArray(hosts) ? hosts : [];
+        if (
+          hostname &&
+          (activeHosts.includes(hostname) || activeHosts.includes("*"))
+        ) {
+          setIsAlwaysActive(true);
+        } else {
+          setIsAlwaysActive(false);
         }
-        if (!Array.isArray(activeHosts)) activeHosts = [];
-        setIsAlwaysActive(
-          Boolean(
-            hostname &&
-            (activeHosts.includes(hostname) || activeHosts.includes("*")),
-          ),
-        );
       });
     };
 
@@ -92,6 +88,9 @@ export default function Menu() {
         if (data.autoHideDelay !== undefined) {
           setAutoHideDelay(Number(data.autoHideDelay));
         }
+        if (data.autoMinimizeDelay !== undefined) {
+          setAutoMinimizeDelay(Number(data.autoMinimizeDelay));
+        }
       }
     });
 
@@ -105,6 +104,9 @@ export default function Menu() {
           if (controls?.autoHideDelay !== undefined) {
             setAutoHideDelay(Number(controls.autoHideDelay));
           }
+          if (controls?.autoMinimizeDelay !== undefined) {
+            setAutoMinimizeDelay(Number(controls.autoMinimizeDelay));
+          }
         }
       };
       chrome.storage.onChanged.addListener(storageListener);
@@ -116,13 +118,28 @@ export default function Menu() {
         setActiveTab("chat");
         setMenuOpacity("1");
       }),
+      ES.pageOnMessage("C_IF_SET_INPUTS", (data) => {
+        if (data && data.input !== undefined) {
+          setPendingScanInput(data.input);
+          setIsChatOpen(true);
+          setActiveTab("chat");
+          setMenuOpacity("1");
+        }
+      }),
       ES.pageOnMessage("C_IF_CLOSE_CHAT", () => {
         setIsChatOpen(false);
       }),
       ES.pageOnMessage("C_IF_HIDDEN", () => {
         setMenuOpacity("0");
       }),
+      ES.pageOnMessage("C_IF_VISIBLE", () => {
+        setMenuOpacity("1");
+      }),
       ES.pageOnMessage("C_IF_SHOW", () => {
+        setMenuOpacity("1");
+      }),
+      ES.pageOnMessage("IF_C_SELECT_CANCEL", () => {
+        setActiveTab("chat");
         setMenuOpacity("1");
       }),
       ES.pageOnMessage("IF_C_GET_CURRENT_CONTROLS", (data) => {
@@ -130,16 +147,26 @@ export default function Menu() {
         if (controls?.autoHideDelay !== undefined) {
           setAutoHideDelay(Number(controls.autoHideDelay));
         }
+        if (controls?.autoMinimizeDelay !== undefined) {
+          setAutoMinimizeDelay(Number(controls.autoMinimizeDelay));
+        }
       }),
       ES.pageOnMessage("C_IF_CURRENT_CONTROLS", (data) => {
         if (data?.autoHideDelay !== undefined) {
           setAutoHideDelay(Number(data.autoHideDelay));
         }
+        if (data?.autoMinimizeDelay !== undefined) {
+          setAutoMinimizeDelay(Number(data.autoMinimizeDelay));
+        }
       }),
     ];
 
     return () => {
-      if (storageListener && typeof chrome !== "undefined" && chrome.storage?.onChanged) {
+      if (
+        storageListener &&
+        typeof chrome !== "undefined" &&
+        chrome.storage?.onChanged
+      ) {
         chrome.storage.onChanged.removeListener(storageListener);
       }
       unsubs.forEach((u) => u && typeof u === "function" && u());
@@ -149,24 +176,24 @@ export default function Menu() {
   // Compute effective theme based on user settings
   const effectiveTheme = isDarkMode ? "dark" : "light";
 
-  // Dynamic theme & contrast class
+  // Dynamic theme & contrast class with opposite-color border
   const contrastClass = useMemo(() => {
     if (!isChatOpen) {
       if (contrastMode === "transparent") {
-        return "bg-black/15 dark:bg-black/25 backdrop-blur-sm border border-white/20 shadow-2xl";
+        return "bg-white/25 dark:bg-black/25 text-slate-800 dark:text-white backdrop-blur-sm border border-black/25 dark:border-white/30 shadow-2xl";
       }
       if (contrastMode === "medium") {
-        return "bg-[#16171d]/60 backdrop-blur-md border border-white/20 shadow-2xl";
+        return "bg-white/70 dark:bg-[#16171d]/60 text-slate-800 dark:text-white backdrop-blur-md border border-black/20 dark:border-white/25 shadow-2xl";
       }
-      return "bg-[#16171d] border border-white/20 shadow-2xl";
+      return "bg-white dark:bg-[#16171d] text-slate-800 dark:text-white border border-black/20 dark:border-white/25 shadow-2xl";
     } else {
       if (contrastMode === "transparent") {
-        return "bg-white/20 dark:bg-black/20 backdrop-blur-sm border border-slate-200/40 dark:border-white/10 shadow-2xl";
+        return "bg-white/20 dark:bg-black/20 backdrop-blur-sm border border-black/20 dark:border-white/25 shadow-2xl";
       }
       if (contrastMode === "medium") {
-        return "bg-[#f8fafc]/60 dark:bg-[#0e1015]/60 backdrop-blur-md border border-slate-200/60 dark:border-white/10 shadow-2xl";
+        return "bg-[#f8fafc]/60 dark:bg-[#0e1015]/60 backdrop-blur-md border border-black/20 dark:border-white/25 shadow-2xl";
       }
-      return "bg-[#f8fafc] dark:bg-[#0e1015] border border-slate-200/90 dark:border-white/10 shadow-2xl";
+      return "bg-[#f8fafc] dark:bg-[#0e1015] border border-black/20 dark:border-white/25 shadow-2xl";
     }
   }, [isChatOpen, contrastMode]);
 
@@ -179,28 +206,59 @@ export default function Menu() {
     root.setAttribute("data-contrast", contrastMode);
   }, [effectiveTheme, contrastMode]);
 
-  // Auto-hide / idle dim inactivity timer when minimized
+  // 1. Auto-minimize expanded chat window to pill when idle
+  useEffect(() => {
+    if (!isChatOpen || autoMinimizeDelay <= 0) return;
+
+    let minimizeTimer = null;
+
+    const startMinimizeTimer = () => {
+      if (minimizeTimer) clearTimeout(minimizeTimer);
+      minimizeTimer = setTimeout(() => {
+        setIsChatOpen(false); // Auto collapse to minimized pill
+      }, autoMinimizeDelay * 1000);
+    };
+
+    const resetMinimize = () => {
+      startMinimizeTimer();
+    };
+
+    resetMinimize();
+
+    window.addEventListener("mousemove", resetMinimize);
+    window.addEventListener("pointerdown", resetMinimize);
+    window.addEventListener("keydown", resetMinimize);
+
+    return () => {
+      if (minimizeTimer) clearTimeout(minimizeTimer);
+      window.removeEventListener("mousemove", resetMinimize);
+      window.removeEventListener("pointerdown", resetMinimize);
+      window.removeEventListener("keydown", resetMinimize);
+    };
+  }, [isChatOpen, autoMinimizeDelay]);
+
+  // 2. Auto-hide / idle dim inactivity timer when minimized (applies only after/while minimized)
   useEffect(() => {
     if (isChatOpen || autoHideDelay <= 0) {
       setMenuOpacity("1");
       return;
     }
 
-    let timer = null;
+    let hideTimer = null;
 
-    const startTimer = () => {
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(() => {
+    const startHideTimer = () => {
+      if (hideTimer) clearTimeout(hideTimer);
+      hideTimer = setTimeout(() => {
         setMenuOpacity("0.2");
       }, autoHideDelay * 1000);
     };
 
-    const wakeUp = () => {
+    const wakeUpHide = () => {
       setMenuOpacity("1");
-      startTimer();
+      startHideTimer();
     };
 
-    wakeUp();
+    wakeUpHide();
 
     const handleMessage = (event) => {
       const type = event?.data?.type;
@@ -209,20 +267,20 @@ export default function Menu() {
         type === "C_IF_SHOW" ||
         type === "C_IF_MENU_WINDOW_DRAG_START"
       ) {
-        wakeUp();
+        wakeUpHide();
       }
     };
 
-    window.addEventListener("mousemove", wakeUp);
-    window.addEventListener("pointerdown", wakeUp);
-    window.addEventListener("mouseenter", wakeUp);
+    window.addEventListener("mousemove", wakeUpHide);
+    window.addEventListener("pointerdown", wakeUpHide);
+    window.addEventListener("mouseenter", wakeUpHide);
     window.addEventListener("message", handleMessage);
 
     return () => {
-      if (timer) clearTimeout(timer);
-      window.removeEventListener("mousemove", wakeUp);
-      window.removeEventListener("pointerdown", wakeUp);
-      window.removeEventListener("mouseenter", wakeUp);
+      if (hideTimer) clearTimeout(hideTimer);
+      window.removeEventListener("mousemove", wakeUpHide);
+      window.removeEventListener("pointerdown", wakeUpHide);
+      window.removeEventListener("mouseenter", wakeUpHide);
       window.removeEventListener("message", handleMessage);
     };
   }, [isChatOpen, autoHideDelay]);
@@ -339,7 +397,7 @@ export default function Menu() {
   }, [isChatOpen]);
 
   const handleSelectElement = useCallback(() => {
-    setActiveTab("selector");
+    setActiveTab("chat");
     ES.pagePostMessage("IF_C_SELECT_TEXT", {}, window.parent);
     setMenuOpacity("0");
   }, []);
@@ -355,6 +413,8 @@ export default function Menu() {
     setActiveTab("chat");
   }, []);
 
+  const isDimmed = menuOpacity === "0.2" || parseFloat(menuOpacity) < 0.5;
+
   return (
     <div
       className={`absolute transition-all duration-200 ease-out select-none ${effectiveTheme}`}
@@ -366,7 +426,7 @@ export default function Menu() {
         data-contrast={contrastMode}
         className={`relative overflow-hidden transition-all duration-300 ease-out shadow-2xl ${
           isChatOpen ? "rounded-[20px]" : "rounded-[24px]"
-        } ${contrastClass}`}
+        } ${contrastClass} ${!isChatOpen && !isDimmed ? "animated-pill-glow" : ""}`}
         style={{
           width: isChatOpen ? SIZES.max.w : SIZES.min.w,
           height: isChatOpen ? SIZES.max.h : SIZES.min.h,
@@ -376,66 +436,90 @@ export default function Menu() {
         {/* Minimized Pill Mode (Pixel-perfect matching user image)  */}
         {/* ======================================================== */}
         {!isChatOpen ? (
-          <div className="relative w-full h-full px-2.5 py-1 flex items-center justify-between gap-1 select-none overflow-hidden rounded-[24px]">
+          <div className="relative w-full h-full px-2 py-1 flex items-center justify-between gap-1 select-none overflow-hidden rounded-[24px]">
             {/* Background ambient violet-blue gradient on the right section */}
-            <div className="absolute right-0 top-0 bottom-0 w-2/3 bg-gradient-to-r from-transparent via-[#8b5cf6]/20 to-[#3b82f6]/25 rounded-r-[24px] pointer-events-none" />
+            <div className="absolute right-0 top-0 bottom-0 w-2/3 bg-gradient-to-r from-transparent via-[#8b5cf6]/15 dark:via-[#8b5cf6]/20 to-[#3b82f6]/20 dark:to-[#3b82f6]/25 rounded-r-[24px] pointer-events-none" />
 
-            {/* 1. Drag Handle (6 Dots on Left - Old way only this drags) */}
-            {/* 1. Drag Handle (6 Dots on Left - Old way only this drags) */}
+            {/* 1. Left Drag Section (Full Left Part is Draggable) */}
             <div
               ref={dragRef}
-              className="w-8 h-9 flex items-center justify-center text-slate-400 hover:text-white active:text-white cursor-grab active:cursor-grabbing transition-colors z-10 select-none relative"
+              className="flex items-center gap-1 cursor-grab active:cursor-grabbing select-none py-0.5 pl-0.5 pr-1.5 rounded-full hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors z-10 shrink-0"
               title="Drag to reposition widget"
             >
+              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500/20 via-indigo-500/20 to-purple-500/20 ring-2 ring-blue-400/50 dark:ring-blue-400/40 flex items-center justify-center shadow-xs shrink-0">
+                {appIconUrl ? (
+                  <img
+                    src={appIconUrl}
+                    alt="SpectraLens AI"
+                    className="w-5 h-5 rounded-md object-contain pointer-events-none"
+                  />
+                ) : (
+                  <div className="w-4 h-4 rounded-full bg-blue-600" />
+                )}
+              </div>
               <DragHandleIcon
-                className="w-4 h-4 text-slate-400 hover:text-white transition-colors"
-                size={18}
+                className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
+                size={16}
               />
             </div>
 
-            {/* 2. Chat Button (Prominent circular gradient pill) */}
+            {/* 2. Scan / Element Selector Button */}
             <button
               type="button"
-              onClick={toggleChat}
-              className="w-9 h-9 rounded-full flex items-center justify-center bg-gradient-to-tr from-[#8b5cf6] via-[#6366f1] to-[#3b82f6] text-white shadow-md hover:scale-105 active:scale-95 transition-all focus:outline-none cursor-pointer z-10"
-              title="Open SpectraLens AI Chat"
-            >
-              <ChatIcon className="w-5 h-5 text-white" size={20} />
-            </button>
-
-            {/* 3. Scan / Element Selector Button */}
-            <button
-              type="button"
-              onClick={handleSelectElement}
-              className="w-9 h-9 rounded-full flex items-center justify-center text-white hover:bg-white/15 active:scale-95 transition-all focus:outline-none cursor-pointer z-10"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleSelectElement();
+              }}
+              className="w-8 h-8 rounded-full flex items-center justify-center text-slate-700 dark:text-white hover:bg-slate-200/60 dark:hover:bg-white/15 active:scale-95 transition-all focus:outline-none cursor-pointer z-10 shrink-0"
               title="Select Page Element / Area"
             >
-              <ElementSelectorIcon className="w-5 h-5 text-white" size={20} />
+              <ElementSelectorIcon
+                className="w-5 h-5 text-slate-700 dark:text-white"
+                size={21}
+              />
+            </button>
+
+            {/* 3. Chat Toggle Button */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleChat();
+              }}
+              className="w-8 h-8 rounded-full flex items-center justify-center p-1.5 border border-slate-300/80 dark:border-white/25 bg-white/40 dark:bg-white/10 hover:bg-white/80 dark:hover:bg-white/20 hover:border-blue-400/70 dark:hover:border-blue-400/60 text-slate-800 dark:text-white shadow-2xs hover:scale-105 active:scale-95 transition-all focus:outline-none cursor-pointer z-10 shrink-0"
+              title="Open Chat Window"
+            >
+              <ChatIcon
+                className="w-[18px] h-[18px] text-slate-800 dark:text-white"
+                size={18}
+              />
             </button>
           </div>
         ) : (
           /* ======================================================== */
-          /* Expanded Mode: Full 2-Pane Window Matching Image 1       */
+          /* Expanded Multi-AI Window Mode                           */
           /* ======================================================== */
           <div
             ref={windowContainerRef}
-            className="flex flex-col h-full w-full cursor-default"
+            className="relative w-full h-full flex flex-col overflow-hidden"
           >
-            {/* Top Draggable Window Control Bar */}
-            <div
-              className={`flex items-center justify-between px-3.5 py-2 border-b shrink-0 cursor-grab active:cursor-grabbing ${
-                contrastMode === "solid"
-                  ? "bg-slate-100 dark:bg-[#14161e] border-slate-200/90 dark:border-white/[0.08]"
-                  : "bg-transparent border-slate-200/50 dark:border-white/[0.06]"
-              }`}
-            >
-              <div className="flex items-center gap-2 select-none pointer-events-none">
-                <div className="relative flex items-center justify-center">
-                  <img
-                    src={appIconUrl}
-                    alt="SpectraLens AI"
-                    className="size-6 rounded-md object-contain shadow-2xs"
-                  />
+            {/* Ambient background glow header aura */}
+            <div className="absolute top-0 left-0 right-0 h-28 bg-gradient-to-b from-blue-600/10 via-purple-600/5 to-transparent pointer-events-none z-0" />
+
+            {/* Window Header */}
+            <header className="relative flex items-center justify-between px-3.5 py-2.5 border-b border-slate-200/50 dark:border-white/[0.06] shrink-0 z-10">
+              {/* Left Brand Badge */}
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-blue-600/20 to-purple-600/20 border border-blue-500/30 flex items-center justify-center shadow-xs relative">
+                  {appIconUrl ? (
+                    <img
+                      src={appIconUrl}
+                      alt="Logo"
+                      className="size-5 object-contain"
+                    />
+                  ) : (
+                    <div className="w-3.5 h-3.5 rounded-full bg-blue-600" />
+                  )}
                   {isAlwaysActive && (
                     <span
                       className="absolute -bottom-0.5 -right-0.5 size-2 bg-emerald-500 rounded-full ring-1.5 ring-white dark:ring-[#14161e] shadow-xs"
@@ -443,37 +527,38 @@ export default function Menu() {
                     />
                   )}
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-bold text-slate-900 dark:text-white">
+                <div className="flex flex-col">
+                  <span className="text-xs font-bold tracking-tight text-slate-900 dark:text-white leading-none">
                     SpectraLens AI
+                  </span>
+                  <span className="text-[10px] font-medium text-slate-600 dark:text-slate-300 capitalize leading-tight mt-0.5">
+                    {activeTab}
                   </span>
                 </div>
               </div>
 
-              {/* Draggable Center Window Region (completely transparent, no glow) */}
-              <div
-                className="flex-1 mx-2 h-full select-none pointer-events-none"
-                title="Drag to move chat window"
-              />
-
-              {/* Window Controls (Single Close Button) */}
-              <div className="flex items-center">
-                <button
-                  type="button"
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleChat();
-                  }}
-                  className="p-1 rounded-lg text-slate-600 hover:text-rose-600 dark:text-slate-300 dark:hover:text-rose-400 hover:bg-rose-500/10 transition-colors focus:outline-none cursor-pointer"
-                  title="Close"
+              {/* Right Controls */}
+              <div className="flex items-center gap-1">
+                {/* Drag Handle */}
+                <div
+                  className="p-1 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white cursor-move transition-colors rounded-lg"
+                  title="Drag window"
                 >
-                  <FiX className="w-4 h-4 pointer-events-none" />
+                  <DragHandleIcon className="w-4 h-4" size={16} />
+                </div>
+
+                {/* Close Button */}
+                <button
+                  onClick={toggleChat}
+                  title="Minimize window"
+                  className="p-1 rounded-lg text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-white/10 transition-colors focus:outline-none cursor-pointer"
+                >
+                  <FiX className="w-4 h-4" />
                 </button>
               </div>
-            </div>
+            </header>
 
-            {/* 2-Pane Content Area with Sidebar & Multi-Views */}
+            {/* Main Window Body (Sidebar + Content View) */}
             <div className="flex-1 flex overflow-hidden relative">
               {/* Left Vertical Sidebar with New Chat button at top */}
               <Sidebar
@@ -493,20 +578,13 @@ export default function Menu() {
                   <ChatBot
                     isOpen={isChatOpen}
                     initialHistoryItem={loadedHistoryItem}
+                    pendingInput={pendingScanInput}
+                    onConsumePendingInput={() => setPendingScanInput(null)}
                     newChatTrigger={newChatKey}
                     onClearLoadedHistory={() => setLoadedHistoryItem(null)}
                     onOpenSelector={() => handleSelectElement()}
                   />
                 </div>
-
-                {/* Element Selector View */}
-                {activeTab === "selector" && (
-                  <div className="w-full h-full animate-fade-in">
-                    <SelectorView
-                      onTriggerComplete={() => handleSelectElement()}
-                    />
-                  </div>
-                )}
 
                 {/* History View */}
                 {activeTab === "history" && (

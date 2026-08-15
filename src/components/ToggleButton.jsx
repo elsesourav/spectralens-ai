@@ -1,37 +1,55 @@
 import { useEffect, useState } from "react";
-import { IoDesktopOutline } from "react-icons/io5";
+import { BsWindowSidebar } from "react-icons/bs";
 import extensionUtils from "./../utils/utilsModule.js";
 
 export default function ToggleButton() {
   const [checked, setChecked] = useState(false);
-  const [settings, setSettings] = useState({
-    enable: false,
-  });
+  const [currentHostname, setCurrentHostname] = useState("");
 
   useEffect(() => {
-    extensionUtils.chromeStorageGetLocal(
-      extensionUtils.KEYS.SETTINGS,
-      (storedSettings) => {
-        if (storedSettings) {
-          setSettings(storedSettings);
-          setChecked(Boolean(storedSettings.enable));
+    const checkStatus = async () => {
+      const tab = await extensionUtils.getActiveTab();
+      let hostname = "";
+      if (tab?.url?.startsWith("http")) {
+        try {
+          hostname = new URL(tab.url).hostname;
+          setCurrentHostname(hostname);
+        } catch {
+          // Ignore
         }
       }
-    );
+
+      extensionUtils.chromeStorageGetLocal(
+        extensionUtils.KEYS.MENU_HOSTS,
+        (hosts = []) => {
+          let activeHosts = hosts;
+          if (typeof activeHosts === "string") {
+            try {
+              activeHosts = JSON.parse(activeHosts);
+            } catch {
+              activeHosts = [];
+            }
+          }
+          if (!Array.isArray(activeHosts)) activeHosts = [];
+
+          if (
+            hostname &&
+            (activeHosts.includes(hostname) || activeHosts.includes("*"))
+          ) {
+            setChecked(true);
+          } else {
+            setChecked(false);
+          }
+        }
+      );
+    };
+
+    checkStatus();
   }, []);
 
   const handleClick = () => {
-    const nextState = !checked;
-    setChecked(nextState);
-    const updatedSettings = { ...settings, enable: nextState };
-    setSettings(updatedSettings);
-    extensionUtils.chromeStorageSetLocal(
-      extensionUtils.KEYS.SETTINGS,
-      updatedSettings,
-      () => {
-        extensionUtils.runtimeSendMessage("P_B_TOGGLE");
-      }
-    );
+    setChecked(!checked);
+    extensionUtils.runtimeSendMessage("P_B_TOGGLE");
   };
 
   return (
@@ -43,14 +61,16 @@ export default function ToggleButton() {
         <div className="flex items-center justify-between w-full px-3.5 pointer-events-none">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 shrink-0">
-              <IoDesktopOutline className="w-4 h-4" />
+              <BsWindowSidebar className="w-4 h-4" />
             </div>
             <div className="flex flex-col items-start justify-center">
               <span className="font-bold text-[13px] text-slate-800 dark:text-slate-100 leading-tight">
-                Floating AI Menu
+                Floating AI Widget
               </span>
               <span className="text-[10px] text-slate-500 dark:text-slate-400 leading-normal">
-                {checked ? "Active on web pages" : "Click to activate"}
+                {checked
+                  ? `Active on ${currentHostname || "this tab"}`
+                  : `Click to activate on ${currentHostname || "this tab"}`}
               </span>
             </div>
           </div>

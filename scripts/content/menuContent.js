@@ -1,5 +1,9 @@
-const __iframeSize = { width: "148px", height: "48px" };
-const __spacing = 0;
+if (window !== window.top) {
+  // Floating menu only operates on top-level browsing context
+  // Subframes (like analytics, ads, style_engines) must not mount duplicate menu listeners
+} else {
+const __iframeSize = { width: "176px", height: "48px" };
+let __currentSpacing = 0;
 let __isDragging = false;
 const __pointerOffset = { x: 0, y: 0 };
 let __main_menu__ = null;
@@ -74,11 +78,11 @@ function __pointermove__(e) {
 
   // Apply collision detection to keep __menu_back__ within viewport
   const constrainedPosition = __applyCollisionDetection__(
-    newLeft - __spacing,
+    newLeft - __currentSpacing,
     newTop,
   );
 
-  __menu_back__.style.left = `${constrainedPosition.x + __spacing}px`;
+  __menu_back__.style.left = `${constrainedPosition.x + __currentSpacing}px`;
   __menu_back__.style.top = `${constrainedPosition.y}px`;
 
   __main_menu__.style.left = `${constrainedPosition.x}px`;
@@ -97,10 +101,10 @@ function __pointerup__(e) {
 
   // Apply collision detection to final position
   const constrainedPosition = __applyCollisionDetection__(
-    left - __spacing,
+    left - __currentSpacing,
     top,
   );
-  __menu_back__.style.left = `${constrainedPosition.x + __spacing}px`;
+  __menu_back__.style.left = `${constrainedPosition.x + __currentSpacing}px`;
   __menu_back__.style.top = `${constrainedPosition.y}px`;
 
   __main_menu__.style.left = `${constrainedPosition.x}px`;
@@ -109,19 +113,31 @@ function __pointerup__(e) {
 
 function detectPageTheme() {
   try {
-    const docCls = document.documentElement.className || "";
-    const bodyCls = document.body?.className || "";
-    const docTheme =
-      document.documentElement.getAttribute("data-theme") ||
-      document.documentElement.getAttribute("data-mode") ||
-      document.documentElement.getAttribute("data-color-mode") ||
-      document.body?.getAttribute("data-theme") ||
-      "";
+    const html = document.documentElement;
+    const body = document.body;
+
+    const docCls = (html.className || "").toLowerCase();
+    const bodyCls = (body?.className || "").toLowerCase();
+    const docTheme = (
+      html.getAttribute("data-theme") ||
+      html.getAttribute("data-mode") ||
+      html.getAttribute("data-color-mode") ||
+      html.getAttribute("data-bs-theme") ||
+      html.getAttribute("color-scheme") ||
+      body?.getAttribute("data-theme") ||
+      body?.getAttribute("data-mode") ||
+      body?.getAttribute("data-color-mode") ||
+      body?.getAttribute("data-bs-theme") ||
+      ""
+    ).toLowerCase();
 
     if (
       docCls.includes("dark") ||
+      docCls.includes("night") ||
       bodyCls.includes("dark") ||
-      docTheme.toLowerCase().includes("dark")
+      bodyCls.includes("night") ||
+      docTheme.includes("dark") ||
+      docTheme.includes("night")
     ) {
       return "dark";
     }
@@ -129,25 +145,39 @@ function detectPageTheme() {
     if (
       docCls.includes("light") ||
       bodyCls.includes("light") ||
-      docTheme.toLowerCase().includes("light")
+      docTheme.includes("light")
     ) {
       return "light";
     }
 
-    // Check computed background color of body or root
-    const bodyBg = window.getComputedStyle(
-      document.body || document.documentElement,
-    ).backgroundColor;
-    const rgb = bodyBg.match(/\d+/g);
-    if (rgb && rgb.length >= 3) {
-      const [r, g, b] = rgb.map(Number);
-      const brightness = (r * 299 + g * 587 + b * 114) / 1000;
-      if (brightness < 128 && (rgb.length < 4 || Number(rgb[3]) > 0.3)) {
-        return "dark";
+    const htmlStyle = window.getComputedStyle(html);
+    const bodyStyle = body ? window.getComputedStyle(body) : null;
+    if (htmlStyle.colorScheme === "dark" || bodyStyle?.colorScheme === "dark") {
+      return "dark";
+    }
+    if (htmlStyle.colorScheme === "light" || bodyStyle?.colorScheme === "light") {
+      return "light";
+    }
+
+    const bgColors = [
+      bodyStyle?.backgroundColor,
+      htmlStyle.backgroundColor,
+    ].filter(Boolean);
+
+    for (const bg of bgColors) {
+      const match = bg.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+      if (match) {
+        const alpha = match[4] !== undefined ? parseFloat(match[4]) : 1;
+        if (alpha > 0.2) {
+          const r = parseInt(match[1], 10);
+          const g = parseInt(match[2], 10);
+          const b = parseInt(match[3], 10);
+          const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+          return brightness < 128 ? "dark" : "light";
+        }
       }
     }
 
-    // Fallback to system preferences
     if (
       window.matchMedia &&
       window.matchMedia("(prefers-color-scheme: dark)").matches
@@ -175,7 +205,7 @@ pageOnMessage("IF_C_MENU_WINDOW_MOVE", async (data) => {
     __main_menu__.style.left = `${constrainedPosition.x}px`;
     __main_menu__.style.top = `${constrainedPosition.y}px`;
     if (__menu_back__) {
-      __menu_back__.style.left = `${constrainedPosition.x + __spacing}px`;
+      __menu_back__.style.left = `${constrainedPosition.x + __currentSpacing}px`;
       __menu_back__.style.top = `${constrainedPosition.y}px`;
     }
   }
@@ -195,8 +225,9 @@ pageOnMessage("IF_C_MENU_WINDOW_RESIZE", async (data) => {
   }
 
   const w = parseInt(width) || 440;
-  const newBackWidth = isOpen ? w - 44 : 38;
-  const newBackHeight = isOpen ? 40 : 48;
+  __currentSpacing = isOpen ? 40 : 0;
+  const newBackWidth = isOpen ? w - 80 : 64;
+  const newBackHeight = isOpen ? 38 : 46;
   if (__menu_back__) {
     __menu_back__.style.width = `${newBackWidth}px`;
     __menu_back__.style.height = `${newBackHeight}px`;
@@ -204,7 +235,7 @@ pageOnMessage("IF_C_MENU_WINDOW_RESIZE", async (data) => {
 
   const rect = __menu_back__.getBoundingClientRect();
   let constrainedPosition = __applyCollisionDetection__(
-    rect.left - __spacing,
+    rect.left - __currentSpacing,
     rect.top,
   );
 
@@ -216,14 +247,14 @@ pageOnMessage("IF_C_MENU_WINDOW_RESIZE", async (data) => {
   } else if (__isNoMoveOpenToClose) {
     __isNoMoveOpenToClose = false;
     constrainedPosition = {
-      x: __lastLocation.x - __spacing,
+      x: __lastLocation.x - __currentSpacing,
       y: __lastLocation.y,
     };
   }
 
-  __pointerOffset.x = constrainedPosition.x + __spacing;
+  __pointerOffset.x = constrainedPosition.x + __currentSpacing;
   __pointerOffset.y = constrainedPosition.y;
-  __menu_back__.style.left = `${constrainedPosition.x + __spacing}px`;
+  __menu_back__.style.left = `${constrainedPosition.x + __currentSpacing}px`;
   __menu_back__.style.top = `${constrainedPosition.y}px`;
   __main_menu__.style.left = `${constrainedPosition.x}px`;
   __main_menu__.style.top = `${constrainedPosition.y}px`;
@@ -249,7 +280,8 @@ runtimeSendMessage("C_B_ON_LOAD", async (r) => {
   //  console.log(`Menu loaded: ${JSON.stringify(r)}`);
 });
 
-pageOnMessage("IF_C_SELECT_COORDS", async ({ coordinates }) => {
+pageOnMessage("IF_C_SELECT_COORDS", async (data) => {
+  const coordinates = data?.coordinates || data;
   document.getElementById("screenSelectorIframe")?.remove();
   const menuFrame = document.getElementById("__menuWindowIframe");
   const menuBack = document.getElementById("__menuWindowBack");
@@ -261,26 +293,35 @@ pageOnMessage("IF_C_SELECT_COORDS", async ({ coordinates }) => {
   if (menuBack) {
     menuBack.style.display = "block";
   }
-  runtimeSendMessage("C_B_CAPTURE_DOM", {
-    coordinates,
-    devicePixelRatio: window.devicePixelRatio,
-  });
+  if (coordinates && (coordinates.width || coordinates.height)) {
+    runtimeSendMessage("C_B_CAPTURE_DOM", {
+      coordinates,
+      devicePixelRatio: window.devicePixelRatio,
+    });
+  }
 });
 
 runtimeOnMessage("B_C_OCR_RESULT", async (data, _, sendResponse) => {
-  const { text, image } = data;
-  sendResponse({ success: true });
+  const { text, image } = data || {};
+  sendResponse && sendResponse({ success: true });
 
   const menuFrame = document.getElementById("__menuWindowIframe");
   const menuBack = document.getElementById("__menuWindowBack");
   if (menuFrame) {
     menuFrame.style.display = "block";
+    pagePostMessage("C_IF_OPEN_CHAT", {}, menuFrame.contentWindow);
     pagePostMessage(
       "C_IF_SET_INPUTS",
       { input: text, image },
       menuFrame.contentWindow,
     );
-    pagePostMessage("C_IF_OPEN_CHAT", {}, menuFrame.contentWindow);
+    setTimeout(() => {
+      pagePostMessage(
+        "C_IF_SET_INPUTS",
+        { input: text, image },
+        menuFrame.contentWindow,
+      );
+    }, 80);
     pagePostMessage("C_IF_VISIBLE", {}, menuFrame.contentWindow);
     pagePostMessage("C_IF_SHOW", {}, menuFrame.contentWindow);
   }
@@ -290,18 +331,18 @@ runtimeOnMessage("B_C_OCR_RESULT", async (data, _, sendResponse) => {
 });
 
 pageOnMessage("IF_C_SELECT_CANCEL", async () => {
-  console.log("Selection cancelled");
+  document.getElementById("screenSelectorIframe")?.remove();
   const menuFrame = document.getElementById("__menuWindowIframe");
   const menuBack = document.getElementById("__menuWindowBack");
   if (menuFrame) {
     menuFrame.style.display = "block";
+    pagePostMessage("IF_C_SELECT_CANCEL", {}, menuFrame.contentWindow);
     pagePostMessage("C_IF_VISIBLE", {}, menuFrame.contentWindow);
     pagePostMessage("C_IF_SHOW", {}, menuFrame.contentWindow);
   }
   if (menuBack) {
     menuBack.style.display = "block";
   }
-  document.getElementById("screenSelectorIframe")?.remove();
 });
 
 pageOnMessage("IF_C_SELECT_TEXT", () => {
@@ -343,7 +384,7 @@ runtimeOnMessage("B_C_RESET_POSITION", async (_, __, sendResponse) => {
   if (__main_menu__ && __menu_back__) {
     const defaultLeft = 24;
     const defaultTop = 80;
-    __menu_back__.style.left = `${defaultLeft + __spacing}px`;
+    __menu_back__.style.left = `${defaultLeft + __currentSpacing}px`;
     __menu_back__.style.top = `${defaultTop}px`;
     __main_menu__.style.left = `${defaultLeft}px`;
     __main_menu__.style.top = `${defaultTop}px`;
@@ -352,19 +393,22 @@ runtimeOnMessage("B_C_RESET_POSITION", async (_, __, sendResponse) => {
 });
 
 window.addEventListener("message", async (event) => {
-  if (event?.data?.type?.includes("IF_B_")) {
+  const msgType = typeof event?.data?.type === "string" ? event.data.type : "";
+  if (!msgType) return;
+
+  if (msgType.includes("IF_B_")) {
     // console.log("Received message from background:", event.data);
 
-    runtimeSendMessage(event.data.type, { ...event.data }, (res) => {
+    runtimeSendMessage(msgType, { ...event.data }, (res) => {
       const iframe = document.getElementById("__menuWindowIframe");
-      pagePostMessage(event.data.type, res, iframe?.contentWindow);
+      pagePostMessage(msgType, res, iframe?.contentWindow);
     });
-  } else if (event?.data?.type === "IF_C_GET_CURRENT_CONTROLS") {
+  } else if (msgType === "IF_C_GET_CURRENT_CONTROLS") {
     const iframe = document.getElementById("__menuWindowIframe");
     try {
       const getControlsSettings = await chromeStorageGetLocal(KEYS.CONTROLS);
       pagePostMessage(
-        event.data.type,
+        msgType,
         {
           success: true,
           controls: getControlsSettings,
@@ -374,7 +418,7 @@ window.addEventListener("message", async (event) => {
       );
     } catch (error) {
       pagePostMessage(
-        event.data.type,
+        msgType,
         {
           success: false,
           message: error.message,
@@ -461,4 +505,5 @@ try {
   }
 } catch {
   // ignore
+}
 }

@@ -34,6 +34,7 @@ const ElementSelector = forwardRef(
       // State
       const [isSelecting, setIsSelecting] = useState(false);
       const [hasSelection, setHasSelection] = useState(false);
+      const [cursorPos, setCursorPos] = useState({ x: null, y: null });
       const [currentOperation, setCurrentOperation] = useState("none"); // 'none', 'select', 'move', 'resize'
       const [selectionStart, setSelectionStart] = useState({ x: 0, y: 0 });
       const [selectionRect, setSelectionRect] = useState({
@@ -446,14 +447,27 @@ const ElementSelector = forwardRef(
 
       // Set up event listeners
       useEffect(() => {
-         const handleMouseMove = (e) => updateOperation(e);
+         const handleMouseMove = (e) => {
+            if (containerRef.current) {
+               const rect = containerRef.current.getBoundingClientRect();
+               const cx = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+               const cy = Math.max(0, Math.min(e.clientY - rect.top, rect.height));
+               setCursorPos({ x: cx, y: cy });
+            }
+            updateOperation(e);
+         };
+         const handleMouseLeave = () => {
+            setCursorPos({ x: null, y: null });
+         };
          const handleMouseUp = () => endOperation();
 
          document.addEventListener("mousemove", handleMouseMove);
+         document.addEventListener("mouseleave", handleMouseLeave);
          document.addEventListener("mouseup", handleMouseUp);
 
          return () => {
             document.removeEventListener("mousemove", handleMouseMove);
+            document.removeEventListener("mouseleave", handleMouseLeave);
             document.removeEventListener("mouseup", handleMouseUp);
          };
       }, [updateOperation, endOperation]);
@@ -542,6 +556,61 @@ const ElementSelector = forwardRef(
          >
             {/* Content */}
             {children}
+
+            {/* Full-screen X and Y Dotted Guide Lines following cursor */}
+            {enabled && cursorPos.x !== null && cursorPos.y !== null && (
+               <>
+                  {/* Horizontal X Axis Dotted Line (browser start to end) */}
+                  <div
+                     className="crosshair-guide-x pointer-events-none"
+                     style={{
+                        position: "absolute",
+                        left: 0,
+                        top: `${cursorPos.y}px`,
+                        width: "100%",
+                        height: "0px",
+                        borderTop: "1.5px dashed rgba(59, 130, 246, 0.9)",
+                        filter: "drop-shadow(0 0 2px rgba(0, 0, 0, 0.7))",
+                        zIndex: 999,
+                        pointerEvents: "none",
+                     }}
+                  />
+
+                  {/* Vertical Y Axis Dotted Line (browser top to bottom) */}
+                  <div
+                     className="crosshair-guide-y pointer-events-none"
+                     style={{
+                        position: "absolute",
+                        top: 0,
+                        left: `${cursorPos.x}px`,
+                        width: "0px",
+                        height: "100%",
+                        borderLeft: "1.5px dashed rgba(59, 130, 246, 0.9)",
+                        filter: "drop-shadow(0 0 2px rgba(0, 0, 0, 0.7))",
+                        zIndex: 999,
+                        pointerEvents: "none",
+                     }}
+                  />
+
+                  {/* Intersection Crosshair Point Indicator */}
+                  <div
+                     className="crosshair-point pointer-events-none"
+                     style={{
+                        position: "absolute",
+                        left: `${cursorPos.x - 3}px`,
+                        top: `${cursorPos.y - 3}px`,
+                        width: "7px",
+                        height: "7px",
+                        borderRadius: "50%",
+                        backgroundColor: "#3b82f6",
+                        border: "1.5px solid #ffffff",
+                        boxShadow: "0 0 8px rgba(59, 130, 246, 0.95)",
+                        zIndex: 1000,
+                        pointerEvents: "none",
+                     }}
+                  />
+               </>
+            )}
 
             {/* Selection overlay */}
             {enabled && (

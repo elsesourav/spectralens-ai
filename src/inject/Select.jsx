@@ -13,14 +13,17 @@ export default function Select() {
    }, []);
 
    const handleCapture = useCallback(() => {
-      if (!selectorRef.current || !selectorRef.current.hasActiveSelection()) {
-         console.log("No active selection found");
+      if (!selectorRef.current) {
          handleCancel();
          return;
       }
 
       const coordinates = selectorRef.current.getCoordinates();
-      console.log("Selection coordinates:", coordinates);
+      if (!coordinates || (coordinates.width <= 5 && coordinates.height <= 5)) {
+         handleCancel();
+         return;
+      }
+
       window.parent.postMessage(
          { type: "IF_C_SELECT_COORDS", data: { coordinates } },
          "*"

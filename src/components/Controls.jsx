@@ -1,8 +1,7 @@
 /* eslint-disable no-undef */
 import { useCallback, useEffect, useState } from "react";
+import { BsWindowSidebar } from "react-icons/bs";
 import {
-  IoChevronDownOutline,
-  IoChevronUpOutline,
   IoDesktopOutline,
   IoFlashOutline,
   IoMoonOutline,
@@ -11,7 +10,7 @@ import {
 } from "react-icons/io5";
 import { useTheme } from "../hooks/useThemeHook.jsx";
 import extensionUtils from "./../utils/utilsModule.js";
-import { ProviderIcon } from "./Icons.jsx";
+import { ChevronDownIcon, ChevronUpIcon, ProviderIcon } from "./Icons.jsx";
 import Toast from "./Toast.jsx";
 
 const DEFAULT_AI_OPTIONS = [
@@ -36,7 +35,9 @@ export default function Controls() {
 
   // Widget settings
   const [widgetEnabled, setWidgetEnabled] = useState(false);
+  const [currentHostname, setCurrentHostname] = useState("");
   const [autoHideDelay, setAutoHideDelay] = useState(0);
+  const [autoMinimizeDelay, setAutoMinimizeDelay] = useState(0);
   const [concurrentRequests, setConcurrentRequests] = useState(3);
 
   // Core feature states
@@ -80,23 +81,55 @@ export default function Controls() {
               Math.min(3, Math.max(1, Number(data.concurrentRequests))),
             );
           }
+
           if (data.autoHideDelay !== undefined) {
             setAutoHideDelay(Number(data.autoHideDelay));
+          }
+
+          if (data.autoMinimizeDelay !== undefined) {
+            setAutoMinimizeDelay(Number(data.autoMinimizeDelay));
           }
         }
         setIsInitialized(true);
       },
     );
 
-    // 2. Widget Toggle
-    extensionUtils.chromeStorageGetLocal(
-      extensionUtils.KEYS.SETTINGS,
-      (settings) => {
-        if (settings?.enable !== undefined) {
-          setWidgetEnabled(Boolean(settings?.enable));
+    // 2. Widget Toggle (Check active tab host)
+    const checkWidgetStatus = async () => {
+      const tab = await extensionUtils.getActiveTab();
+      let hostname = "";
+      if (tab?.url?.startsWith("http")) {
+        try {
+          hostname = new URL(tab.url).hostname;
+          setCurrentHostname(hostname);
+        } catch {
+          // Ignore
         }
-      },
-    );
+      }
+      extensionUtils.chromeStorageGetLocal(
+        extensionUtils.KEYS.MENU_HOSTS,
+        (hosts = []) => {
+          let activeHosts = hosts;
+          if (typeof activeHosts === "string") {
+            try {
+              activeHosts = JSON.parse(activeHosts);
+            } catch {
+              activeHosts = [];
+            }
+          }
+          if (!Array.isArray(activeHosts)) activeHosts = [];
+          if (
+            hostname &&
+            (activeHosts.includes(hostname) || activeHosts.includes("*"))
+          ) {
+            setWidgetEnabled(true);
+          } else {
+            setWidgetEnabled(false);
+          }
+        },
+      );
+    };
+    checkWidgetStatus();
 
     // 3. Always Active Tab Host Status
     const checkAlwaysActive = async () => {
@@ -168,7 +201,8 @@ export default function Controls() {
     (
       newAiList = aiList,
       newConcurrent = concurrentRequests,
-      newDelay = autoHideDelay,
+      newHideDelay = autoHideDelay,
+      newMinDelay = autoMinimizeDelay,
     ) => {
       if (!isInitialized) return;
       extensionUtils.chromeStorageGetLocal(
@@ -182,12 +216,9 @@ export default function Controls() {
             ...controls,
             aiProviders: newAiList,
             concurrentRequests: newConcurrent,
-            autoHideDelay: newDelay,
+            autoHideDelay: newHideDelay,
+            autoMinimizeDelay: newMinDelay,
           };
-          console.log(
-            "[Controls] Saving controls settings (without touching theme):",
-            controlsData,
-          );
           extensionUtils.chromeStorageSetLocal(
             extensionUtils.KEYS.CONTROLS,
             controlsData,
@@ -195,7 +226,13 @@ export default function Controls() {
         },
       );
     },
-    [aiList, concurrentRequests, autoHideDelay, isInitialized],
+    [
+      aiList,
+      concurrentRequests,
+      autoHideDelay,
+      autoMinimizeDelay,
+      isInitialized,
+    ],
   );
 
   // Toggle Provider: if 3 already active and turning on 4th, turn off 3rd and move new one to 3rd position
@@ -234,7 +271,9 @@ export default function Controls() {
         const ordered = [...newActive, ...newInactive];
 
         saveControlsSettings(ordered);
-        showToast(`Switched "${thirdActive.name}" to "${target.name}" (Max 3 active)`);
+        showToast(
+          `Switched "${thirdActive.name}" to "${target.name}" (Max 3 active)`,
+        );
         return ordered;
       }
 
@@ -282,16 +321,8 @@ export default function Controls() {
 
   // Toggle In-Page Widget
   const handleToggleWidget = () => {
-    const nextState = !widgetEnabled;
-    setWidgetEnabled(nextState);
-    const updatedSettings = { enable: nextState };
-    extensionUtils.chromeStorageSetLocal(
-      extensionUtils.KEYS.SETTINGS,
-      updatedSettings,
-      () => {
-        extensionUtils.runtimeSendMessage("P_B_TOGGLE");
-      },
-    );
+    setWidgetEnabled(!widgetEnabled);
+    extensionUtils.runtimeSendMessage("P_B_TOGGLE");
   };
 
   // Toggle Always Active Tab
@@ -404,19 +435,31 @@ export default function Controls() {
                     <div className="flex flex-col items-center -space-y-0.5">
                       <button
                         onClick={() => handleMoveUp(index)}
-                        disabled={!isEnabled || index === 0 || !aiList[index - 1]?.enabled}
+                        disabled={
+                          !isEnabled ||
+                          index === 0 ||
+                          !aiList[index - 1]?.enabled
+                        }
                         className="p-0.5 rounded text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-200/60 dark:hover:bg-white/[0.06] disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:text-slate-400 transition-colors focus:outline-none cursor-pointer disabled:cursor-not-allowed"
-                        title={isEnabled ? "Increase Priority" : "Enable model first"}
+                        title={
+                          isEnabled ? "Increase Priority" : "Enable model first"
+                        }
                       >
-                        <IoChevronUpOutline className="w-3.5 h-3.5" />
+                        <ChevronUpIcon className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => handleMoveDown(index)}
-                        disabled={!isEnabled || index === aiList.length - 1 || !aiList[index + 1]?.enabled}
+                        disabled={
+                          !isEnabled ||
+                          index === aiList.length - 1 ||
+                          !aiList[index + 1]?.enabled
+                        }
                         className="p-0.5 rounded text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-200/60 dark:hover:bg-white/[0.06] disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:text-slate-400 transition-colors focus:outline-none cursor-pointer disabled:cursor-not-allowed"
-                        title={isEnabled ? "Decrease Priority" : "Enable model first"}
+                        title={
+                          isEnabled ? "Decrease Priority" : "Enable model first"
+                        }
                       >
-                        <IoChevronDownOutline className="w-3.5 h-3.5" />
+                        <ChevronDownIcon className="w-3.5 h-3.5" />
                       </button>
                     </div>
 
@@ -459,14 +502,16 @@ export default function Controls() {
         >
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 shrink-0">
-              <IoDesktopOutline className="w-4 h-4" />
+              <BsWindowSidebar className="w-4 h-4" />
             </div>
             <div>
               <h4 className="text-xs font-bold text-slate-900 dark:text-white">
-                In-Page Floating Widget
+                Floating AI Widget
               </h4>
               <p className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
-                Show draggable AI pill menu on web pages
+                {widgetEnabled
+                  ? `Active on ${currentHostname || "this tab"}`
+                  : "Show draggable AI pill menu on web pages"}
               </p>
             </div>
           </div>
@@ -487,16 +532,16 @@ export default function Controls() {
           </button>
         </section>
 
-        {/* SECTION 2b: Auto-Hide Widget Settings                     */}
+        {/* SECTION 2b: Auto-Minimize Chat Window Settings */}
         <section
           className={`p-3.5 rounded-2xl border shadow-xs space-y-2.5 ${cardBgClass}`}
         >
           <div>
             <h4 className="text-xs font-bold text-slate-900 dark:text-white">
-              Auto-Hide Minimized Widget
+              Auto-Minimize Chat Window
             </h4>
             <p className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
-              Inactivity timer to dim the minimized pill
+              Inactivity timer to collapse open window to pill
             </p>
           </div>
           <div className="grid grid-cols-5 gap-1.5 pt-0.5">
@@ -510,8 +555,56 @@ export default function Controls() {
               <button
                 key={opt.val}
                 onClick={() => {
+                  setAutoMinimizeDelay(opt.val);
+                  saveControlsSettings(
+                    aiList,
+                    concurrentRequests,
+                    autoHideDelay,
+                    opt.val,
+                  );
+                }}
+                className={`py-1.5 px-1 rounded-lg text-xs font-bold text-center transition-all focus:outline-none cursor-pointer ${
+                  autoMinimizeDelay === opt.val
+                    ? "bg-blue-600 text-white shadow-xs"
+                    : "bg-slate-100/90 dark:bg-white/[0.05] text-slate-700 dark:text-slate-300 hover:bg-slate-200/90 dark:hover:bg-white/10 border border-slate-200/60 dark:border-white/[0.06]"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* SECTION 2c: Auto-Invisible Minimized Widget Settings */}
+        <section
+          className={`p-3.5 rounded-2xl border shadow-xs space-y-2.5 ${cardBgClass}`}
+        >
+          <div>
+            <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+              Auto-Invisible Minimized Widget
+            </h4>
+            <p className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
+              Inactivity timer to make pill invisible (applies after minimize)
+            </p>
+          </div>
+          <div className="grid grid-cols-5 gap-1.5 pt-0.5">
+            {[
+              { label: "Never", val: 0 },
+              { label: "5s", val: 5 },
+              { label: "10s", val: 10 },
+              { label: "30s", val: 30 },
+              { label: "60s", val: 60 },
+            ].map((opt) => (
+              <button
+                key={opt.val}
+                onClick={() => {
                   setAutoHideDelay(opt.val);
-                  saveControlsSettings(aiList, concurrentRequests, opt.val);
+                  saveControlsSettings(
+                    aiList,
+                    concurrentRequests,
+                    opt.val,
+                    autoMinimizeDelay,
+                  );
                 }}
                 className={`py-1.5 px-1 rounded-lg text-xs font-bold text-center transition-all focus:outline-none cursor-pointer ${
                   autoHideDelay === opt.val
@@ -623,7 +716,6 @@ export default function Controls() {
                   <button
                     key={mode.id}
                     onClick={() => {
-                      console.log("[Controls] Theme button clicked:", mode.id);
                       setTheme(mode.id);
                     }}
                     className={`flex flex-col items-center gap-1.5 py-2 px-2 rounded-xl text-xs font-bold border transition-all focus:outline-none cursor-pointer ${
@@ -665,10 +757,6 @@ export default function Controls() {
                   <button
                     key={cMode.id}
                     onClick={() => {
-                      console.log(
-                        "[Controls] Contrast button clicked:",
-                        cMode.id,
-                      );
                       setContrastMode(cMode.id);
                     }}
                     className={`flex flex-col items-center gap-0.5 py-2 px-1.5 rounded-xl text-xs border transition-all focus:outline-none cursor-pointer ${

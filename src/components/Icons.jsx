@@ -41,29 +41,36 @@ export function GoogleIcon({ className = "w-4 h-4", size = 16 }) {
 GoogleIcon.propTypes = { className: PropTypes.string, size: PropTypes.number };
 
 // ==========================================
-// 2. Bing / Copilot AI SVG
+// 2. Bing AI SVG (Exact user-provided JSX)
 // ==========================================
-export function BingIcon({ className = "w-4 h-4", size = 16 }) {
+export function BingIcon({ className = "w-4 h-4", size = 16, ...props }) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
       width={size}
       height={size}
-      viewBox="0 0 24 24"
-      fill="none"
       className={className}
+      style={{
+        flex: "none",
+        lineHeight: 1,
+      }}
+      {...props}
     >
+      <title>{"Bing"}</title>
       <path
-        d="M3.5 2.5v19l6.5-3.5 5 3.5v-7.5l-5-3.5v-4.5l8 3.5 2-3.5L3.5 2.5z"
-        fill="#008AD7"
+        d="M11.97 7.569a.92.92 0 00-.805.863c-.013.195-.01.209.43 1.347 1 2.59 1.242 3.214 1.283 3.302.099.213.237.413.41.592.134.138.222.212.37.311.26.176.39.224 1.405.527.989.295 1.529.49 1.994.723.603.302 1.024.644 1.29 1.051.191.292.36.815.434 1.342.029.206.029.661 0 .847a2.491 2.491 0 01-.376 1.026c-.1.151-.065.126.081-.058.415-.52.838-1.408 1.054-2.213a6.728 6.728 0 00.102-3.012 6.626 6.626 0 00-3.291-4.53 104.157 104.157 0 00-1.322-.698l-.254-.133a737.941 737.941 0 01-1.575-.827c-.548-.29-.78-.406-.846-.426a1.376 1.376 0 00-.29-.045l-.093.01z"
+        fill="#00CACC"
       />
       <path
-        d="M15 14v6.5l5-3.5V10.5L15 14z"
-        fill="#00C4DF"
+        d="M13.164 17.24a4.385 4.385 0 00-.202.125 511.45 511.45 0 00-1.795 1.115 163.087 163.087 0 01-.989.614l-.463.288a99.198 99.198 0 01-1.502.941c-.326.2-.704.334-1.09.387-.18.024-.52.024-.7 0a2.807 2.807 0 01-1.318-.538 3.665 3.665 0 01-.543-.545 2.837 2.837 0 01-.506-1.141 2.161 2.161 0 00-.041-.182c-.008-.008.006.138.032.33.027.199.085.487.147.733.482 1.907 1.85 3.457 3.705 4.195a6.31 6.31 0 001.658.412c.22.025.844.035 1.074.017 1.054-.08 1.972-.393 2.913-.992a325.28 325.28 0 01.937-.596l.384-.244.684-.435.234-.149.009-.005.025-.017.013-.007.172-.11.597-.38c.76-.481.987-.65 1.34-.998.148-.146.37-.394.381-.425.002-.007.042-.068.088-.136a2.49 2.49 0 00.373-1.023 4.181 4.181 0 000-.847 4.336 4.336 0 00-.318-1.137c-.224-.472-.7-.9-1.383-1.245a2.972 2.972 0 00-.406-.181c-.01 0-.646.392-1.413.87a7089.171 7089.171 0 00-1.658 1.031l-.439.274z"
+        fill="#048FCE"
+        fillRule="nonzero"
       />
       <path
-        d="M3.5 2.5l6.5 3.5v5.5l-6.5-3.5V2.5z"
-        fill="#0072BA"
+        d="M4.003 14.946l.004 3.33.042.193c.134.604.366 1.04.77 1.445a2.701 2.701 0 001.955.814c.536 0 1-.135 1.479-.43l.703-.435.556-.346V8.003c0-2.306-.004-3.675-.012-3.782a2.734 2.734 0 00-.797-1.765c-.145-.144-.268-.24-.637-.496A1780.102 1780.102 0 015.762.362C5.406.115 5.38.098 5.271.059a.943.943 0 00-1.254.696C4.003.818 4 1.659 4 6.223v5.394H4l.003 3.329z"
+        fill="#2756A9"
+        fillRule="nonzero"
       />
     </svg>
   );
@@ -429,3 +436,52 @@ export function ThreeDotsIcon({ className = "w-4 h-4", size = 16 }) {
 }
 
 ThreeDotsIcon.propTypes = { className: PropTypes.string, size: PropTypes.number };
+
+// ==========================================
+// 10. Up / Down Chevron Indexing Icons
+// ==========================================
+export function ChevronUpIcon({ className = "w-3.5 h-3.5", size = 14 }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+    >
+      <path
+        d="M6 15L12 9L18 15"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+ChevronUpIcon.propTypes = { className: PropTypes.string, size: PropTypes.number };
+
+export function ChevronDownIcon({ className = "w-3.5 h-3.5", size = 14 }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+    >
+      <path
+        d="M6 9L12 15L18 9"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+ChevronDownIcon.propTypes = { className: PropTypes.string, size: PropTypes.number };

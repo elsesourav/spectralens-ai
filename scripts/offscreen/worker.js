@@ -34,17 +34,28 @@ function readyWorker() {
    return new Promise(async (resolve) => {
       if (!worker) {
          try {
+            const workerPath =
+               typeof chrome !== "undefined" && chrome.runtime?.getURL
+                  ? chrome.runtime.getURL("offscreen/OCR/worker.min.js")
+                  : "OCR/worker.min.js";
+            const corePath =
+               typeof chrome !== "undefined" && chrome.runtime?.getURL
+                  ? chrome.runtime.getURL("offscreen/OCR/Tesseract")
+                  : "OCR/Tesseract";
+            const langPath =
+               typeof chrome !== "undefined" && chrome.runtime?.getURL
+                  ? chrome.runtime.getURL("offscreen/OCR/Lang/")
+                  : "OCR/Lang/";
+
             worker = await Tesseract.createWorker("eng", 1, {
                workerBlobURL: false,
-               workerPath: "OCR/worker.min.js",
-               corePath: "OCR/Tesseract",
-               langPath: "OCR/Lang/",
+               workerPath,
+               corePath,
+               langPath,
                logger: updateProgress,
             });
-
-            console.log("ready worker");
          } catch (error) {
-            console.error("Error creating worker:", error);
+            console.error("Error creating Tesseract worker:", error);
          } finally {
             resolve();
          }
@@ -54,26 +65,8 @@ function readyWorker() {
    });
 }
 
-function updateProgress(packet) {
+function updateProgress() {
    return;
-   // eslint-disable-next-line no-unreachable
-   const percent = Math.round(packet.progress * 100);
-   const barLength = 20; // total segments in the bar
-   const filledLength = Math.round((barLength * percent) / 100);
-   const bar = "█".repeat(filledLength) + "-".repeat(barLength - filledLength);
-
-   // Color setup (browser console)
-   let color = "color: cyan;";
-   if (packet.status === "recognizing text") color = "color: yellow;";
-   if (packet.status === "loading tesseract core") color = "color: magenta;";
-   if (packet.status === "loading language traineddata")
-      color = "color: green;";
-   if (packet.status === "initializing api") color = "color: blue;";
-   if (packet.status === "initialized api") color = "color: lightgreen;";
-
-   // Clear previous log and print the new progress bar
-   // console.clear();
-   console.log(`%c[${bar}] ${percent}% - ${packet.status}`, color);
 }
 
 function processOCR(imageData, rectInfo) {
@@ -88,8 +81,6 @@ function processOCR(imageData, rectInfo) {
       try {
          const promises = [cropImage(imageData, box), readyWorker()];
          Promise.all(promises).then(async ([croppedImage]) => {
-            // console.log(croppedImage);
-
             const result = await worker.recognize(croppedImage);
             resolve({
                text: result.data.text,
@@ -109,10 +100,15 @@ window.addEventListener("beforeunload", async () => {
    }
 });
 
-runtimeOnMessage("C_OF_START_QRC", async (data, _, sendResponse) => {
-   const { imageData, rectInfo } = data;
-   // console.log(imageData, rectInfo);
-   const result = await processOCR(imageData, rectInfo);
-   // console.log(result);
-   sendResponse({ success: !!result, result });
+runtimeOnMessage("C_OF_START_QRC", (data, _, sendResponse) => {
+   const { imageData, rectInfo } = data || {};
+   processOCR(imageData, rectInfo)
+      .then((result) => {
+         sendResponse({ success: !!result, result });
+      })
+      .catch((err) => {
+         console.error("OCR failed with error:", err);
+         sendResponse({ success: false, error: String(err) });
+      });
+   return true;
 });

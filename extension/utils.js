@@ -6,6 +6,7 @@ const KEYS = {
    HISTORY: "Ai-Display-History",
    ALWAYS_ACTIVE_HOSTS: "alwaysActiveHosts",
    ENABLE_COPY_HOSTS: "enableCopyHosts",
+   MENU_HOSTS: "menuHosts",
 };
 
 /* ----------- Developer Mode (Error Suppression) ----------- */
@@ -94,10 +95,13 @@ function runtimeOnMessage(type, callback) {
       return;
    }
    chrome.runtime.onMessage.addListener((message, sender, response) => {
-      if (type === message.type) {
-         callback(message, sender, response);
+      if (type === message?.type) {
+         const isAsync = callback(message, sender, response);
+         if (isAsync === true) {
+            return true;
+         }
       }
-      return true;
+      return false;
    });
 }
 
