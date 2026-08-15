@@ -56,7 +56,7 @@ function __SELECT__(tabId) {
             const currentStyle = frame.getAttribute("style") || "";
             frame.setAttribute(
                "style",
-               `${currentStyle}; color-scheme: only light !important;`
+               `${currentStyle}; color-scheme: normal !important;`
             );
 
             frame.src = chrome.runtime.getURL("./inject/selection.html");
@@ -160,7 +160,7 @@ function __PUSH_MENU__(tabId) {
 
             frame.setAttribute(
                "style",
-               "background: transparent !important; background-color: transparent !important; border: none !important; border-radius: 9999px;"
+               "background: transparent !important; background-color: transparent !important; color-scheme: normal !important; border: none !important; border-radius: 9999px;"
             );
 
             const style = document.createElement("style");
@@ -173,6 +173,7 @@ function __PUSH_MENU__(tabId) {
                   height: 48px;
                   background: transparent !important;
                   background-color: transparent !important;
+                  color-scheme: normal !important;
                   border: none !important;
                   border-radius: 9999px;
                   z-index: 825003263;
@@ -184,21 +185,6 @@ function __PUSH_MENU__(tabId) {
             document.head.appendChild(style);
             frame.src = chrome.runtime.getURL("./inject/menuWindow.html");
             document.body.append(frame);
-
-            // Setup theme observer for menu iframe
-            setupThemeObserver((newTheme) => {
-               const existingFrame =
-                  document.getElementById("__menuWindowIframe");
-               if (existingFrame) {
-                  const currentStyle =
-                     existingFrame.getAttribute("style") || "";
-                  const updatedStyle = currentStyle.replace(
-                     /color-scheme:\s*\w+\s*!important;?/,
-                     `color-scheme: ${newTheme} !important;`
-                  );
-                  existingFrame.setAttribute("style", updatedStyle);
-               }
-            });
          } else {
             existingMWF.style.display = "block";
          }

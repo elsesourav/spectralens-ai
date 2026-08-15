@@ -350,7 +350,7 @@ export default function Controls({ onBack }) {
                   key={ai.id}
                   className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${
                     isEnabled
-                      ? "bg-white dark:bg-[#191c25] border-slate-200/80 dark:border-white/[0.08] shadow-xs"
+                      ? "bg-white/80 dark:bg-[#191c25]/80 backdrop-blur-md border-slate-200/80 dark:border-white/[0.08] shadow-xs"
                       : "bg-slate-100/60 dark:bg-white/[0.02] border-transparent opacity-65"
                   }`}
                 >
@@ -405,7 +405,7 @@ export default function Controls({ onBack }) {
         {/* ======================================================== */}
         {/* SECTION 2: In-Page Floating Widget Settings              */}
         {/* ======================================================== */}
-        <section className="p-3.5 rounded-2xl bg-white dark:bg-[#191c25] border border-slate-200/80 dark:border-white/[0.07] shadow-xs space-y-3">
+        <section className="p-3.5 rounded-2xl bg-white/80 dark:bg-[#191c25]/80 backdrop-blur-md border border-slate-200/80 dark:border-white/[0.07] shadow-xs space-y-3">
           <div className="flex items-center justify-between">
             <div>
               <h4 className="text-xs font-semibold text-slate-900 dark:text-slate-100">

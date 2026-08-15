@@ -105,12 +105,14 @@ export function ThemeProvider({
          root.classList.add(themeClass);
          root.setAttribute("data-theme", themeClass);
          root.setAttribute("data-contrast", contrastMode);
+         root.style.colorScheme = "normal";
       }
       if (body) {
          body.classList.remove("light", "dark");
          body.classList.add(themeClass);
          body.setAttribute("data-theme", themeClass);
          body.setAttribute("data-contrast", contrastMode);
+         body.style.colorScheme = "normal";
       }
    }, [isDarkMode, contrastMode, theme]);
 
