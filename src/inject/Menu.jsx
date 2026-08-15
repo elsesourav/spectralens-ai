@@ -12,9 +12,17 @@ import {
 } from "../components/Icons.jsx";
 import SelectorView from "../components/SelectorView.jsx";
 import Sidebar from "../components/Sidebar.jsx";
+import { useTheme } from "../hooks/useThemeHook.jsx";
 import ES from "./../utils/utilsModule.js";
 
 export default function Menu() {
+  const {
+    isDarkMode,
+    contrastMode,
+    setTheme: setChatbotTheme,
+    setContrastMode,
+  } = useTheme();
+
   const SIZES = useMemo(
     () => ({
       min: { w: "148px", h: "48px" },
@@ -29,21 +37,7 @@ export default function Menu() {
   const [size, setSize] = useState(SIZES.min);
   const [menuOpacity, setMenuOpacity] = useState("1");
   const [autoHideDelay, setAutoHideDelay] = useState(0);
-  const [chatbotTheme, setChatbotTheme] = useState(() => {
-    return localStorage.getItem("app-theme") || "system";
-  });
-  const [contrastMode, setContrastMode] = useState(() => {
-    return localStorage.getItem("app-contrast") || "solid";
-  });
   const [loadedHistoryItem, setLoadedHistoryItem] = useState(null);
-  const [pageTheme, setPageTheme] = useState(() => {
-    if (typeof window !== "undefined" && window.matchMedia) {
-      return window.matchMedia("(prefers-color-scheme: dark)").matches
-        ? "dark"
-        : "light";
-    }
-    return "dark";
-  });
 
   const menuRef = useRef(null);
   const dragRef = useRef(null);
@@ -103,18 +97,8 @@ export default function Menu() {
       setMenuOpacity("1");
     });
 
-    // Parent page theme detector
-    ES.pageOnMessage("C_IF_PAGE_THEME", (msg) => {
-      if (msg?.theme) {
-        setPageTheme(msg.theme);
-      }
-    });
-
     // Receive initial/live controls
     ES.pageOnMessage("IF_C_GET_CURRENT_CONTROLS", (data) => {
-      if (data?.pageTheme) {
-        setPageTheme(data.pageTheme);
-      }
       const controls = data?.controls;
       if (controls) {
         if (controls.autoHideDelay !== undefined) {
@@ -150,15 +134,10 @@ export default function Menu() {
         chrome.storage.onChanged.removeListener(storageListener);
       }
     };
-  }, []);
+  }, [setChatbotTheme, setContrastMode]);
 
   // Compute effective theme based on user settings
-  const effectiveTheme = useMemo(() => {
-    if (chatbotTheme === "light") return "light";
-    if (chatbotTheme === "dark") return "dark";
-    // 'system' or 'auto' matches page theme
-    return pageTheme === "dark" ? "dark" : "light";
-  }, [chatbotTheme, pageTheme]);
+  const effectiveTheme = isDarkMode ? "dark" : "light";
 
   // Dynamic theme & contrast class
   const contrastClass = useMemo(() => {

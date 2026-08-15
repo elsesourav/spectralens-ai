@@ -97,7 +97,7 @@ export function ThemeProvider({
                : {};
             controls.chatbotTheme = newTheme;
             chrome.storage.local.set({
-               [CONTROLS_KEY]: JSON.stringify(controls),
+               [CONTROLS_KEY]: controls,
             });
          });
       }
@@ -116,7 +116,7 @@ export function ThemeProvider({
                : {};
             controls.contrastMode = newContrast;
             chrome.storage.local.set({
-               [CONTROLS_KEY]: JSON.stringify(controls),
+               [CONTROLS_KEY]: controls,
             });
          });
       }
