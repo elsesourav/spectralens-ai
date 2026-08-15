@@ -1,18 +1,14 @@
-import { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import PropTypes from "prop-types";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { IoClose, IoSquare } from "react-icons/io5";
+import UTILS from "./../utils/utilsModule.js";
 import {
-  ProviderIcon,
-  ElementSelectorIcon,
-  SendPlaneIcon,
   DoubleCheckIcon,
+  ElementSelectorIcon,
+  ProviderIcon,
+  SendPlaneIcon,
   ThreeDotsIcon,
 } from "./Icons.jsx";
-import {
-  IoAdd,
-  IoClose,
-  IoSquare,
-} from "react-icons/io5";
-import UTILS from "./../utils/utilsModule.js";
 
 export default function ChatBot({
   isOpen,
@@ -66,7 +62,9 @@ export default function ChatBot({
       if (initialHistoryItem.timestamp) {
         try {
           const d = new Date(initialHistoryItem.timestamp);
-          setMessageTime(d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+          setMessageTime(
+            d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          );
         } catch {
           setMessageTime(getFormattedTime());
         }
@@ -107,11 +105,15 @@ export default function ChatBot({
 
   useEffect(() => {
     UTILS.pageOnMessage("IF_C_GET_CURRENT_CONTROLS", (data) => {
-      const { aiProviders: storedProviders, concurrentRequests } = data?.controls || {};
+      const { aiProviders: storedProviders, concurrentRequests } =
+        data?.controls || {};
       if (storedProviders && Array.isArray(storedProviders)) {
         const enabledProviders = storedProviders.filter((p) => p.enabled);
         setAiProviders(enabledProviders);
-        if (enabledProviders.length > 0 && !enabledProviders.some((p) => p.id === selectedProvider)) {
+        if (
+          enabledProviders.length > 0 &&
+          !enabledProviders.some((p) => p.id === selectedProvider)
+        ) {
           setSelectedProvider(enabledProviders[0].id);
         }
       }
@@ -126,7 +128,10 @@ export default function ChatBot({
       if (storedProviders && Array.isArray(storedProviders)) {
         const enabledProviders = storedProviders.filter((p) => p.enabled);
         setAiProviders(enabledProviders);
-        if (enabledProviders.length > 0 && !enabledProviders.some((p) => p.id === selectedProvider)) {
+        if (
+          enabledProviders.length > 0 &&
+          !enabledProviders.some((p) => p.id === selectedProvider)
+        ) {
           setSelectedProvider(enabledProviders[0].id);
         }
       }
@@ -286,7 +291,9 @@ export default function ChatBot({
         UTILS.chromeStorageGetLocal(UTILS.KEYS.HISTORY, (prevHistory = []) => {
           const historyList = Array.isArray(prevHistory) ? prevHistory : [];
           const reqId = data.requestId || currentRequestIdRef.current;
-          const existingIndex = historyList.findIndex((item) => item.id === reqId);
+          const existingIndex = historyList.findIndex(
+            (item) => item.id === reqId,
+          );
 
           let updatedHistory;
           if (existingIndex >= 0) {
@@ -341,20 +348,21 @@ export default function ChatBot({
   }, [newChatTrigger, handleNewChat]);
 
   const selectedAnswer = answers[selectedProvider];
-  const activeProviderObj =
-    displayedProviders.find((p) => p.id === selectedProvider) || {
-      id: selectedProvider,
-      name: selectedProvider.charAt(0).toUpperCase() + selectedProvider.slice(1),
-    };
+  const activeProviderObj = displayedProviders.find(
+    (p) => p.id === selectedProvider,
+  ) || {
+    id: selectedProvider,
+    name: selectedProvider.charAt(0).toUpperCase() + selectedProvider.slice(1),
+  };
 
   return (
     <div
       ref={rootRef}
       className="flex flex-col h-full bg-[#f8fafc] dark:bg-[#0e1015] text-[#0f172a] dark:text-[#f8fafc] overflow-hidden select-none"
     >
-      {/* Provider Selector Pills Bar */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-slate-200/60 dark:border-white/[0.05] bg-slate-100/60 dark:bg-[#12141c]/80 shrink-0 gap-1.5">
-        <div className="flex items-center gap-1.5 flex-1 overflow-x-auto custom-scrollbar">
+      {/* Provider Selector Tabs Bar (Carved folder-tab touching chat section) */}
+      <div className="flex items-end justify-between px-3 pt-2.5 pb-0 border-b border-slate-200/80 dark:border-white/[0.08] bg-slate-100/80 dark:bg-[#14161e] shrink-0 gap-1.5 z-10">
+        <div className="flex items-end gap-1 flex-1 overflow-x-auto custom-scrollbar -mb-[1px]">
           {primaryPills.map((provider) => {
             const isSelected = selectedProvider === provider.id;
             const hasAnswer = Boolean(answers[provider.id]);
@@ -363,16 +371,23 @@ export default function ChatBot({
               <button
                 key={provider.id}
                 onClick={() => setSelectedProvider(provider.id)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium transition-all duration-150 shrink-0 focus:outline-none cursor-pointer ${
+                className={`relative flex items-center gap-2 px-3.5 py-2 text-xs transition-all duration-150 shrink-0 focus:outline-none cursor-pointer select-none ${
                   isSelected
-                    ? "bg-blue-600 text-white shadow-sm ring-1 ring-blue-500 font-semibold"
-                    : "bg-white dark:bg-[#1a1d26] text-slate-700 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-[#222634] border border-slate-200 dark:border-white/[0.06]"
+                    ? "bg-[#f8fafc] dark:bg-[#0e1015] text-blue-600 dark:text-blue-400 font-semibold rounded-t-xl border-t border-x border-slate-200/80 dark:border-white/[0.08] z-10 shadow-xs before:content-[''] before:absolute before:-left-2.5 before:bottom-0 before:w-2.5 before:h-2.5 before:bg-transparent before:rounded-br-lg before:shadow-[2px_2px_0_0_#f8fafc] dark:before:shadow-[2px_2px_0_0_#0e1015] before:pointer-events-none after:content-[''] after:absolute after:-right-2.5 after:bottom-0 after:w-2.5 after:h-2.5 after:bg-transparent after:rounded-bl-lg after:shadow-[-2px_2px_0_0_#f8fafc] dark:after:shadow-[-2px_2px_0_0_#0e1015] after:pointer-events-none"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-white/[0.05] rounded-t-lg mb-1"
                 } ${!hasAnswer && isLoading ? "opacity-75" : ""}`}
               >
-                <ProviderIcon id={provider.id} className="w-4 h-4 shrink-0" size={16} />
+                <ProviderIcon
+                  id={provider.id}
+                  className="w-4 h-4 shrink-0"
+                  size={16}
+                />
                 <span>{provider.name}</span>
                 {hasAnswer && !isSelected && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                  <span
+                    className="w-2 h-2 rounded-full bg-emerald-500 shadow-xs shadow-emerald-500/50 shrink-0 animate-pulse"
+                    title="Response ready"
+                  />
                 )}
               </button>
             );
@@ -381,7 +396,7 @@ export default function ChatBot({
 
         {/* Overflow 3-dots Menu for 4+ providers */}
         {overflowProviders.length > 0 && (
-          <div className="relative shrink-0" ref={moreMenuRef}>
+          <div className="relative shrink-0 mb-1" ref={moreMenuRef}>
             <button
               onClick={() => setIsMoreMenuOpen((v) => !v)}
               title="More AI Models"
@@ -394,29 +409,41 @@ export default function ChatBot({
               <ThreeDotsIcon className="w-4 h-4" size={16} />
             </button>
 
-              {isMoreMenuOpen && (
-                <div className="absolute right-0 top-full mt-1.5 w-44 rounded-xl bg-white dark:bg-[#1a1d26] border border-slate-200 dark:border-white/10 shadow-xl py-1 z-30 animate-fade-in">
-                  {overflowProviders.map((provider) => (
-                    <button
-                      key={provider.id}
-                      onClick={() => {
-                        setSelectedProvider(provider.id);
-                        setIsMoreMenuOpen(false);
-                      }}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-left transition-colors focus:outline-none cursor-pointer ${
-                        selectedProvider === provider.id
-                          ? "bg-blue-600/15 text-blue-600 dark:text-blue-400 font-semibold"
-                          : "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5"
-                      }`}
-                    >
-                      <ProviderIcon id={provider.id} className="w-4 h-4 shrink-0" size={16} />
+            {isMoreMenuOpen && (
+              <div className="absolute right-0 top-full mt-1.5 w-44 rounded-xl bg-white dark:bg-[#1a1d26] border border-slate-200 dark:border-white/10 shadow-xl py-1 z-30 animate-fade-in">
+                {overflowProviders.map((provider) => (
+                  <button
+                    key={provider.id}
+                    onClick={() => {
+                      setSelectedProvider(provider.id);
+                      setIsMoreMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-left transition-colors focus:outline-none cursor-pointer ${
+                      selectedProvider === provider.id
+                        ? "bg-blue-600/15 text-blue-600 dark:text-blue-400 font-semibold"
+                        : "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <ProviderIcon
+                        id={provider.id}
+                        className="w-4 h-4 shrink-0"
+                        size={16}
+                      />
                       <span className="truncate">{provider.name}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+                    </div>
+                    {Boolean(answers[provider.id]) && selectedProvider !== provider.id && (
+                      <span
+                        className="w-2 h-2 rounded-full bg-emerald-500 shadow-xs shadow-emerald-500/50 shrink-0 animate-pulse"
+                        title="Response ready"
+                      />
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Main Messages Scroll Area */}
@@ -435,7 +462,8 @@ export default function ChatBot({
                 Compare AI Models Side-by-Side
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-[240px]">
-                Ask questions across Google AI, Bing AI, Gemini, and more in real-time.
+                Ask questions across Google AI, Bing AI, Gemini, and more in
+                real-time.
               </p>
             </div>
           </div>
@@ -450,7 +478,10 @@ export default function ChatBot({
               </p>
               <div className="flex items-center justify-end gap-1 mt-1 text-[10px] text-blue-200/90 font-medium">
                 <span>{messageTime || getFormattedTime()}</span>
-                <DoubleCheckIcon className="w-3.5 h-3.5 text-blue-200" size={14} />
+                <DoubleCheckIcon
+                  className="w-3.5 h-3.5 text-blue-200"
+                  size={14}
+                />
               </div>
             </div>
           </div>

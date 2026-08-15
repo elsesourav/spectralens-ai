@@ -176,6 +176,7 @@ function __PUSH_MENU__(tabId) {
                   border: none !important;
                   border-radius: 9999px;
                   z-index: 825003263;
+                  overscroll-behavior: contain !important;
                   transition: opacity 200ms ease-in-out;
                }
             `;

@@ -43,11 +43,16 @@
   --text-muted: #64748b;
 }
 
+html, body, #root, main {
+  overscroll-behavior: contain;
+}
+
 body {
   overflow: hidden;
   user-select: none;
   scrollbar-width: none;
   -ms-overflow-style: none;
+  overscroll-behavior: contain;
 }
 
 body::-webkit-scrollbar {
@@ -58,6 +63,7 @@ body::-webkit-scrollbar {
 .custom-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: rgba(148, 163, 184, 0.25) transparent;
+  overscroll-behavior: contain;
 }
 
 .custom-scrollbar::-webkit-scrollbar {
