@@ -1,7 +1,6 @@
 import PropTypes from "prop-types";
 import {
   ChatIcon,
-  ElementSelectorIcon,
   HistoryIcon,
   SettingsIcon,
 } from "./Icons.jsx";
@@ -17,11 +16,6 @@ export default function Sidebar({ activeTab, onSelectTab }) {
       id: "chat",
       label: "Chat",
       icon: ChatIcon,
-    },
-    {
-      id: "selector",
-      label: "Element Selector",
-      icon: ElementSelectorIcon,
     },
     {
       id: "history",
@@ -40,9 +34,9 @@ export default function Sidebar({ activeTab, onSelectTab }) {
   };
 
   return (
-    <aside className="w-[56px] h-full flex flex-col items-center justify-between py-3.5 bg-[#f1f5f9] dark:bg-[#14161e] border-r border-slate-200/80 dark:border-white/[0.07] shrink-0 select-none z-20">
+    <aside className="w-[56px] h-full flex flex-col items-center justify-between py-3 bg-[#f1f5f9] dark:bg-[#14161e] border-r border-slate-200/80 dark:border-white/[0.07] shrink-0 select-none z-20">
       {/* Top App Logo & Navigation */}
-      <div className="flex flex-col items-center gap-4 w-full">
+      <div className="flex flex-col items-center gap-3.5 w-full">
         {/* App Logo */}
         <button
           onClick={() => onSelectTab("chat")}
@@ -56,7 +50,7 @@ export default function Sidebar({ activeTab, onSelectTab }) {
           />
         </button>
 
-        {/* Navigation Tabs */}
+        {/* Navigation Tabs (Chat, History, Settings) */}
         <nav className="flex flex-col items-center gap-2 w-full px-2">
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -66,15 +60,15 @@ export default function Sidebar({ activeTab, onSelectTab }) {
                 key={item.id}
                 onClick={() => onSelectTab(item.id)}
                 title={item.label}
-                className={`relative w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-150 focus:outline-none cursor-pointer group ${
+                className={`relative w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-150 focus:outline-none cursor-pointer ${
                   isActive
-                    ? "bg-blue-600/15 text-blue-600 dark:bg-[#232736] dark:text-blue-400 shadow-sm border border-blue-500/25"
+                    ? "bg-blue-600/15 text-blue-600 dark:bg-[#232736] dark:text-blue-400 shadow-xs border border-blue-500/25"
                     : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-white/[0.06]"
                 }`}
               >
                 <Icon className="w-5 h-5" size={20} />
 
-                {/* Subtle active pill indicator on left edge */}
+                {/* Left Active Pill Indicator */}
                 {isActive && (
                   <span className="absolute left-[-8px] top-1/2 -translate-y-1/2 w-1 h-5 bg-blue-500 rounded-r-full" />
                 )}
@@ -84,17 +78,17 @@ export default function Sidebar({ activeTab, onSelectTab }) {
         </nav>
       </div>
 
-      {/* Bottom Controls: Theme Toggle */}
+      {/* Bottom Controls: Theme Toggle matching popup header theme changer */}
       <div className="flex flex-col items-center gap-2 w-full px-2">
         <button
           onClick={handleToggleTheme}
-          title={isDarkMode ? "Switch to Light Theme" : "Switch to Dark Theme"}
-          className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-amber-300 hover:bg-slate-200/60 dark:hover:bg-white/[0.06] transition-all focus:outline-none cursor-pointer"
+          className="size-9 rounded-xl grid place-items-center transition-all duration-300 dark:bg-black/40 dark:hover:bg-black/50 bg-black/10 hover:bg-black/20 cursor-pointer focus:outline-none"
+          title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
         >
           {isDarkMode ? (
-            <IoSunny className="w-5 h-5 text-amber-400" />
+            <IoSunny className="size-5 text-amber-400 hover:rotate-45 transition-transform duration-300" />
           ) : (
-            <IoMoon className="w-5 h-5 text-blue-500" />
+            <IoMoon className="size-5 text-blue-500 hover:rotate-12 transition-transform duration-300" />
           )}
         </button>
       </div>

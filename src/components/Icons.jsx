@@ -1,257 +1,171 @@
 import PropTypes from "prop-types";
 
 // ==========================================
-// AI Provider Colorful Brand SVG Icons
+// 1. Google AI SVG (Exact user-provided JSX)
 // ==========================================
-
 export function GoogleIcon({ className = "w-4 h-4", size = 16 }) {
   return (
     <svg
-      className={className}
       width={size}
       height={size}
-      viewBox="0 0 24 24"
-      fill="none"
       xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 16 16"
+      className={className}
     >
-      <path
-        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-        fill="#4285F4"
-      />
-      <path
-        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-        fill="#34A853"
-      />
-      <path
-        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-        fill="#FBBC05"
-      />
-      <path
-        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-        fill="#EA4335"
-      />
+      <g fill="none" fillRule="evenodd" clipRule="evenodd">
+        <path
+          fill="#F44336"
+          d="M7.209 1.061c.725-.081 1.154-.081 1.933 0a6.57 6.57 0 0 1 3.65 1.82a100 100 0 0 0-1.986 1.93q-1.876-1.59-4.188-.734q-1.696.78-2.362 2.528a78 78 0 0 1-2.148-1.658a.26.26 0 0 0-.16-.027q1.683-3.245 5.26-3.86"
+          opacity={0.987}
+        />
+        <path
+          fill="#FFC107"
+          d="M1.946 4.92q.085-.013.161.027a78 78 0 0 0 2.148 1.658A7.6 7.6 0 0 0 4.04 7.99q.037.678.215 1.331L2 11.116Q.527 8.038 1.946 4.92"
+          opacity={0.997}
+        />
+        <path
+          fill="#448AFF"
+          d="M12.685 13.29a26 26 0 0 0-2.202-1.74q1.15-.812 1.396-2.228H8.122V6.713q3.25-.027 6.497.055q.616 3.345-1.423 6.032a7 7 0 0 1-.51.49"
+          opacity={0.999}
+        />
+        <path
+          fill="#43A047"
+          d="M4.255 9.322q1.23 3.057 4.51 2.854a3.94 3.94 0 0 0 1.718-.626q1.148.812 2.202 1.74a6.62 6.62 0 0 1-4.027 1.684a6.4 6.4 0 0 1-1.02 0Q3.82 14.524 2 11.116z"
+          opacity={0.993}
+        />
+      </g>
     </svg>
   );
 }
 
 GoogleIcon.propTypes = { className: PropTypes.string, size: PropTypes.number };
 
+// ==========================================
+// 2. Bing AI SVG (Exact user-provided JSX)
+// ==========================================
 export function BingIcon({ className = "w-4 h-4", size = 16 }) {
   return (
     <svg
-      className={className}
+      xmlns="http://www.w3.org/2000/svg"
       width={size}
       height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 256 388"
+      className={className}
     >
-      <path
-        d="M5 3.5V20.5L10.5 17.5L14 20L19 17V7.5L13.5 5.5L8.5 7.5L5 3.5ZM8.5 7.5V15.5L13.5 13V8.5L8.5 7.5Z"
-        fill="url(#bing-gradient)"
-      />
       <defs>
-        <linearGradient id="bing-gradient" x1="5" y1="3.5" x2="19" y2="20.5" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#008AD7" />
-          <stop offset="0.5" stopColor="#0078D4" />
-          <stop offset="1" stopColor="#005A9E" />
+        <radialGradient
+          id="bing-a"
+          cx="93.717%"
+          cy="77.818%"
+          r="143.121%"
+          fx="93.717%"
+          fy="77.818%"
+          gradientTransform="matrix(-.65486 -.5438 .75575 -.4712 .963 1.655)"
+        >
+          <stop offset="0%" stopColor="#00cacc" />
+          <stop offset="100%" stopColor="#048fce" />
+        </radialGradient>
+        <radialGradient
+          id="bing-b"
+          cx="13.893%"
+          cy="71.448%"
+          r="150.086%"
+          fx="13.893%"
+          fy="71.448%"
+          gradientTransform="matrix(.55155 -.39387 .23634 .91917 -.107 .112)"
+        >
+          <stop offset="0%" stopColor="#00bbec" />
+          <stop offset="100%" stopColor="#2756a9" />
+        </radialGradient>
+        <linearGradient id="bing-c" x1="50%" x2="50%" y1="0%" y2="100%">
+          <stop offset="0%" stopColor="#00bbec" />
+          <stop offset="100%" stopColor="#2756a9" />
         </linearGradient>
       </defs>
+      <path
+        fill="url(#bing-a)"
+        d="M129.424 122.047c-7.133.829-12.573 6.622-13.079 13.928-.218 3.147-.15 3.36 6.986 21.722 16.233 41.774 20.166 51.828 20.827 53.243 1.603 3.427 3.856 6.65 6.672 9.544 2.16 2.22 3.585 3.414 5.994 5.024 4.236 2.829 6.337 3.61 22.818 8.49 16.053 4.754 24.824 7.913 32.381 11.664 9.791 4.86 16.623 10.387 20.944 16.946 3.1 4.706 5.846 13.145 7.04 21.64.468 3.321.47 10.661.006 13.663-1.008 6.516-3.021 11.976-6.101 16.545-1.638 2.43-1.068 2.023 1.313-.939 6.74-8.379 13.605-22.7 17.108-35.687 4.24-15.718 4.817-32.596 1.66-48.57-6.147-31.108-25.786-57.955-53.444-73.06-1.738-.95-8.357-4.42-17.331-9.085a1633 1633 0 0 1-4.127-2.154c-.907-.477-2.764-1.447-4.126-2.154-1.362-.708-5.282-2.75-8.711-4.539l-8.528-4.446a6021 6021 0 0 1-8.344-4.357c-8.893-4.655-12.657-6.537-13.73-6.863-1.125-.343-3.984-.782-4.701-.723-.152.012-.838.088-1.527.168"
+      />
+      <path
+        fill="url(#bing-b)"
+        d="M148.81 277.994c-.493.292-1.184.714-1.537.938-.354.225-1.137.712-1.743 1.083a8315 8315 0 0 0-13.204 8.137 2848 2848 0 0 0-8.07 4.997 388 388 0 0 1-3.576 2.198c-.454.271-2.393 1.465-4.31 2.654a2652 2652 0 0 1-7.427 4.586 3958 3958 0 0 0-8.62 5.316 3011 3011 0 0 1-7.518 4.637c-1.564.959-3.008 1.885-3.21 2.058-.3.257-14.205 8.87-21.182 13.121-5.3 3.228-11.43 5.387-17.705 6.235-2.921.395-8.45.396-11.363.003-7.9-1.067-15.176-4.013-21.409-8.666-2.444-1.826-7.047-6.425-8.806-8.8-4.147-5.598-6.829-11.602-8.218-18.396-.32-1.564-.622-2.884-.672-2.935-.13-.13.105 2.231.528 5.319.44 3.211 1.377 7.856 2.387 11.829 7.814 30.743 30.05 55.749 60.15 67.646 8.668 3.424 17.415 5.582 26.932 6.64 3.576.4 13.699.56 17.43.276 17.117-1.296 32.02-6.334 47.308-15.996 1.362-.86 3.92-2.474 5.685-3.585a877 877 0 0 0 4.952-3.14c.958-.615 2.114-1.341 2.567-1.614a91 91 0 0 0 2.018-1.268c.656-.424 3.461-2.2 6.235-3.944l11.092-7.006 3.809-2.406.137-.086.42-.265.199-.126 2.804-1.771 9.69-6.121c12.348-7.759 16.03-10.483 21.766-16.102 2.392-2.342 5.997-6.34 6.176-6.848.037-.104.678-1.092 1.424-2.197 3.036-4.492 5.06-9.995 6.064-16.484.465-3.002.462-10.342-.005-13.663-.903-6.42-2.955-13.702-5.167-18.339-3.627-7.603-11.353-14.512-22.453-20.076-3.065-1.537-6.23-2.943-6.583-2.924-.168.009-10.497 6.322-22.954 14.03-12.457 7.71-23.268 14.4-24.025 14.87a290 290 0 0 1-2.888 1.764z"
+      />
+      <path
+        fill="url(#bing-c)"
+        d="m.053 241.013.054 53.689.695 3.118c2.172 9.747 5.937 16.775 12.482 23.302 3.078 3.07 5.432 4.922 8.768 6.896 7.06 4.177 14.657 6.238 22.978 6.235 8.716-.005 16.256-2.179 24.025-6.928 1.311-.801 6.449-3.964 11.416-7.029l9.032-5.572v-127.4l-.002-58.273c-.002-37.177-.07-59.256-.188-60.988-.74-10.885-5.293-20.892-12.948-28.461-2.349-2.323-4.356-3.875-10.336-7.99a25160 25160 0 0 1-12.104-8.336L28.617 5.835C22.838 1.85 22.386 1.574 20.639.949 18.367.136 15.959-.163 13.67.084 6.998.804 1.657 5.622.269 12.171.053 13.191.013 26.751.01 100.35l-.003 86.975H0z"
+      />
     </svg>
   );
 }
 
 BingIcon.propTypes = { className: PropTypes.string, size: PropTypes.number };
 
+// ==========================================
+// 3. Gemini SVG (Exact user-provided JSX)
+// ==========================================
 export function GeminiIcon({ className = "w-4 h-4", size = 16 }) {
   return (
     <svg
-      className={className}
       width={size}
       height={size}
-      viewBox="0 0 24 24"
-      fill="none"
       xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 16 16"
+      className={className}
     >
       <path
-        d="M12 2C12 7.52 7.52 12 2 12C7.52 12 12 16.48 12 22C12 16.48 16.48 12 22 12C16.48 12 12 7.52 12 2Z"
-        fill="url(#gemini-sparkle-gradient)"
+        fill="#448aff"
+        d="M15 8.014A7.457 7.457 0 0 0 8.014 15h-.028A7.456 7.456 0 0 0 1 8.014v-.028A7.456 7.456 0 0 0 7.986 1h.028A7.457 7.457 0 0 0 15 7.986z"
       />
-      <circle cx="19" cy="5" r="2" fill="#9168F8" />
-      <circle cx="5" cy="19" r="1.5" fill="#3D85F7" />
-      <defs>
-        <linearGradient id="gemini-sparkle-gradient" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#9168F8" />
-          <stop offset="0.5" stopColor="#5E7BF8" />
-          <stop offset="1" stopColor="#3D85F7" />
-        </linearGradient>
-      </defs>
     </svg>
   );
 }
 
 GeminiIcon.propTypes = { className: PropTypes.string, size: PropTypes.number };
 
+// ==========================================
+// 4. Perplexity SVG (Exact user-provided JSX)
+// ==========================================
 export function PerplexityIcon({ className = "w-4 h-4", size = 16 }) {
   return (
     <svg
-      className={className}
+      xmlns="http://www.w3.org/2000/svg"
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
+      className={className}
     >
       <path
-        d="M12 2L4 7V17L12 22L20 17V7L12 2Z"
-        stroke="#20B8CD"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+        d="M19.785 0v7.272H22.5V17.62h-2.935V24l-7.037-6.194v6.145h-1.091v-6.152L4.392 24v-6.465H1.5V7.188h2.884V0l7.053 6.494V.19h1.09v6.49L19.786 0zm-7.257 9.044v7.319l5.946 5.234V14.44l-5.946-5.397zm-1.099-.08l-5.946 5.398v7.235l5.946-5.234V8.965zm8.136 7.58h1.844V8.349H13.46l6.105 5.54v2.655zm-8.982-8.28H2.59v8.195h1.8v-2.576l6.192-5.62zM5.475 2.476v4.71h5.115l-5.115-4.71zm13.219 0l-5.115 4.71h5.115v-4.71z"
+        fill="#22B8CD"
+        fillRule="nonzero"
       />
-      <path d="M12 2V22" stroke="#20B8CD" strokeWidth="2" strokeLinecap="round" />
-      <path d="M4 7L20 17" stroke="#20B8CD" strokeWidth="2" strokeLinecap="round" />
-      <path d="M20 7L4 17" stroke="#20B8CD" strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }
 
 PerplexityIcon.propTypes = { className: PropTypes.string, size: PropTypes.number };
 
+// ==========================================
+// 5. Grok AI SVG (Exact user-provided JSX)
+// ==========================================
 export function GrokIcon({ className = "w-4 h-4", size = 16 }) {
   return (
     <svg
-      className={className}
+      xmlns="http://www.w3.org/2000/svg"
       width={size}
       height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 48 48"
+      className={className}
+      fill="currentColor"
     >
-      <path
-        d="M3 21L13.5 10.5M21 3L10.5 13.5M3 3H8L21 21H16L3 3Z"
-        stroke="url(#grok-gradient)"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <defs>
-        <linearGradient id="grok-gradient" x1="3" y1="3" x2="21" y2="21" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#F43F5E" />
-          <stop offset="1" stopColor="#8B5CF6" />
-        </linearGradient>
-      </defs>
+      <path d="M18.542 30.532l15.956-11.776c.783-.576 1.902-.354 2.274.545 1.962 4.728 1.084 10.411-2.819 14.315-3.903 3.901-9.333 4.756-14.299 2.808l-5.423 2.511c7.778 5.315 17.224 4 23.125-1.903 4.682-4.679 6.131-11.058 4.775-16.812l.011.011c-1.966-8.452.482-11.829 5.501-18.735C47.759 1.332 47.88 1.166 48 1l-6.602 6.599V7.577l-22.86 22.958M15.248 33.392c-5.582-5.329-4.619-13.579.142-18.339 3.521-3.522 9.294-4.958 14.331-2.847l5.412-2.497c-.974-.704-2.224-1.46-3.659-1.994-6.478-2.666-14.238-1.34-19.505 3.922C6.904 16.701 5.31 24.488 8.045 31.133c2.044 4.965-1.307 8.48-4.682 12.023C2.164 44.411.967 45.67 0 47l15.241-13.608" />
     </svg>
   );
 }
 
 GrokIcon.propTypes = { className: PropTypes.string, size: PropTypes.number };
 
-export function ChatGPTIcon({ className = "w-4 h-4", size = 16 }) {
-  return (
-    <svg
-      className={className}
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        d="M20.5 10.2A5 5 0 0 0 17 3.5a5.05 5.05 0 0 0-4.6 2.3A5 5 0 0 0 4 7.2a5 5 0 0 0 .5 7.6 5 5 0 0 0 3.5 6.7 5.05 5.05 0 0 0 4.6-2.3 5 5 0 0 0 8.4-1.4 5 5 0 0 0-.5-7.6z"
-        stroke="#10A37F"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M12 9v6M9.5 10.5l5 3M14.5 10.5l-5 3"
-        stroke="#10A37F"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-ChatGPTIcon.propTypes = { className: PropTypes.string, size: PropTypes.number };
-
-export function ClaudeIcon({ className = "w-4 h-4", size = 16 }) {
-  return (
-    <svg
-      className={className}
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <circle cx="12" cy="12" r="9" fill="#D97757" />
-      <path
-        d="M12 6V18M6 12H18M7.75 7.75L16.25 16.25M16.25 7.75L7.75 16.25"
-        stroke="#FFFFFF"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-ClaudeIcon.propTypes = { className: PropTypes.string, size: PropTypes.number };
-
-export function DeepSeekIcon({ className = "w-4 h-4", size = 16 }) {
-  return (
-    <svg
-      className={className}
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        d="M12 3C7.03 3 3 7.03 3 12C3 16.97 7.03 21 12 21C16.97 21 21 16.97 21 12"
-        stroke="#1E88E5"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-      />
-      <path
-        d="M17 7L11 13L8 10"
-        stroke="#00E5FF"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <circle cx="19" cy="5" r="2.5" fill="#1E88E5" />
-    </svg>
-  );
-}
-
-DeepSeekIcon.propTypes = { className: PropTypes.string, size: PropTypes.number };
-
-export function OllamaIcon({ className = "w-4 h-4", size = 16 }) {
-  return (
-    <svg
-      className={className}
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        d="M7 18C7 19.1 7.9 20 9 20H15C16.1 20 17 19.1 17 18V13H7V18ZM17 10C17 8.9 16.1 8 15 8H14V5C14 4.45 13.55 4 13 4H11C10.45 4 10 4.45 10 5V8H9C7.9 8 7 8.9 7 10V11H17V10Z"
-        fill="#38BDF8"
-      />
-      <circle cx="10" cy="14.5" r="1" fill="#0F172A" />
-      <circle cx="14" cy="14.5" r="1" fill="#0F172A" />
-    </svg>
-  );
-}
-
-OllamaIcon.propTypes = { className: PropTypes.string, size: PropTypes.number };
-
-// Helper to get Provider SVG by ID
+// Provider Icon Selector
 export function ProviderIcon({ id, className = "w-4 h-4", size = 16 }) {
   const iconMap = {
     google: GoogleIcon,
@@ -259,10 +173,6 @@ export function ProviderIcon({ id, className = "w-4 h-4", size = 16 }) {
     gemini: GeminiIcon,
     perplexity: PerplexityIcon,
     grok: GrokIcon,
-    chatgpt: ChatGPTIcon,
-    claude: ClaudeIcon,
-    deepseek: DeepSeekIcon,
-    ollama: OllamaIcon,
   };
 
   const Component = iconMap[id?.toLowerCase()] || GoogleIcon;
@@ -276,88 +186,93 @@ ProviderIcon.propTypes = {
 };
 
 // ==========================================
-// UI & Navigation Icons (Pixel-matched)
+// 6. Chat Icon (Exact user-provided JSX)
 // ==========================================
-
-export function AppLogoIcon({ className = "w-6 h-6", size = 24 }) {
-  return (
-    <svg
-      className={className}
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <rect width="24" height="24" rx="7" fill="url(#app-logo-bg)" />
-      <path
-        d="M7 8C7 6.89543 7.89543 6 9 6H15C16.1046 6 17 6.89543 17 8V14C17 15.1046 16.1046 16 15 16H11L7 19V8Z"
-        stroke="#FFFFFF"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <circle cx="10.5" cy="11" r="1" fill="#FFFFFF" />
-      <circle cx="13.5" cy="11" r="1" fill="#FFFFFF" />
-      <defs>
-        <linearGradient id="app-logo-bg" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#6366F1" />
-          <stop offset="1" stopColor="#3B82F6" />
-        </linearGradient>
-      </defs>
-    </svg>
-  );
-}
-
-AppLogoIcon.propTypes = { className: PropTypes.string, size: PropTypes.number };
-
 export function ChatIcon({ className = "w-5 h-5", size = 20 }) {
   return (
     <svg
-      className={className}
       width={size}
       height={size}
       viewBox="0 0 24 24"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
+      className={className}
     >
       <path
-        d="M6 6C6 4.89543 6.89543 4 8 4H16C17.1046 4 18 4.89543 18 6V15C18 16.1046 17.1046 17 16 17H11L7 20V17H6C4.89543 17 4 16.1046 4 15V8C4 6.89543 4.89543 6 6 6Z"
+        d="M4 12C4 7.58172 7.58172 4 12 4V4C16.4183 4 20 7.58172 20 12V17.0909C20 17.9375 20 18.3608 19.8739 18.6989C19.6712 19.2425 19.2425 19.6712 18.6989 19.8739C18.3608 20 17.9375 20 17.0909 20H12C7.58172 20 4 16.4183 4 12V12Z"
         stroke="currentColor"
-        strokeWidth="1.9"
+        strokeWidth={2}
+      />
+      <path
+        d="M9 11L15 11"
+        stroke="currentColor"
+        strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <circle cx="9.5" cy="10.5" r="1.1" fill="currentColor" />
-      <circle cx="14.5" cy="10.5" r="1.1" fill="currentColor" />
+      <path
+        d="M12 15H15"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
 
 ChatIcon.propTypes = { className: PropTypes.string, size: PropTypes.number };
 
+// ==========================================
+// 7. Element Selector / Scan SVG (Exact user-provided JSX)
+// ==========================================
 export function ElementSelectorIcon({ className = "w-5 h-5", size = 20 }) {
   return (
     <svg
-      className={className}
       width={size}
       height={size}
       viewBox="0 0 24 24"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
+      className={className}
     >
-      <path
-        d="M4 8V5C4 4.44772 4.44772 4 5 4H8M16 4H19C19.5523 4 20 4.44772 20 5V8M20 16V19C20 19.5523 19.5523 20 19 20H16M8 20H5C4.44772 20 4 19.5523 4 19V16"
-        stroke="currentColor"
-        strokeWidth="2"
+      <line
+        x1={3}
+        y1={12}
+        x2={21}
+        y2={12}
+        stroke="#2CA9BC"
         strokeLinecap="round"
         strokeLinejoin="round"
+        strokeWidth={2}
       />
       <path
-        d="M12 8V16M8 12H16"
+        d="M3 7V4A1 1 0 0 1 4 3H7"
         stroke="currentColor"
-        strokeWidth="2"
         strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+      />
+      <path
+        d="M21 7V4a1 1 0 0 0-1-1H17"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+      />
+      <path
+        d="M3 17v3a1 1 0 0 0 1 1H7"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+      />
+      <path
+        d="M21 17v3a1 1 0 0 1-1 1H17"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
       />
     </svg>
   );
@@ -365,6 +280,9 @@ export function ElementSelectorIcon({ className = "w-5 h-5", size = 20 }) {
 
 ElementSelectorIcon.propTypes = { className: PropTypes.string, size: PropTypes.number };
 
+// ==========================================
+// 8. Navigation & Utility UI Icons
+// ==========================================
 export function HistoryIcon({ className = "w-5 h-5", size = 20 }) {
   return (
     <svg
@@ -375,11 +293,11 @@ export function HistoryIcon({ className = "w-5 h-5", size = 20 }) {
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
     >
-      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.9" />
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
       <path
         d="M12 7V12L15.5 14"
         stroke="currentColor"
-        strokeWidth="1.9"
+        strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -402,12 +320,12 @@ export function SettingsIcon({ className = "w-5 h-5", size = 20 }) {
       <path
         d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z"
         stroke="currentColor"
-        strokeWidth="1.9"
+        strokeWidth="2"
       />
       <path
         d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
         stroke="currentColor"
-        strokeWidth="1.9"
+        strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -485,28 +403,6 @@ export function SendPlaneIcon({ className = "w-4 h-4", size = 16 }) {
 }
 
 SendPlaneIcon.propTypes = { className: PropTypes.string, size: PropTypes.number };
-
-export function FilterSlidersIcon({ className = "w-4 h-4", size = 16 }) {
-  return (
-    <svg
-      className={className}
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        d="M4 6H14M18 6H20M14 4V8M4 12H8M12 12H20M8 10V14M4 18H16M20 18H20.01M16 16V20"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-FilterSlidersIcon.propTypes = { className: PropTypes.string, size: PropTypes.number };
 
 export function ThreeDotsIcon({ className = "w-4 h-4", size = 16 }) {
   return (

@@ -3,7 +3,6 @@ import PropTypes from "prop-types";
 import {
   ProviderIcon,
   ElementSelectorIcon,
-  FilterSlidersIcon,
   SendPlaneIcon,
   DoubleCheckIcon,
   ThreeDotsIcon,
@@ -19,7 +18,6 @@ export default function ChatBot({
   isOpen,
   initialHistoryItem = null,
   onClearLoadedHistory,
-  onOpenSettings,
   onOpenSelector,
 }) {
   const [input, setInput] = useState("");
@@ -555,7 +553,7 @@ export default function ChatBot({
             </button>
           )}
 
-          {/* Action Buttons: Element Selector & Settings Shortcut */}
+          {/* Action Buttons: Element Selector Shortcut */}
           <div className="flex items-center gap-1 pl-1 border-l border-slate-200 dark:border-white/10">
             <button
               onClick={onOpenSelector}
@@ -563,14 +561,6 @@ export default function ChatBot({
               className="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-all focus:outline-none cursor-pointer"
             >
               <ElementSelectorIcon className="w-4 h-4" size={16} />
-            </button>
-
-            <button
-              onClick={onOpenSettings}
-              title="AI Settings"
-              className="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-all focus:outline-none cursor-pointer"
-            >
-              <FilterSlidersIcon className="w-4 h-4" size={16} />
             </button>
 
             {/* Send / Stop Button */}
@@ -607,6 +597,5 @@ ChatBot.propTypes = {
   isOpen: PropTypes.bool,
   initialHistoryItem: PropTypes.object,
   onClearLoadedHistory: PropTypes.func,
-  onOpenSettings: PropTypes.func,
   onOpenSelector: PropTypes.func,
 };

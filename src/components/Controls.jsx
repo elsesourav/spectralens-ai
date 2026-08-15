@@ -24,11 +24,7 @@ const DEFAULT_AI_OPTIONS = [
   { id: "bing", name: "Bing AI", enabled: true },
   { id: "gemini", name: "Gemini", enabled: true },
   { id: "perplexity", name: "Perplexity", enabled: false },
-  { id: "chatgpt", name: "ChatGPT (OpenAI)", enabled: false },
-  { id: "claude", name: "Claude (Anthropic)", enabled: false },
-  { id: "deepseek", name: "DeepSeek", enabled: false },
   { id: "grok", name: "Grok AI", enabled: false },
-  { id: "ollama", name: "Ollama (Local)", enabled: false },
 ];
 
 export default function Controls({ onBack }) {

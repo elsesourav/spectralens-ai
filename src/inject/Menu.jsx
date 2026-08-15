@@ -305,7 +305,6 @@ export default function Menu() {
                     isOpen={isChatOpen}
                     initialHistoryItem={loadedHistoryItem}
                     onClearLoadedHistory={() => setLoadedHistoryItem(null)}
-                    onOpenSettings={() => setActiveTab("settings")}
                     onOpenSelector={() => handleSelectElement()}
                   />
                 </div>
