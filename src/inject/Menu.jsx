@@ -141,7 +141,11 @@ export default function Menu() {
     });
 
     return () => {
-      if (storageListener && typeof chrome !== "undefined" && chrome.storage?.onChanged) {
+      if (
+        storageListener &&
+        typeof chrome !== "undefined" &&
+        chrome.storage?.onChanged
+      ) {
         chrome.storage.onChanged.removeListener(storageListener);
       }
     };
@@ -254,7 +258,7 @@ export default function Menu() {
           ES.pagePostMessage(
             "IF_C_MENU_WINDOW_MOVE",
             { deltaX, deltaY },
-            window.parent
+            window.parent,
           );
         }
       };
@@ -398,7 +402,7 @@ export default function Menu() {
                 <img
                   src={appIconUrl}
                   alt="SpectraLens AI"
-                  className="w-4 h-4 rounded-md object-contain shadow-2xs"
+                  className="size-6 rounded-md object-contain shadow-2xs"
                 />
                 <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
                   SpectraLens AI
