@@ -36,17 +36,15 @@ export default function ToggleButton() {
   return (
     <div className="w-full">
       <div
-        className={`animated-button relative w-full h-[52px] rounded-xl flex items-center shadow-md transition-[filter,opacity] duration-150 overflow-hidden cursor-pointer ${
-          !checked ? "grayscale opacity-80" : ""
-        }`}
+        className="relative w-full h-[52px] rounded-xl flex items-center bg-white dark:bg-[#181a24] border border-slate-200/90 dark:border-white/[0.08] hover:border-blue-400/40 dark:hover:border-white/[0.15] shadow-xs transition-all duration-200 overflow-hidden cursor-pointer select-none"
         onClick={handleClick}
       >
         <div className="flex items-center justify-between w-full px-4 pointer-events-none">
           <div className="flex flex-col items-start justify-center">
-            <span className="font-bold text-[15px] text-white z-4 relative leading-tight">
+            <span className="font-bold text-[14px] text-slate-800 dark:text-slate-100 leading-tight">
               Floating AI Menu
             </span>
-            <span className="text-[11px] text-white/80 z-4 relative leading-normal">
+            <span className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal">
               {checked ? "Active on web pages" : "Click to activate"}
             </span>
           </div>
@@ -57,11 +55,7 @@ export default function ToggleButton() {
               id="main-toggle"
               checked={checked}
               onChange={() => {}}
-              className="pointer-events-none"
-              style={{
-                "--switch-color-off": "var(--toggle-switch-off)",
-                "--switch-color-on": "var(--toggle-switch-on)",
-              }}
+              className="switch-blue pointer-events-none"
             />
           </div>
         </div>

@@ -92,8 +92,26 @@ input[type="checkbox"]:not(.btn):before {
 }
 
 input[type="checkbox"]:not(.btn):checked {
-   background-color: var(--toggle-switch-on, #10b981);
+   background-color: var(--switch-color-on, #10b981);
    border-color: rgba(0, 0, 0, 0.08);
+}
+
+input[type="checkbox"]:not(.btn).switch-blue:checked {
+   background-color: #2563eb !important;
+   border-color: rgba(37, 99, 235, 0.4) !important;
+   box-shadow: 0 0 10px rgba(37, 99, 235, 0.35) !important;
+}
+
+input[type="checkbox"]:not(.btn).switch-orange:checked {
+   background-color: #ea580c !important;
+   border-color: rgba(234, 88, 12, 0.4) !important;
+   box-shadow: 0 0 10px rgba(234, 88, 12, 0.35) !important;
+}
+
+input[type="checkbox"]:not(.btn).switch-purple:checked {
+   background-color: #9333ea !important;
+   border-color: rgba(147, 51, 234, 0.4) !important;
+   box-shadow: 0 0 10px rgba(147, 51, 234, 0.35) !important;
 }
 
 input[type="checkbox"]:not(.btn):checked:before {

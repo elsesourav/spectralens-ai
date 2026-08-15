@@ -14,33 +14,32 @@ export default function Footer() {
    };
 
    return (
-      <footer className="mt-6 pt-4 pb-2 border-t border-gray-200/60 dark:border-white/10 flex flex-col items-center justify-center gap-2">
+      <footer className="mt-2 pt-2 pb-0.5 border-t border-slate-200/80 dark:border-white/[0.08] flex flex-col items-center justify-center gap-1.5 shrink-0">
          {/* Icon Actions Bar */}
          <div className="flex items-center gap-2">
             <button
                onClick={() => openLink("https://elsesourav.web.app")}
-               className="group flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-gray-600 dark:text-gray-300 bg-gray-100/80 dark:bg-white/5 hover:bg-blue-50 dark:hover:bg-blue-500/10 hover:text-blue-600 dark:hover:text-blue-400 border border-gray-200/60 dark:border-white/5 transition-all duration-200 shadow-2xs cursor-pointer focus:outline-none"
+               className="group flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-white/5 hover:bg-blue-50 dark:hover:bg-blue-500/10 hover:text-blue-600 dark:hover:text-blue-400 border border-slate-200/80 dark:border-white/[0.06] transition-all duration-150 cursor-pointer focus:outline-none"
                title="Website: elsesourav.web.app"
             >
-               <IoGlobeOutline size={14} className="group-hover:rotate-12 transition-transform duration-300 text-gray-500 group-hover:text-blue-500 dark:text-gray-400 dark:group-hover:text-blue-400" />
+               <IoGlobeOutline size={13} className="group-hover:rotate-12 transition-transform duration-300 text-slate-500 group-hover:text-blue-500 dark:text-slate-400 dark:group-hover:text-blue-400" />
                <span>Website</span>
             </button>
 
             <button
                onClick={() => openLink("mailto:elsesourav.auth@gmail.com")}
-               className="group flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-gray-600 dark:text-gray-300 bg-gray-100/80 dark:bg-white/5 hover:bg-blue-50 dark:hover:bg-blue-500/10 hover:text-blue-600 dark:hover:text-blue-400 border border-gray-200/60 dark:border-white/5 transition-all duration-200 shadow-2xs cursor-pointer focus:outline-none"
+               className="group flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-white/5 hover:bg-blue-50 dark:hover:bg-blue-500/10 hover:text-blue-600 dark:hover:text-blue-400 border border-slate-200/80 dark:border-white/[0.06] transition-all duration-150 cursor-pointer focus:outline-none"
                title="Contact: elsesourav.auth@gmail.com"
             >
-               <IoMailOutline size={14} className="group-hover:scale-110 transition-transform duration-300 text-gray-500 group-hover:text-blue-500 dark:text-gray-400 dark:group-hover:text-blue-400" />
+               <IoMailOutline size={13} className="group-hover:scale-110 transition-transform duration-300 text-slate-500 group-hover:text-blue-500 dark:text-slate-400 dark:group-hover:text-blue-400" />
                <span>Contact</span>
             </button>
          </div>
 
          {/* Copyright */}
-         <div className="text-[11px] text-gray-400 dark:text-gray-500 font-medium tracking-wide">
+         <div className="text-[10px] text-slate-400 dark:text-slate-500 font-medium tracking-wide">
             © {currentYear} SpectraLens AI. All rights reserved.
          </div>
       </footer>
    );
 }
-
