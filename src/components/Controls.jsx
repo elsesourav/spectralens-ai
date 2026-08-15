@@ -339,15 +339,15 @@ export default function Controls() {
     contrastMode === "solid"
       ? "bg-white dark:bg-[#191c25] border-slate-200/90 dark:border-white/[0.08]"
       : contrastMode === "medium"
-        ? "bg-white/80 dark:bg-[#191c25]/75 backdrop-blur-md border-slate-200/60 dark:border-white/[0.07]"
-        : "bg-white/50 dark:bg-white/[0.06] backdrop-blur-sm border-slate-200/40 dark:border-white/[0.06]";
+        ? "bg-white/70 dark:bg-[#191c25]/70 backdrop-blur-md border-slate-200/60 dark:border-white/[0.07]"
+        : "bg-white/30 dark:bg-white/[0.05] backdrop-blur-sm border-slate-200/30 dark:border-white/[0.05]";
 
   const itemBgClass =
     contrastMode === "solid"
       ? "bg-white dark:bg-[#191c25] border-slate-200/90 dark:border-white/[0.08]"
       : contrastMode === "medium"
-        ? "bg-white/80 dark:bg-[#191c25]/75 backdrop-blur-md border-slate-200/60 dark:border-white/[0.07]"
-        : "bg-white/50 dark:bg-white/[0.06] backdrop-blur-sm border-slate-200/40 dark:border-white/[0.06]";
+        ? "bg-white/70 dark:bg-[#191c25]/70 backdrop-blur-md border-slate-200/60 dark:border-white/[0.07]"
+        : "bg-white/30 dark:bg-white/[0.05] backdrop-blur-sm border-slate-200/30 dark:border-white/[0.05]";
 
   return (
     <div className="flex flex-col h-full bg-transparent text-slate-900 dark:text-slate-100 overflow-hidden">

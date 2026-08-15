@@ -62,7 +62,12 @@ export default function Menu() {
           }
         }
         if (!Array.isArray(activeHosts)) activeHosts = [];
-        setIsAlwaysActive(Boolean(hostname && (activeHosts.includes(hostname) || activeHosts.includes("*"))));
+        setIsAlwaysActive(
+          Boolean(
+            hostname &&
+            (activeHosts.includes(hostname) || activeHosts.includes("*")),
+          ),
+        );
       });
     };
 
@@ -145,18 +150,18 @@ export default function Menu() {
   const contrastClass = useMemo(() => {
     if (!isChatOpen) {
       if (contrastMode === "transparent") {
-        return "bg-white/60 dark:bg-[#16171d]/60 backdrop-blur-xl border border-slate-200/50 dark:border-white/15 shadow-2xl";
+        return "bg-black/15 dark:bg-black/25 backdrop-blur-sm border border-white/20 shadow-2xl";
       }
       if (contrastMode === "medium") {
-        return "bg-[#f8fafc]/80 dark:bg-[#16171d]/80 backdrop-blur-2xl border border-slate-200/70 dark:border-white/20 shadow-2xl";
+        return "bg-[#16171d]/75 backdrop-blur-xl border border-white/20 shadow-2xl";
       }
-      return "bg-[#f8fafc] dark:bg-[#16171d] border border-slate-200 dark:border-white/20 shadow-2xl";
+      return "bg-[#16171d] border border-white/20 shadow-2xl";
     } else {
       if (contrastMode === "transparent") {
-        return "bg-white/65 dark:bg-[#0e1015]/65 backdrop-blur-xl border border-slate-200/50 dark:border-white/10 shadow-2xl";
+        return "bg-white/20 dark:bg-black/20 backdrop-blur-sm border border-slate-200/40 dark:border-white/10 shadow-2xl";
       }
       if (contrastMode === "medium") {
-        return "bg-[#f8fafc]/85 dark:bg-[#0e1015]/85 backdrop-blur-2xl border border-slate-200/70 dark:border-white/10 shadow-2xl";
+        return "bg-[#f8fafc]/75 dark:bg-[#0e1015]/75 backdrop-blur-xl border border-slate-200/60 dark:border-white/10 shadow-2xl";
       }
       return "bg-[#f8fafc] dark:bg-[#0e1015] border border-slate-200/90 dark:border-white/10 shadow-2xl";
     }
@@ -231,7 +236,7 @@ export default function Menu() {
         const target = e.target;
         if (
           target.closest(
-            "button, input, textarea, a, select, [role='button'], .no-drag, pre, code, .custom-scrollbar"
+            "button, input, textarea, a, select, [role='button'], .no-drag, pre, code, .custom-scrollbar",
           )
         ) {
           return;
@@ -367,12 +372,6 @@ export default function Menu() {
                 className="w-4 h-4 text-slate-400 hover:text-white transition-colors"
                 size={18}
               />
-              {isAlwaysActive && (
-                <span
-                  className="absolute top-2 right-1.5 size-1.5 bg-emerald-400 rounded-full shadow-xs"
-                  title="Always Active Tab: ON"
-                />
-              )}
             </div>
 
             {/* 2. Chat Button (Prominent circular gradient pill) */}
@@ -399,15 +398,18 @@ export default function Menu() {
           /* ======================================================== */
           /* Expanded Mode: Full 2-Pane Window Matching Image 1       */
           /* ======================================================== */
-          <div ref={windowContainerRef} className="flex flex-col h-full w-full cursor-default">
+          <div
+            ref={windowContainerRef}
+            className="flex flex-col h-full w-full cursor-default"
+          >
             {/* Top Draggable Window Control Bar */}
             <div
               className={`flex items-center justify-between px-3.5 py-2 border-b shrink-0 cursor-grab active:cursor-grabbing ${
                 contrastMode === "solid"
                   ? "bg-slate-100 dark:bg-[#14161e] border-slate-200/90 dark:border-white/[0.08]"
                   : contrastMode === "medium"
-                  ? "bg-slate-100/60 dark:bg-black/35 backdrop-blur-md border-slate-200/60 dark:border-white/[0.07]"
-                  : "bg-slate-100/40 dark:bg-black/25 backdrop-blur-sm border-slate-200/50 dark:border-white/[0.06]"
+                    ? "bg-slate-100/50 dark:bg-black/30 backdrop-blur-md border-slate-200/60 dark:border-white/[0.07]"
+                    : "bg-slate-100/20 dark:bg-black/15 backdrop-blur-sm border-slate-200/40 dark:border-white/[0.06]"
               }`}
             >
               <div className="flex items-center gap-2 select-none pointer-events-none">
@@ -428,11 +430,6 @@ export default function Menu() {
                   <span className="text-xs font-bold text-slate-900 dark:text-white">
                     SpectraLens AI
                   </span>
-                  {isAlwaysActive && (
-                    <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
-                      Always Active
-                    </span>
-                  )}
                 </div>
               </div>
 
