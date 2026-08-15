@@ -22,6 +22,7 @@ export default function ChatBot({
   const [lastQuestion, setLastQuestion] = useState("");
   const [answers, setAnswers] = useState({});
   const [selectedProvider, setSelectedProvider] = useState("google");
+  const [viewedProviders, setViewedProviders] = useState(new Set(["google"]));
   const [messageTime, setMessageTime] = useState("");
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const currentRequestIdRef = useRef(null);
@@ -34,6 +35,19 @@ export default function ChatBot({
   const rootRef = useRef(null);
   const textareaRef = useRef(null);
   const moreMenuRef = useRef(null);
+
+  // Mark currently selected provider as viewed
+  useEffect(() => {
+    if (selectedProvider) {
+      setViewedProviders((prev) => new Set([...prev, selectedProvider]));
+    }
+  }, [selectedProvider]);
+
+  // Tab selection helper
+  const handleSelectProvider = useCallback((providerId) => {
+    setSelectedProvider(providerId);
+    setViewedProviders((prev) => new Set([...prev, providerId]));
+  }, []);
 
   // Close more menu when clicking outside
   useEffect(() => {
@@ -59,6 +73,7 @@ export default function ChatBot({
       setLastQuestion(initialHistoryItem.question || "");
       lastQuestionRef.current = initialHistoryItem.question || "";
       setAnswers(initialHistoryItem.answers || {});
+      setViewedProviders(new Set(Object.keys(initialHistoryItem.answers || {})));
       if (initialHistoryItem.timestamp) {
         try {
           const d = new Date(initialHistoryItem.timestamp);
@@ -96,6 +111,7 @@ export default function ChatBot({
     setInput("");
     setAnswers({});
     setLastQuestion("");
+    setViewedProviders(new Set(["google"]));
     setIsLoading(false);
     currentRequestIdRef.current = null;
     setTimeout(() => {
@@ -141,10 +157,7 @@ export default function ChatBot({
     });
   }, [selectedProvider]);
 
-  // Helper to save history to storage
-  const saveHistory = (newHistory) => {
-    UTILS.chromeStorageSetLocal(UTILS.KEYS.HISTORY, newHistory);
-  };
+
 
   // Get answer from background script
   const getAnswerFromBackground = async (
@@ -258,10 +271,11 @@ export default function ChatBot({
       setInput("");
       setIsLoading(true);
       setAnswers({});
+      setViewedProviders(new Set([selectedProvider]));
 
       loadProvidersWithConcurrency(actualInput, requestId);
     },
-    [input, loadProvidersWithConcurrency],
+    [input, loadProvidersWithConcurrency, selectedProvider],
   );
 
   useEffect(() => {
@@ -276,18 +290,19 @@ export default function ChatBot({
         const isFirstAnswer = Object.keys(prev).length === 0;
         if (isFirstAnswer) {
           setSelectedProvider(provider);
+          setViewedProviders((v) => new Set([...v, provider]));
           setIsLoading(false);
         }
 
         const newAnswers = {
           ...prev,
           [provider]: {
-            content: data.answer,
-            provider: provider,
+            ...data,
+            timestamp: Date.now(),
           },
         };
 
-        // Save history incrementally
+        // Save complete response to Chrome local storage history
         UTILS.chromeStorageGetLocal(UTILS.KEYS.HISTORY, (prevHistory = []) => {
           const historyList = Array.isArray(prevHistory) ? prevHistory : [];
           const reqId = data.requestId || currentRequestIdRef.current;
@@ -304,18 +319,26 @@ export default function ChatBot({
             };
           } else {
             const newHistoryItem = {
-              id: reqId,
-              question: lastQuestionRef.current || "",
-              answers: newAnswers,
+              id: reqId || Date.now().toString(),
+              question: lastQuestionRef.current,
               timestamp: Date.now(),
+              answers: newAnswers,
             };
-            updatedHistory = [newHistoryItem, ...historyList].slice(0, 20);
+            updatedHistory = [newHistoryItem, ...historyList].slice(0, 50);
           }
-          saveHistory(updatedHistory);
+
+          UTILS.chromeStorageSetLocal(
+            { [UTILS.KEYS.HISTORY]: updatedHistory },
+            () => {},
+          );
         });
 
         return newAnswers;
       });
+    });
+
+    UTILS.pageOnMessage("IF_B_AI_REQUEST_COMPLETE", () => {
+      setIsLoading(false);
     });
 
     UTILS.pageOnMessage("C_IF_SET_INPUTS", (data) => {
@@ -366,10 +389,10 @@ export default function ChatBot({
           {/* Animated Sliding Active Background with Carved Inverted Corners */}
           {primaryPills.findIndex((p) => p.id === selectedProvider) >= 0 && (
             <div
-              className="absolute bottom-0 h-[34px] w-[98px] bg-[#f8fafc] dark:bg-[#0e1015] rounded-t-xl border-t border-x border-slate-200/80 dark:border-white/[0.08] transition-transform duration-200 ease-out pointer-events-none before:content-[''] before:absolute before:-left-2.5 before:bottom-0 before:w-2.5 before:h-2.5 before:bg-transparent before:rounded-br-lg before:shadow-[2px_2px_0_0_#f8fafc] dark:before:shadow-[2px_2px_0_0_#0e1015] after:content-[''] after:absolute after:-right-2.5 after:bottom-0 after:w-2.5 after:h-2.5 after:bg-transparent after:rounded-bl-lg after:shadow-[-2px_2px_0_0_#f8fafc] dark:after:shadow-[-2px_2px_0_0_#0e1015] z-0"
+              className="absolute bottom-0 h-[34px] w-[104px] bg-[#f8fafc] dark:bg-[#0e1015] rounded-t-xl border-t border-x border-slate-200/80 dark:border-white/[0.08] transition-transform duration-200 ease-out pointer-events-none before:content-[''] before:absolute before:-left-2.5 before:bottom-0 before:w-2.5 before:h-2.5 before:bg-transparent before:rounded-br-lg before:shadow-[2px_2px_0_0_#f8fafc] dark:before:shadow-[2px_2px_0_0_#0e1015] after:content-[''] after:absolute after:-right-2.5 after:bottom-0 after:w-2.5 after:h-2.5 after:bg-transparent after:rounded-bl-lg after:shadow-[-2px_2px_0_0_#f8fafc] dark:after:shadow-[-2px_2px_0_0_#0e1015] z-0"
               style={{
                 transform: `translateX(${
-                  primaryPills.findIndex((p) => p.id === selectedProvider) * 102
+                  primaryPills.findIndex((p) => p.id === selectedProvider) * 108
                 }px)`,
               }}
             />
@@ -378,12 +401,16 @@ export default function ChatBot({
           {primaryPills.map((provider) => {
             const isSelected = selectedProvider === provider.id;
             const hasAnswer = Boolean(answers[provider.id]);
+            const hasUnreadAnswer =
+              hasAnswer &&
+              !viewedProviders.has(provider.id) &&
+              selectedProvider !== provider.id;
 
             return (
               <button
                 key={provider.id}
-                onClick={() => setSelectedProvider(provider.id)}
-                className={`relative w-[98px] h-[34px] flex items-center justify-center gap-1.5 px-2 text-xs transition-colors duration-150 shrink-0 focus:outline-none cursor-pointer select-none z-10 ${
+                onClick={() => handleSelectProvider(provider.id)}
+                className={`relative w-[104px] h-[34px] flex items-center justify-center gap-1.5 px-2 text-xs transition-colors duration-150 shrink-0 focus:outline-none cursor-pointer select-none z-10 ${
                   isSelected
                     ? "text-blue-600 dark:text-blue-400 font-semibold"
                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
@@ -394,11 +421,11 @@ export default function ChatBot({
                   className="w-4 h-4 shrink-0"
                   size={16}
                 />
-                <span className="truncate max-w-[56px]">{provider.name}</span>
-                {hasAnswer && !isSelected && (
+                <span className="truncate max-w-[62px]">{provider.name}</span>
+                {hasUnreadAnswer && (
                   <span
                     className="w-2 h-2 rounded-full bg-emerald-500 shadow-xs shadow-emerald-500/50 shrink-0 animate-pulse"
-                    title="Response ready"
+                    title="New response ready"
                   />
                 )}
               </button>
@@ -423,35 +450,44 @@ export default function ChatBot({
 
             {isMoreMenuOpen && (
               <div className="absolute right-0 top-full mt-1.5 w-44 rounded-xl bg-white dark:bg-[#1a1d26] border border-slate-200 dark:border-white/10 shadow-xl py-1 z-30 animate-fade-in">
-                {overflowProviders.map((provider) => (
-                  <button
-                    key={provider.id}
-                    onClick={() => {
-                      setSelectedProvider(provider.id);
-                      setIsMoreMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-left transition-colors focus:outline-none cursor-pointer ${
-                      selectedProvider === provider.id
-                        ? "bg-blue-600/15 text-blue-600 dark:text-blue-400 font-semibold"
-                        : "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <ProviderIcon
-                        id={provider.id}
-                        className="w-4 h-4 shrink-0"
-                        size={16}
-                      />
-                      <span className="truncate">{provider.name}</span>
-                    </div>
-                    {Boolean(answers[provider.id]) && selectedProvider !== provider.id && (
-                      <span
-                        className="w-2 h-2 rounded-full bg-emerald-500 shadow-xs shadow-emerald-500/50 shrink-0 animate-pulse"
-                        title="Response ready"
-                      />
-                    )}
-                  </button>
-                ))}
+                {overflowProviders.map((provider) => {
+                  const isOverflowSelected = selectedProvider === provider.id;
+                  const hasOverflowAnswer = Boolean(answers[provider.id]);
+                  const hasUnreadOverflow =
+                    hasOverflowAnswer &&
+                    !viewedProviders.has(provider.id) &&
+                    !isOverflowSelected;
+
+                  return (
+                    <button
+                      key={provider.id}
+                      onClick={() => {
+                        handleSelectProvider(provider.id);
+                        setIsMoreMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-left transition-colors focus:outline-none cursor-pointer ${
+                        isOverflowSelected
+                          ? "bg-blue-600/15 text-blue-600 dark:text-blue-400 font-semibold"
+                          : "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <ProviderIcon
+                          id={provider.id}
+                          className="w-4 h-4 shrink-0"
+                          size={16}
+                        />
+                        <span className="truncate">{provider.name}</span>
+                      </div>
+                      {hasUnreadOverflow && (
+                        <span
+                          className="w-2 h-2 rounded-full bg-emerald-500 shadow-xs shadow-emerald-500/50 shrink-0 animate-pulse"
+                          title="New response ready"
+                        />
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
