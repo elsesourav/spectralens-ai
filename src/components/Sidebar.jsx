@@ -42,7 +42,7 @@ export default function Sidebar({ activeTab, onSelectTab, onNewChat }) {
   };
 
   return (
-    <aside className="w-[48px] h-full flex flex-col items-center justify-between py-3 bg-[#f1f5f9] dark:bg-[#14161e] border-r border-slate-200/80 dark:border-white/[0.07] shrink-0 select-none z-20">
+    <aside className="w-[48px] h-full flex flex-col items-center justify-between py-3 bg-slate-100/40 dark:bg-black/20 backdrop-blur-sm border-r border-slate-200/80 dark:border-white/[0.07] shrink-0 select-none z-20">
       {/* Top Navigation */}
       <div className="flex flex-col items-center gap-2 w-full px-1">
         {/* New Chat Button (Normal, unhighlighted) */}

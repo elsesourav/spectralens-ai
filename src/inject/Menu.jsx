@@ -113,18 +113,18 @@ export default function Menu() {
   const contrastClass = useMemo(() => {
     if (!isChatOpen) {
       if (contrastMode === "transparent") {
-        return "bg-[#16171d]/60 backdrop-blur-xl border border-white/15 shadow-2xl";
+        return "bg-[#16171d]/40 backdrop-blur-2xl border border-white/20 shadow-2xl";
       }
       if (contrastMode === "medium") {
-        return "bg-[#16171d]/85 backdrop-blur-md border border-white/15 shadow-2xl";
+        return "bg-[#16171d]/75 backdrop-blur-xl border border-white/20 shadow-2xl";
       }
       return "bg-[#16171d] border border-white/20 shadow-2xl";
     } else {
       if (contrastMode === "transparent") {
-        return "bg-[#f8fafc]/80 dark:bg-[#0e1015]/75 backdrop-blur-2xl border border-slate-200/60 dark:border-white/[0.08] shadow-2xl";
+        return "bg-[#f8fafc]/40 dark:bg-[#0e1015]/45 backdrop-blur-2xl border border-slate-200/50 dark:border-white/10 shadow-2xl";
       }
       if (contrastMode === "medium") {
-        return "bg-[#f8fafc]/95 dark:bg-[#0e1015]/90 backdrop-blur-md border border-slate-200/80 dark:border-white/10 shadow-2xl";
+        return "bg-[#f8fafc]/80 dark:bg-[#0e1015]/80 backdrop-blur-xl border border-slate-200/70 dark:border-white/10 shadow-2xl";
       }
       return "bg-[#f8fafc] dark:bg-[#0e1015] border border-slate-200 dark:border-white/10 shadow-2xl";
     }
@@ -362,7 +362,7 @@ export default function Menu() {
           /* ======================================================== */
           <div ref={windowContainerRef} className="flex flex-col h-full w-full cursor-default">
             {/* Top Draggable Window Control Bar */}
-            <div className="flex items-center justify-between px-3.5 py-2 bg-slate-100/90 dark:bg-[#14161e] border-b border-slate-200/80 dark:border-white/[0.08] shrink-0 cursor-grab active:cursor-grabbing">
+            <div className="flex items-center justify-between px-3.5 py-2 bg-slate-100/50 dark:bg-black/20 backdrop-blur-sm border-b border-slate-200/80 dark:border-white/[0.08] shrink-0 cursor-grab active:cursor-grabbing">
               <div className="flex items-center gap-2 select-none pointer-events-none">
                 <img
                   src={appIconUrl}

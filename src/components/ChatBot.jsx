@@ -392,15 +392,15 @@ export default function ChatBot({
   return (
     <div
       ref={rootRef}
-      className="flex flex-col h-full bg-[#f8fafc] dark:bg-[#0e1015] text-[#0f172a] dark:text-[#f8fafc] overflow-hidden select-none"
+      className="flex flex-col h-full bg-transparent text-[#0f172a] dark:text-[#f8fafc] overflow-hidden select-none"
     >
       {/* Provider Selector Tabs Bar (Carved folder-tab touching chat section) */}
-      <div className="flex items-end justify-between px-3 pt-2.5 pb-0 border-b border-slate-200/80 dark:border-white/[0.08] bg-slate-100/80 dark:bg-[#14161e] shrink-0 gap-1.5 z-10">
+      <div className="flex items-end justify-between px-3 pt-2.5 pb-0 border-b border-slate-200/80 dark:border-white/[0.08] bg-slate-100/50 dark:bg-black/20 backdrop-blur-sm shrink-0 gap-1.5 z-10">
         <div className="relative flex items-end gap-1 flex-1 overflow-x-auto custom-scrollbar -mb-[1px]">
           {/* Animated Sliding Active Background with Carved Inverted Corners */}
           {primaryPills.findIndex((p) => p.id === selectedProvider) >= 0 && (
             <div
-              className="absolute bottom-0 h-[34px] w-[104px] bg-[#f8fafc] dark:bg-[#0e1015] rounded-t-xl border-t border-x border-slate-200/80 dark:border-white/[0.08] transition-transform duration-200 ease-out pointer-events-none before:content-[''] before:absolute before:-left-2.5 before:bottom-0 before:w-2.5 before:h-2.5 before:bg-transparent before:rounded-br-lg before:shadow-[2px_2px_0_0_#f8fafc] dark:before:shadow-[2px_2px_0_0_#0e1015] after:content-[''] after:absolute after:-right-2.5 after:bottom-0 after:w-2.5 after:h-2.5 after:bg-transparent after:rounded-bl-lg after:shadow-[-2px_2px_0_0_#f8fafc] dark:after:shadow-[-2px_2px_0_0_#0e1015] z-0"
+              className="absolute bottom-0 h-[34px] w-[104px] bg-[#f8fafc]/90 dark:bg-[#0e1015]/90 backdrop-blur-md rounded-t-xl border-t border-x border-slate-200/80 dark:border-white/[0.08] transition-transform duration-200 ease-out pointer-events-none before:content-[''] before:absolute before:-left-2.5 before:bottom-0 before:w-2.5 before:h-2.5 before:bg-transparent before:rounded-br-lg before:shadow-[2px_2px_0_0_#f8fafc] dark:before:shadow-[2px_2px_0_0_#0e1015] after:content-[''] after:absolute after:-right-2.5 after:bottom-0 after:w-2.5 after:h-2.5 after:bg-transparent after:rounded-bl-lg after:shadow-[-2px_2px_0_0_#f8fafc] dark:after:shadow-[-2px_2px_0_0_#0e1015] z-0"
               style={{
                 transform: `translateX(${
                   primaryPills.findIndex((p) => p.id === selectedProvider) * 108
@@ -559,7 +559,7 @@ export default function ChatBot({
         {/* AI Response Card */}
         {(selectedAnswerContent || (isLoading && !selectedAnswerContent)) && (
           <div className="flex flex-col gap-2 animate-fade-in">
-            <div className="p-4 rounded-2xl bg-white dark:bg-[#181920] border border-slate-200/80 dark:border-white/[0.08] shadow-xs space-y-3">
+            <div className="p-4 rounded-2xl bg-white/80 dark:bg-[#181920]/80 backdrop-blur-md border border-slate-200/80 dark:border-white/[0.08] shadow-xs space-y-3">
               {/* Provider Header Badge */}
               <div className="flex items-center justify-between pb-1 border-b border-slate-100 dark:border-white/[0.04]">
                 <div className="flex items-center gap-2">
@@ -618,8 +618,8 @@ export default function ChatBot({
       </div>
 
       {/* Bottom Input Dock Bar */}
-      <div className="p-3 border-t border-slate-200/80 dark:border-white/[0.07] bg-white/70 dark:bg-[#12141c]/80 backdrop-blur-md shrink-0">
-        <div className="relative flex items-center w-full px-3 py-2 rounded-2xl bg-white dark:bg-[#191c25] border border-slate-200/90 dark:border-white/[0.09] focus-within:border-blue-500 dark:focus-within:border-blue-500/80 focus-within:ring-1 focus-within:ring-blue-500/50 shadow-xs transition-all">
+      <div className="p-3 border-t border-slate-200/80 dark:border-white/[0.07] bg-slate-100/40 dark:bg-black/25 backdrop-blur-sm shrink-0">
+        <div className="relative flex items-center w-full px-3 py-2 rounded-2xl bg-white/80 dark:bg-[#191c25]/80 backdrop-blur-md border border-slate-200/90 dark:border-white/[0.09] focus-within:border-blue-500 dark:focus-within:border-blue-500/80 focus-within:ring-1 focus-within:ring-blue-500/50 shadow-xs transition-all">
           <input
             ref={textareaRef}
             type="text"

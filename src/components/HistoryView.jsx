@@ -33,9 +33,9 @@ export default function HistoryView({ onLoadQuery }) {
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#f8fafc] dark:bg-[#0e1015] text-[#0f172a] dark:text-[#f8fafc] overflow-hidden">
+    <div className="flex flex-col h-full bg-transparent text-[#0f172a] dark:text-[#f8fafc] overflow-hidden">
       {/* View Header */}
-      <div className="flex items-center justify-between px-4 py-3.5 border-b border-slate-200 dark:border-white/[0.07] bg-white/50 dark:bg-[#14161e]/50 backdrop-blur-sm shrink-0">
+      <div className="flex items-center justify-between px-4 py-3.5 border-b border-slate-200/80 dark:border-white/[0.07] bg-slate-100/50 dark:bg-black/20 backdrop-blur-sm shrink-0">
         <div className="flex items-center gap-2.5">
           <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-500 dark:text-blue-400">
             <HistoryIcon className="w-5 h-5" size={20} />
@@ -59,11 +59,11 @@ export default function HistoryView({ onLoadQuery }) {
         )}
       </div>
 
-      {/* Query List */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2">
+      {/* History Items List */}
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-3.5 space-y-2">
         {history.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center px-4 py-8">
-            <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-white/[0.04] flex items-center justify-center text-slate-400 mb-3 border border-slate-200 dark:border-white/[0.06]">
+            <div className="w-12 h-12 rounded-2xl bg-slate-100/60 dark:bg-white/[0.04] flex items-center justify-center text-slate-400 mb-3 border border-slate-200/80 dark:border-white/[0.06]">
               <IoTimeOutline className="w-6 h-6" />
             </div>
             <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
@@ -78,7 +78,7 @@ export default function HistoryView({ onLoadQuery }) {
             <div
               key={idx}
               onClick={() => onLoadQuery && onLoadQuery(item)}
-              className="group relative flex items-center justify-between p-3 rounded-xl bg-white dark:bg-[#191c25] hover:bg-blue-50/50 dark:hover:bg-[#202430] border border-slate-200/80 dark:border-white/[0.07] hover:border-blue-300 dark:hover:border-blue-500/30 transition-all cursor-pointer shadow-xs"
+              className="group relative flex items-center justify-between p-3 rounded-xl bg-white/80 dark:bg-[#191c25]/80 backdrop-blur-md hover:bg-blue-50/70 dark:hover:bg-[#202430]/90 border border-slate-200/80 dark:border-white/[0.07] hover:border-blue-300 dark:hover:border-blue-500/30 transition-all cursor-pointer shadow-xs"
             >
               <div className="flex flex-col gap-1 pr-2 overflow-hidden flex-1">
                 <span className="text-xs font-medium text-slate-800 dark:text-slate-200 line-clamp-2 leading-relaxed">
