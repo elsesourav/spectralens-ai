@@ -39,6 +39,8 @@ export default function Sidebar({ activeTab, onSelectTab, onNewChat }) {
     onSelectTab("chat");
   };
 
+  const activeIndex = navItems.findIndex((item) => item.id === activeTab);
+
   return (
     <aside className="w-[46px] h-full flex flex-col items-center justify-between py-2.5 bg-[#f1f5f9] dark:bg-[#14161e] border-r border-slate-200/80 dark:border-white/[0.07] shrink-0 select-none z-20">
       {/* Top Navigation */}
@@ -56,19 +58,32 @@ export default function Sidebar({ activeTab, onSelectTab, onNewChat }) {
 
         <div className="w-5 h-[1px] bg-slate-200 dark:bg-white/10 my-0.5" />
 
-        <nav className="flex flex-col w-full">
+        <nav className="relative flex flex-col w-full">
+          {/* Animated Sliding Active Background with Carved Inverted Corners */}
+          {activeIndex >= 0 && (
+            <div
+              className="absolute top-0 right-0 w-full h-10 bg-[#f8fafc] dark:bg-[#0e1015] rounded-l-2xl z-0 transition-transform duration-200 ease-out pointer-events-none before:content-[''] before:absolute before:-top-3 before:right-0 before:w-3 before:h-3 before:bg-transparent before:rounded-br-xl before:shadow-[3px_3px_0_0_#f8fafc] dark:before:shadow-[3px_3px_0_0_#0e1015] after:content-[''] after:absolute after:-bottom-3 after:right-0 after:w-3 after:h-3 after:bg-transparent after:rounded-tr-xl after:shadow-[3px_-3px_0_0_#f8fafc] dark:after:shadow-[3px_-3px_0_0_#0e1015]"
+              style={{
+                transform: `translateY(${activeIndex * 44}px)`,
+              }}
+            />
+          )}
+
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
             return (
-              <div key={item.id} className="relative w-full flex justify-end">
+              <div
+                key={item.id}
+                className="relative w-full h-10 my-[2px] flex items-center justify-center z-10"
+              >
                 <button
                   onClick={() => onSelectTab(item.id)}
                   title={item.label}
-                  className={`relative flex items-center justify-center transition-all duration-150 focus:outline-none cursor-pointer ${
+                  className={`w-full h-full flex items-center justify-center transition-colors duration-150 focus:outline-none cursor-pointer ${
                     isActive
-                      ? "w-full h-10 bg-[#f8fafc] dark:bg-[#0e1015] text-blue-600 dark:text-blue-400 font-semibold rounded-l-2xl pl-1 z-10 before:content-[''] before:absolute before:-top-3 before:right-0 before:w-3 before:h-3 before:bg-transparent before:rounded-br-xl before:shadow-[3px_3px_0_0_#f8fafc] dark:before:shadow-[3px_3px_0_0_#0e1015] before:pointer-events-none after:content-[''] after:absolute after:-bottom-3 after:right-0 after:w-3 after:h-3 after:bg-transparent after:rounded-tr-xl after:shadow-[3px_-3px_0_0_#f8fafc] dark:after:shadow-[3px_-3px_0_0_#0e1015] after:pointer-events-none"
-                      : "w-8 h-8 rounded-lg my-1 mx-auto text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-white/[0.06]"
+                      ? "text-blue-600 dark:text-blue-400 font-semibold"
+                      : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white"
                   }`}
                 >
                   <Icon className="w-4 h-4" size={18} />

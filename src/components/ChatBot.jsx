@@ -362,7 +362,19 @@ export default function ChatBot({
     >
       {/* Provider Selector Tabs Bar (Carved folder-tab touching chat section) */}
       <div className="flex items-end justify-between px-3 pt-2.5 pb-0 border-b border-slate-200/80 dark:border-white/[0.08] bg-slate-100/80 dark:bg-[#14161e] shrink-0 gap-1.5 z-10">
-        <div className="flex items-end gap-1 flex-1 overflow-x-auto custom-scrollbar -mb-[1px]">
+        <div className="relative flex items-end gap-1 flex-1 overflow-x-auto custom-scrollbar -mb-[1px]">
+          {/* Animated Sliding Active Background with Carved Inverted Corners */}
+          {primaryPills.findIndex((p) => p.id === selectedProvider) >= 0 && (
+            <div
+              className="absolute bottom-0 h-[34px] w-[98px] bg-[#f8fafc] dark:bg-[#0e1015] rounded-t-xl border-t border-x border-slate-200/80 dark:border-white/[0.08] transition-transform duration-200 ease-out pointer-events-none before:content-[''] before:absolute before:-left-2.5 before:bottom-0 before:w-2.5 before:h-2.5 before:bg-transparent before:rounded-br-lg before:shadow-[2px_2px_0_0_#f8fafc] dark:before:shadow-[2px_2px_0_0_#0e1015] after:content-[''] after:absolute after:-right-2.5 after:bottom-0 after:w-2.5 after:h-2.5 after:bg-transparent after:rounded-bl-lg after:shadow-[-2px_2px_0_0_#f8fafc] dark:after:shadow-[-2px_2px_0_0_#0e1015] z-0"
+              style={{
+                transform: `translateX(${
+                  primaryPills.findIndex((p) => p.id === selectedProvider) * 102
+                }px)`,
+              }}
+            />
+          )}
+
           {primaryPills.map((provider) => {
             const isSelected = selectedProvider === provider.id;
             const hasAnswer = Boolean(answers[provider.id]);
@@ -371,10 +383,10 @@ export default function ChatBot({
               <button
                 key={provider.id}
                 onClick={() => setSelectedProvider(provider.id)}
-                className={`relative flex items-center gap-2 px-3.5 py-2 text-xs transition-all duration-150 shrink-0 focus:outline-none cursor-pointer select-none ${
+                className={`relative w-[98px] h-[34px] flex items-center justify-center gap-1.5 px-2 text-xs transition-colors duration-150 shrink-0 focus:outline-none cursor-pointer select-none z-10 ${
                   isSelected
-                    ? "bg-[#f8fafc] dark:bg-[#0e1015] text-blue-600 dark:text-blue-400 font-semibold rounded-t-xl border-t border-x border-slate-200/80 dark:border-white/[0.08] z-10 shadow-xs before:content-[''] before:absolute before:-left-2.5 before:bottom-0 before:w-2.5 before:h-2.5 before:bg-transparent before:rounded-br-lg before:shadow-[2px_2px_0_0_#f8fafc] dark:before:shadow-[2px_2px_0_0_#0e1015] before:pointer-events-none after:content-[''] after:absolute after:-right-2.5 after:bottom-0 after:w-2.5 after:h-2.5 after:bg-transparent after:rounded-bl-lg after:shadow-[-2px_2px_0_0_#f8fafc] dark:after:shadow-[-2px_2px_0_0_#0e1015] after:pointer-events-none"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-white/[0.05] rounded-t-lg mb-1"
+                    ? "text-blue-600 dark:text-blue-400 font-semibold"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                 } ${!hasAnswer && isLoading ? "opacity-75" : ""}`}
               >
                 <ProviderIcon
@@ -382,7 +394,7 @@ export default function ChatBot({
                   className="w-4 h-4 shrink-0"
                   size={16}
                 />
-                <span>{provider.name}</span>
+                <span className="truncate max-w-[56px]">{provider.name}</span>
                 {hasAnswer && !isSelected && (
                   <span
                     className="w-2 h-2 rounded-full bg-emerald-500 shadow-xs shadow-emerald-500/50 shrink-0 animate-pulse"
