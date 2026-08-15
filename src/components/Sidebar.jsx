@@ -8,7 +8,7 @@ import { IoSunny, IoMoon, IoAdd } from "react-icons/io5";
 import { useTheme } from "../hooks/useThemeHook.jsx";
 
 export default function Sidebar({ activeTab, onSelectTab, onNewChat }) {
-  const { isDarkMode, setTheme } = useTheme();
+  const { isDarkMode, setTheme, contrastMode } = useTheme();
 
   const navItems = [
     {
@@ -41,8 +41,15 @@ export default function Sidebar({ activeTab, onSelectTab, onNewChat }) {
     onSelectTab("chat");
   };
 
+  const sidebarBgClass =
+    contrastMode === "solid"
+      ? "bg-slate-100 dark:bg-[#14161e] border-r border-slate-200 dark:border-white/[0.08]"
+      : contrastMode === "medium"
+      ? "bg-slate-100/60 dark:bg-black/30 backdrop-blur-sm border-r border-slate-200/80 dark:border-white/[0.07]"
+      : "bg-slate-100/30 dark:bg-black/20 backdrop-blur-sm border-r border-slate-200/60 dark:border-white/[0.06]";
+
   return (
-    <aside className="w-[48px] h-full flex flex-col items-center justify-between py-3 bg-slate-100/40 dark:bg-black/20 backdrop-blur-sm border-r border-slate-200/80 dark:border-white/[0.07] shrink-0 select-none z-20">
+    <aside className={`w-[48px] h-full flex flex-col items-center justify-between py-3 shrink-0 select-none z-20 ${sidebarBgClass}`}>
       {/* Top Navigation */}
       <div className="flex flex-col items-center gap-2 w-full px-1">
         {/* New Chat Button (Normal, unhighlighted) */}

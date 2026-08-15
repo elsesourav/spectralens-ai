@@ -38,6 +38,47 @@ export default function Menu() {
   const dragRef = useRef(null);
   const windowContainerRef = useRef(null);
   const [newChatKey, setNewChatKey] = useState(0);
+  const [isAlwaysActive, setIsAlwaysActive] = useState(false);
+
+  // Check and observe Always Active Tab status
+  useEffect(() => {
+    const checkAlwaysActive = async () => {
+      const tab = await ES.getActiveTab();
+      let hostname = "";
+      if (tab?.url?.startsWith("http")) {
+        try {
+          hostname = new URL(tab.url).hostname;
+        } catch {
+          // ignore
+        }
+      }
+      ES.chromeStorageGetLocal(ES.KEYS.ALWAYS_ACTIVE_HOSTS, (hosts = []) => {
+        let activeHosts = hosts;
+        if (typeof activeHosts === "string") {
+          try {
+            activeHosts = JSON.parse(activeHosts);
+          } catch {
+            activeHosts = [];
+          }
+        }
+        if (!Array.isArray(activeHosts)) activeHosts = [];
+        setIsAlwaysActive(Boolean(hostname && (activeHosts.includes(hostname) || activeHosts.includes("*"))));
+      });
+    };
+
+    checkAlwaysActive();
+
+    let storageListener;
+    if (typeof chrome !== "undefined" && chrome.storage?.onChanged) {
+      storageListener = (changes) => {
+        if (changes[ES.KEYS.ALWAYS_ACTIVE_HOSTS]) {
+          checkAlwaysActive();
+        }
+      };
+      chrome.storage.onChanged.addListener(storageListener);
+      return () => chrome.storage.onChanged.removeListener(storageListener);
+    }
+  }, []);
 
   useEffect(() => {
     // Request controls from parent frame
@@ -63,6 +104,7 @@ export default function Menu() {
         }
       };
       chrome.storage.onChanged.addListener(storageListener);
+      return () => chrome.storage.onChanged.removeListener(storageListener);
     }
 
     ES.pageOnMessage("C_IF_OPEN_CHAT", () => {
@@ -94,16 +136,6 @@ export default function Menu() {
         setAutoHideDelay(Number(data.autoHideDelay));
       }
     });
-
-    return () => {
-      if (
-        storageListener &&
-        typeof chrome !== "undefined" &&
-        chrome.storage?.onChanged
-      ) {
-        chrome.storage.onChanged.removeListener(storageListener);
-      }
-    };
   }, []);
 
   // Compute effective theme based on user settings
@@ -113,7 +145,7 @@ export default function Menu() {
   const contrastClass = useMemo(() => {
     if (!isChatOpen) {
       if (contrastMode === "transparent") {
-        return "bg-[#16171d]/40 backdrop-blur-2xl border border-white/20 shadow-2xl";
+        return "bg-[#16171d]/35 backdrop-blur-2xl border border-white/20 shadow-2xl";
       }
       if (contrastMode === "medium") {
         return "bg-[#16171d]/75 backdrop-blur-xl border border-white/20 shadow-2xl";
@@ -121,7 +153,7 @@ export default function Menu() {
       return "bg-[#16171d] border border-white/20 shadow-2xl";
     } else {
       if (contrastMode === "transparent") {
-        return "bg-[#f8fafc]/40 dark:bg-[#0e1015]/45 backdrop-blur-2xl border border-slate-200/50 dark:border-white/10 shadow-2xl";
+        return "bg-[#f8fafc]/35 dark:bg-[#0e1015]/35 backdrop-blur-2xl border border-slate-200/50 dark:border-white/10 shadow-2xl";
       }
       if (contrastMode === "medium") {
         return "bg-[#f8fafc]/80 dark:bg-[#0e1015]/80 backdrop-blur-xl border border-slate-200/70 dark:border-white/10 shadow-2xl";
@@ -325,15 +357,22 @@ export default function Menu() {
             <div className="absolute right-0 top-0 bottom-0 w-2/3 bg-gradient-to-r from-transparent via-[#8b5cf6]/20 to-[#3b82f6]/25 rounded-r-[24px] pointer-events-none" />
 
             {/* 1. Drag Handle (6 Dots on Left - Old way only this drags) */}
+            {/* 1. Drag Handle (6 Dots on Left - Old way only this drags) */}
             <div
               ref={dragRef}
-              className="w-8 h-9 flex items-center justify-center text-slate-400 hover:text-white active:text-white cursor-grab active:cursor-grabbing transition-colors z-10 select-none"
+              className="w-8 h-9 flex items-center justify-center text-slate-400 hover:text-white active:text-white cursor-grab active:cursor-grabbing transition-colors z-10 select-none relative"
               title="Drag to reposition widget"
             >
               <DragHandleIcon
                 className="w-4 h-4 text-slate-400 hover:text-white transition-colors"
                 size={18}
               />
+              {isAlwaysActive && (
+                <span
+                  className="absolute top-2 right-1.5 size-1.5 bg-emerald-400 rounded-full shadow-xs"
+                  title="Always Active Tab: ON"
+                />
+              )}
             </div>
 
             {/* 2. Chat Button (Prominent circular gradient pill) */}
@@ -362,16 +401,39 @@ export default function Menu() {
           /* ======================================================== */
           <div ref={windowContainerRef} className="flex flex-col h-full w-full cursor-default">
             {/* Top Draggable Window Control Bar */}
-            <div className="flex items-center justify-between px-3.5 py-2 bg-slate-100/50 dark:bg-black/20 backdrop-blur-sm border-b border-slate-200/80 dark:border-white/[0.08] shrink-0 cursor-grab active:cursor-grabbing">
+            <div
+              className={`flex items-center justify-between px-3.5 py-2 border-b shrink-0 cursor-grab active:cursor-grabbing ${
+                contrastMode === "solid"
+                  ? "bg-slate-100 dark:bg-[#14161e] border-slate-200 dark:border-white/[0.08]"
+                  : contrastMode === "medium"
+                  ? "bg-slate-100/60 dark:bg-black/30 backdrop-blur-sm border-slate-200/80 dark:border-white/[0.08]"
+                  : "bg-slate-100/30 dark:bg-black/20 backdrop-blur-sm border-slate-200/60 dark:border-white/[0.06]"
+              }`}
+            >
               <div className="flex items-center gap-2 select-none pointer-events-none">
-                <img
-                  src={appIconUrl}
-                  alt="SpectraLens AI"
-                  className="size-6 rounded-md object-contain shadow-2xs"
-                />
-                <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
-                  SpectraLens AI
-                </span>
+                <div className="relative flex items-center justify-center">
+                  <img
+                    src={appIconUrl}
+                    alt="SpectraLens AI"
+                    className="size-6 rounded-md object-contain shadow-2xs"
+                  />
+                  {isAlwaysActive && (
+                    <span
+                      className="absolute -top-0.5 -right-0.5 size-2.5 bg-emerald-500 rounded-full ring-2 ring-white dark:ring-[#14161e] shadow-xs"
+                      title="Always Active Tab: Active on this page"
+                    />
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                    SpectraLens AI
+                  </span>
+                  {isAlwaysActive && (
+                    <span className="text-[9px] px-1 py-0.2 rounded font-semibold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                      Always Active
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Draggable Center Window Region (completely transparent, no glow) */}
@@ -442,7 +504,7 @@ export default function Menu() {
                 {/* Menu Settings View (Full Settings inside the in-page menu) */}
                 {activeTab === "settings" && (
                   <div className="w-full h-full overflow-y-auto custom-scrollbar animate-fade-in">
-                    <Controls onBack={() => setActiveTab("chat")} />
+                    <Controls />
                   </div>
                 )}
               </div>

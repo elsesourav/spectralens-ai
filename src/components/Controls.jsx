@@ -1,6 +1,5 @@
 /* eslint-disable no-undef */
 import { useCallback, useEffect, useRef, useState } from "react";
-import PropTypes from "prop-types";
 import {
   ProviderIcon,
   SettingsIcon,
@@ -28,7 +27,7 @@ const DEFAULT_AI_OPTIONS = [
   { id: "grok", name: "Grok AI", enabled: false },
 ];
 
-export default function Controls({ onBack }) {
+export default function Controls() {
   const { theme, setTheme, contrastMode, setContrastMode } = useTheme();
 
   const [aiList, setAiList] = useState(DEFAULT_AI_OPTIONS);
@@ -291,32 +290,22 @@ export default function Controls({ onBack }) {
     });
   };
 
+  const cardBgClass =
+    contrastMode === "solid"
+      ? "bg-white dark:bg-[#191c25] border-slate-200 dark:border-white/[0.08]"
+      : contrastMode === "medium"
+      ? "bg-white/80 dark:bg-[#191c25]/80 backdrop-blur-md border-slate-200/80 dark:border-white/[0.07]"
+      : "bg-white/50 dark:bg-[#191c25]/50 backdrop-blur-md border-slate-200/60 dark:border-white/[0.06]";
+
+  const itemBgClass =
+    contrastMode === "solid"
+      ? "bg-white dark:bg-[#191c25] border-slate-200 dark:border-white/[0.08]"
+      : contrastMode === "medium"
+      ? "bg-white/80 dark:bg-[#191c25]/80 backdrop-blur-md border-slate-200/80 dark:border-white/[0.08]"
+      : "bg-white/50 dark:bg-[#191c25]/50 backdrop-blur-md border-slate-200/60 dark:border-white/[0.06]";
+
   return (
     <div className="flex flex-col h-full bg-transparent text-[#0f172a] dark:text-[#f8fafc] overflow-hidden">
-      {/* Header Bar */}
-      <div className="flex items-center justify-between px-4 py-3.5 border-b border-slate-200/80 dark:border-white/[0.07] bg-slate-100/50 dark:bg-black/20 backdrop-blur-sm shrink-0">
-        <div className="flex items-center gap-2.5">
-          <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-500 dark:text-blue-400">
-            <SettingsIcon className="w-5 h-5" size={20} />
-          </div>
-          <div>
-            <h2 className="text-sm font-semibold tracking-tight">Settings</h2>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">
-              Customize AI models, widget & browser controls
-            </p>
-          </div>
-        </div>
-
-        {onBack && (
-          <button
-            onClick={onBack}
-            className="px-2.5 py-1 rounded-lg text-xs font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-white/5 transition-all focus:outline-none cursor-pointer"
-          >
-            Done
-          </button>
-        )}
-      </div>
-
       {/* Settings Scrollable Content */}
       <div className="flex-1 overflow-y-auto custom-scrollbar p-3.5 space-y-4">
         {/* ======================================================== */}
@@ -328,7 +317,7 @@ export default function Controls({ onBack }) {
               Active AI Models ({enabledCount}/3)
             </h3>
             <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500">
-              Max 3 active
+              {enabledCount >= 3 ? "Limit Reached" : `${3 - enabledCount} slots open`}
             </span>
           </div>
 
@@ -350,7 +339,7 @@ export default function Controls({ onBack }) {
                   key={ai.id}
                   className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${
                     isEnabled
-                      ? "bg-white/80 dark:bg-[#191c25]/80 backdrop-blur-md border-slate-200/80 dark:border-white/[0.08] shadow-xs"
+                      ? `${itemBgClass} shadow-xs`
                       : "bg-slate-100/60 dark:bg-white/[0.02] border-transparent opacity-65"
                   }`}
                 >
@@ -405,7 +394,7 @@ export default function Controls({ onBack }) {
         {/* ======================================================== */}
         {/* SECTION 2: In-Page Floating Widget Settings              */}
         {/* ======================================================== */}
-        <section className="p-3.5 rounded-2xl bg-white/80 dark:bg-[#191c25]/80 backdrop-blur-md border border-slate-200/80 dark:border-white/[0.07] shadow-xs space-y-3">
+        <section className={`p-3.5 rounded-2xl border shadow-xs space-y-3 ${cardBgClass}`}>
           <div className="flex items-center justify-between">
             <div>
               <h4 className="text-xs font-semibold text-slate-900 dark:text-slate-100">
@@ -484,7 +473,7 @@ export default function Controls({ onBack }) {
           </h3>
 
           {/* Always Active Tab */}
-          <div className="p-3 rounded-2xl bg-white/80 dark:bg-[#191c25]/80 backdrop-blur-md border border-slate-200/80 dark:border-white/[0.07] shadow-xs flex items-center justify-between">
+          <div className={`p-3 rounded-2xl border shadow-xs flex items-center justify-between ${cardBgClass}`}>
             <div className="flex items-center gap-2.5">
               <div className="p-1.5 rounded-lg bg-orange-500/10 text-orange-500">
                 <IoFlashOutline className="w-4 h-4" />
@@ -514,7 +503,7 @@ export default function Controls({ onBack }) {
           </div>
 
           {/* Enable Copy */}
-          <div className="p-3 rounded-2xl bg-white/80 dark:bg-[#191c25]/80 backdrop-blur-md border border-slate-200/80 dark:border-white/[0.07] shadow-xs flex items-center justify-between">
+          <div className={`p-3 rounded-2xl border shadow-xs flex items-center justify-between ${cardBgClass}`}>
             <div className="flex items-center gap-2.5">
               <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-500">
                 <IoShieldCheckmarkOutline className="w-4 h-4" />
@@ -547,7 +536,7 @@ export default function Controls({ onBack }) {
         {/* ======================================================== */}
         {/* SECTION 4: Appearance & Contrast Mode                    */}
         {/* ======================================================== */}
-        <section className="p-3.5 rounded-2xl bg-white/80 dark:bg-[#191c25]/80 backdrop-blur-md border border-slate-200/80 dark:border-white/[0.07] shadow-xs space-y-3">
+        <section className={`p-3.5 rounded-2xl border shadow-xs space-y-3 ${cardBgClass}`}>
           <div className="space-y-2">
             <h4 className="text-xs font-semibold text-slate-900 dark:text-slate-100">
               Theme Mode
@@ -627,7 +616,3 @@ export default function Controls({ onBack }) {
     </div>
   );
 }
-
-Controls.propTypes = {
-  onBack: PropTypes.func,
-};

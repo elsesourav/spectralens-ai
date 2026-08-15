@@ -45,11 +45,15 @@
   --text-muted: #64748b;
 }
 
-html, body, #root, main {
+html, body, #root {
   overscroll-behavior: contain;
   background: transparent !important;
   background-color: transparent !important;
   color-scheme: normal !important;
+}
+
+main {
+  overscroll-behavior: contain;
 }
 
 body {

@@ -7,7 +7,7 @@ import "./menuWindow.css";
 export function App() {
    return (
       <StrictMode>
-         <ThemeProvider defaultTheme="system" storageKey="app-theme">
+         <ThemeProvider defaultTheme="system" storageKey="app-theme" contextKey="menu">
             <Menu />
          </ThemeProvider>
       </StrictMode>
