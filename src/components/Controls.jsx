@@ -295,14 +295,14 @@ export default function Controls() {
       ? "bg-white dark:bg-[#191c25] border-slate-200 dark:border-white/[0.08]"
       : contrastMode === "medium"
       ? "bg-white/80 dark:bg-[#191c25]/80 backdrop-blur-md border-slate-200/80 dark:border-white/[0.07]"
-      : "bg-white/50 dark:bg-[#191c25]/50 backdrop-blur-md border-slate-200/60 dark:border-white/[0.06]";
+      : "bg-white/20 dark:bg-white/[0.04] border-slate-200/30 dark:border-white/[0.05]";
 
   const itemBgClass =
     contrastMode === "solid"
       ? "bg-white dark:bg-[#191c25] border-slate-200 dark:border-white/[0.08]"
       : contrastMode === "medium"
       ? "bg-white/80 dark:bg-[#191c25]/80 backdrop-blur-md border-slate-200/80 dark:border-white/[0.08]"
-      : "bg-white/50 dark:bg-[#191c25]/50 backdrop-blur-md border-slate-200/60 dark:border-white/[0.06]";
+      : "bg-white/20 dark:bg-white/[0.04] border-slate-200/30 dark:border-white/[0.05]";
 
   return (
     <div className="flex flex-col h-full bg-transparent text-[#0f172a] dark:text-[#f8fafc] overflow-hidden">

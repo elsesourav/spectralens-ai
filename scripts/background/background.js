@@ -80,11 +80,48 @@ const activateAlwaysActive = () => {
   });
 };
 
-chrome.runtime.onStartup.addListener(activateAlwaysActive);
-chrome.runtime.onInstalled.addListener(activateAlwaysActive);
+const updateAlwaysActiveBadge = (tabId, url) => {
+  if (!chrome.action) return;
+  if (!tabId) {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (tabs[0]) updateAlwaysActiveBadge(tabs[0].id, tabs[0].url);
+    });
+    return;
+  }
+  if (!url || !url.startsWith("http")) {
+    chrome.action.setBadgeText({ tabId, text: "" });
+    return;
+  }
+  let hostname = "";
+  try {
+    hostname = new URL(url).hostname;
+  } catch {
+    // ignore
+  }
+
+  chromeStorageGetLocal("alwaysActiveHosts", (hosts) => {
+    const activeHosts = Array.isArray(hosts) ? hosts : [];
+    if (hostname && (activeHosts.includes(hostname) || activeHosts.includes("*"))) {
+      chrome.action.setBadgeText({ tabId, text: "ON" });
+      chrome.action.setBadgeBackgroundColor({ tabId, color: "#10b981" });
+    } else {
+      chrome.action.setBadgeText({ tabId, text: "" });
+    }
+  });
+};
+
+chrome.runtime.onStartup.addListener(() => {
+  activateAlwaysActive();
+  updateAlwaysActiveBadge();
+});
+chrome.runtime.onInstalled.addListener(() => {
+  activateAlwaysActive();
+  updateAlwaysActiveBadge();
+});
 chrome.storage.onChanged.addListener((changes) => {
   if (changes.alwaysActiveHosts) {
     activateAlwaysActive();
+    updateAlwaysActiveBadge();
   }
 });
 
@@ -116,9 +153,15 @@ const cleanupAlwaysActiveHosts = () => {
 chrome.tabs.onRemoved.addListener(() => {
   cleanupAlwaysActiveHosts();
 });
-chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
-  if (changeInfo.url) {
+chrome.tabs.onActivated.addListener((activeInfo) => {
+  chrome.tabs.get(activeInfo.tabId, (tab) => {
+    if (tab) updateAlwaysActiveBadge(tab.id, tab.url);
+  });
+});
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.url || tab?.url) {
     cleanupAlwaysActiveHosts();
+    updateAlwaysActiveBadge(tabId, changeInfo.url || tab?.url);
   }
 });
 

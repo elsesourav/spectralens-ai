@@ -46,7 +46,7 @@ export default function Sidebar({ activeTab, onSelectTab, onNewChat }) {
       ? "bg-slate-100 dark:bg-[#14161e] border-r border-slate-200 dark:border-white/[0.08]"
       : contrastMode === "medium"
       ? "bg-slate-100/60 dark:bg-black/30 backdrop-blur-sm border-r border-slate-200/80 dark:border-white/[0.07]"
-      : "bg-slate-100/30 dark:bg-black/20 backdrop-blur-sm border-r border-slate-200/60 dark:border-white/[0.06]";
+      : "bg-slate-100/20 dark:bg-black/15 border-r border-slate-200/40 dark:border-white/[0.06]";
 
   return (
     <aside className={`w-[48px] h-full flex flex-col items-center justify-between py-3 shrink-0 select-none z-20 ${sidebarBgClass}`}>

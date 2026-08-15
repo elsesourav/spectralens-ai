@@ -145,7 +145,7 @@ export default function Menu() {
   const contrastClass = useMemo(() => {
     if (!isChatOpen) {
       if (contrastMode === "transparent") {
-        return "bg-[#16171d]/35 backdrop-blur-2xl border border-white/20 shadow-2xl";
+        return "bg-black/15 dark:bg-black/25 backdrop-blur-md border border-white/20 shadow-2xl";
       }
       if (contrastMode === "medium") {
         return "bg-[#16171d]/75 backdrop-blur-xl border border-white/20 shadow-2xl";
@@ -153,7 +153,7 @@ export default function Menu() {
       return "bg-[#16171d] border border-white/20 shadow-2xl";
     } else {
       if (contrastMode === "transparent") {
-        return "bg-[#f8fafc]/35 dark:bg-[#0e1015]/35 backdrop-blur-2xl border border-slate-200/50 dark:border-white/10 shadow-2xl";
+        return "bg-slate-900/10 dark:bg-black/20 backdrop-blur-md border border-slate-200/40 dark:border-white/10 shadow-2xl";
       }
       if (contrastMode === "medium") {
         return "bg-[#f8fafc]/80 dark:bg-[#0e1015]/80 backdrop-blur-xl border border-slate-200/70 dark:border-white/10 shadow-2xl";
@@ -407,7 +407,7 @@ export default function Menu() {
                   ? "bg-slate-100 dark:bg-[#14161e] border-slate-200 dark:border-white/[0.08]"
                   : contrastMode === "medium"
                   ? "bg-slate-100/60 dark:bg-black/30 backdrop-blur-sm border-slate-200/80 dark:border-white/[0.08]"
-                  : "bg-slate-100/30 dark:bg-black/20 backdrop-blur-sm border-slate-200/60 dark:border-white/[0.06]"
+                  : "bg-slate-100/20 dark:bg-black/15 border-slate-200/40 dark:border-white/[0.06]"
               }`}
             >
               <div className="flex items-center gap-2 select-none pointer-events-none">
@@ -419,7 +419,7 @@ export default function Menu() {
                   />
                   {isAlwaysActive && (
                     <span
-                      className="absolute -top-0.5 -right-0.5 size-2.5 bg-emerald-500 rounded-full ring-2 ring-white dark:ring-[#14161e] shadow-xs"
+                      className="absolute -bottom-0.5 -right-0.5 size-2 bg-emerald-500 rounded-full ring-1.5 ring-white dark:ring-[#14161e] shadow-xs"
                       title="Always Active Tab: Active on this page"
                     />
                   )}
