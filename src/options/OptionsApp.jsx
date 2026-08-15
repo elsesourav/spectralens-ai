@@ -78,7 +78,7 @@ export default function OptionsApp() {
 
    return (
       <div className="max-w-2xl mx-auto p-8 mt-10">
-         <h1 className="text-3xl font-bold mb-8 text-gray-900 dark:text-white">AI Display - Options</h1>
+         <h1 className="text-3xl font-bold mb-8 text-gray-900 dark:text-white">SpectraLens AI - Options</h1>
          
          {/* Enable Copy Section */}
          <div className="bg-white dark:bg-[#1a1a1a] rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-6 mb-6">

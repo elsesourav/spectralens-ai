@@ -59,7 +59,7 @@
     const redirect = (e) => {
       if (redirect.href) {
         console.info(
-          "[Ai Display - Top Active Window]",
+          "[SpectraLens AI - Top Active Window]",
           "an attempt to redirect is being blocked",
           redirect.href,
         );

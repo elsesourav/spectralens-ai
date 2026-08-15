@@ -1,4 +1,4 @@
-# AI Display — Chrome Web Store Compliance, Privacy & Security Audit Report
+# SpectraLens AI — Chrome Web Store Compliance, Privacy & Security Audit Report
 **Single Source of Truth for Chrome Web Store Publication and Extension Hardening**
 
 ---
@@ -45,7 +45,7 @@
 ## 3. Host Permissions Audit
 
 - **Declared Patterns**: `http://*/*` and `https://*/*`.
-- **Justification**: AI Display injects content scripts (`menuContent.js`, `enableCopy.js`) to provide the floating AI assistant, text selection tools, and copy unblocker across general research websites, and opens background tabs against selected search engines (Google, Bing, Perplexity, Gemini, Grok).
+- **Justification**: SpectraLens AI injects content scripts (`menuContent.js`, `enableCopy.js`) to provide the floating AI assistant, text selection tools, and copy unblocker across general research websites, and opens background tabs against selected search engines (Google, Bing, Perplexity, Gemini, Grok).
 - **Narrowing Applied**: Replaced `<all_urls>` with standard web schemes (`http` / `https`), explicitly avoiding privileged browser schemes (`chrome://`, `edge://`, `file://`, `devtools://`).
 
 ---
@@ -129,7 +129,7 @@
 ## 9. Chrome Web Store Reviewer Testing Guide
 
 1. **AI Chat & Search**:
-   - Open any webpage, click the floating AI Display widget (or open extension popup).
+   - Open any webpage, click the floating SpectraLens AI widget (or open extension popup).
    - Type a query (e.g. "What is Machine Learning?") and click Send.
    - Observe concurrent answers loading from enabled AI engines (Google, Bing, Perplexity, Grok, Gemini).
 2. **OCR Screen Selection**:

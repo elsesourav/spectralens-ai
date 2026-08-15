@@ -1,6 +1,6 @@
-# AI Display Chrome Extension
+# SpectraLens AI Chrome Extension
 
-<img src="src/assets/icons/icon.png" width="128" height="128" alt="AI Display Icon">
+<img src="src/assets/icons/icon.png" width="128" height="128" alt="SpectraLens AI Icon">
 
 A powerful Chrome extension that brings multiple AI assistants together in one convenient interface. Get answers from Google Gemini, Bing AI, Perplexity, Grok, and more - all at once!
 
@@ -8,13 +8,13 @@ A powerful Chrome extension that brings multiple AI assistants together in one c
 
 ## 🎥 How to Use (Video Tutorial)
 
-[![AI Display Extension Tutorial](https://img.youtube.com/vi/KsRN0qGqnlY/maxresdefault.jpg)](https://youtu.be/KsRN0qGqnlY)
+[![SpectraLens AI Extension Tutorial](https://img.youtube.com/vi/KsRN0qGqnlY/maxresdefault.jpg)](https://youtu.be/KsRN0qGqnlY)
 
 ## Quick Start
 
 ### Download & Install
 
-**[⬇️ Download Here](https://github.com/elsesourav/ai-display/raw/main/ai-display-extension.zip)** *(Size: 21.49 MB, Updated: 2026-08-14)*
+**[⬇️ Download Here](https://github.com/elsesourav/spectralens-ai/raw/main/spectralens-ai-extension.zip)** *(Size: 21.49 MB, Updated: 2026-08-15)*
 
 **Installation Steps:**
 
@@ -105,7 +105,7 @@ A powerful Chrome extension that brings multiple AI assistants together in one c
 
 ### Advanced Features
 
-- **Screen Selection**: Right-click → AI Display → Select area to OCR text
+- **Screen Selection**: Right-click → SpectraLens AI → Select area to OCR text
 - **Menu Positioning**: Drag the floating menu anywhere on the page
 - **Provider Settings**: Configure which AI services to use
 - **Keyboard Shortcuts**: Press Escape to close, Enter to send

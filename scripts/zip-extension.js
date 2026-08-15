@@ -7,7 +7,7 @@ const require = createRequire(import.meta.url);
 
 async function zipExtension() {
    const extensionDir = "./extension";
-   const outputPath = "./ai-display-extension.zip";
+   const outputPath = "./spectralens-ai-extension.zip";
 
    // Check if extension directory exists
    if (!existsSync(extensionDir)) {
@@ -46,7 +46,7 @@ async function zipExtension() {
             if (downloadLinkRegex.test(readmeContent)) {
                readmeContent = readmeContent.replace(
                   downloadLinkRegex,
-                  `**[⬇️ Download Here](https://github.com/elsesourav/ai-display/raw/main/ai-display-extension.zip)** *(Size: ${sizeInMB} MB, Updated: ${dateStr})*`
+                  `**[⬇️ Download Here](https://github.com/elsesourav/spectralens-ai/raw/main/spectralens-ai-extension.zip)** *(Size: ${sizeInMB} MB, Updated: ${dateStr})*`
                );
                fs.writeFileSync(readmePath, readmeContent, "utf8");
                console.log("📝 README.md updated with latest download info.");
@@ -88,7 +88,7 @@ async function zipExtension() {
    });
 
    // Create a simple text readme for the zip
-   const simpleReadme = `AI Display Chrome Extension
+   const simpleReadme = `SpectraLens AI Chrome Extension
 ===========================
 
 About

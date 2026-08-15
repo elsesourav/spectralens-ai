@@ -1,9 +1,9 @@
-# AI Display — Production Release Checklist & QA Report
+# SpectraLens AI — Production Release Checklist & QA Report
 
 **Version:** 2.4.2  
-**Date:** August 14, 2026  
+**Date:** August 15, 2026  
 **Build Target:** Manifest V3 / Chrome Web Store  
-**Package:** `ai-display-extension.zip`
+**Package:** `spectralens-ai-extension.zip`
 
 ---
 
@@ -20,7 +20,7 @@
 - [x] **Store promotional screenshots documented** (1280x800px guide in `CHROMEWEBSTORE.md`)
 - [x] **Reviewer testing instructions ready** (Documented in `CHROMEWEBSTORE.md`)
 - [x] **Test credentials ready** (None needed — 100% anonymous operation)
-- [x] **Package created** (`ai-display-extension.zip` generated via `npm run zip`)
+- [x] **Package created** (`spectralens-ai-extension.zip` generated via `npm run zip`)
 - [x] **Package inspected** (Verified manifest.json at zip root, no `.DS_Store` or dev artifacts)
 - [x] **Core flow tested** (Multi-AI querying, local OCR extraction, floating menu, copy unblocker)
 - [x] **Failure states tested** (25s scraper timeout, offline recovery, DOM missing fallbacks)
@@ -35,7 +35,7 @@
 | :--- | :--- |
 | **VERSION** | `2.4.2` |
 | **BUILD PIPELINE** | Vite 6 + React 19 + TailwindCSS (Production Minified) |
-| **ZIP ARCHIVE** | `ai-display-extension.zip` |
+| **ZIP ARCHIVE** | `spectralens-ai-extension.zip` |
 | **ZIP SIZE** | ~21.48 MB (Includes local offline Tesseract.js WASM + traineddata) |
 | **PERMISSIONS** | `["scripting", "storage", "activeTab", "tabs", "declarativeNetRequest", "offscreen"]` |
 | **OPTIONAL PERMISSIONS** | `["clipboardWrite"]` |

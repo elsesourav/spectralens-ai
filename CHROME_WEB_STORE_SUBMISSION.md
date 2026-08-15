@@ -1,7 +1,7 @@
 # Chrome Web Store Submission
 
 ## Product
-- **Name:** AI Display
+- **Name:** SpectraLens AI
 - **Version:** 2.4.2
 - **Purpose:** Instant on-page multi-engine AI search aggregation, text extraction, and on-device Optical Character Recognition (OCR) directly within web browsing workflows.
 
@@ -13,13 +13,13 @@
 ## Store Listing
 
 ### Name
-AI Display — Multi-Engine AI Search & On-Device OCR
+SpectraLens AI — Multi-Engine AI Search, Screen OCR & Tab Tools
 
 ### Short Description
 Fast multi-engine AI search aggregation, in-page text selection, and on-device Optical Character Recognition (OCR).
 
 ### Full Description
-AI Display is an in-browser productivity and research companion that lets you query top AI search engines, extract on-screen text with offline OCR, and compare answers side-by-side without leaving your active tab.
+SpectraLens AI is an in-browser productivity and research companion that lets you query top AI search engines, extract on-screen text with offline OCR, and compare answers side-by-side without leaving your active tab.
 
 KEY CAPABILITIES
 

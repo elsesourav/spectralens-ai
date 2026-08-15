@@ -38,7 +38,7 @@ export default function Footer() {
 
          {/* Copyright */}
          <div className="text-[11px] text-gray-400 dark:text-gray-500 font-medium tracking-wide">
-            © {currentYear} AI Display. All rights reserved.
+            © {currentYear} SpectraLens AI. All rights reserved.
          </div>
       </footer>
    );

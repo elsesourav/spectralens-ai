@@ -44,7 +44,7 @@ export default function ToggleButton() {
         <div className="flex items-center justify-between w-full px-6 pointer-events-none">
           <div className="flex flex-col items-start">
             <span className="font-bold text-xl text-white z-4 relative leading-tight">
-              AI Display
+              SpectraLens AI
             </span>
             <span className="text-sm text-white/80 z-4 relative">
               {checked ? "Active on web pages" : "Click to activate"}

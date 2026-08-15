@@ -315,7 +315,7 @@ export default function Controls() {
             <p className="text-xs mb-2 text-gray-600 dark:text-gray-400">
                {mainToggleEnabled
                   ? "Drag enabled AIs to reorder priority • At least one enabled"
-                  : "Enable AI Display to configure providers"}
+                  : "Enable SpectraLens AI to configure providers"}
             </p>
             <div className="space-y-2">
                {aiList.map((ai, index) => {
@@ -435,7 +435,7 @@ export default function Controls() {
             <p className="text-xs mb-3 text-gray-600 dark:text-gray-400">
                {mainToggleEnabled
                   ? "Choose how many AI providers to query simultaneously"
-                  : "Enable AI Display to configure request settings"}
+                  : "Enable SpectraLens AI to configure request settings"}
             </p>
 
             <div className="relative" ref={dropdownRef}>
@@ -601,7 +601,7 @@ export default function Controls() {
             <p className="text-xs mb-1.5 text-gray-600 dark:text-gray-400">
                {mainToggleEnabled
                   ? "Auto adapts to current website's light/dark mode"
-                  : "Enable AI Display to configure theme"}
+                  : "Enable SpectraLens AI to configure theme"}
             </p>
             <div className="grid grid-cols-3 gap-2 p-1 bg-gray-100 dark:bg-gray-800/80 rounded-xl border border-gray-200 dark:border-gray-700/80">
                {[
@@ -641,7 +641,7 @@ export default function Controls() {
             <p className="text-xs mb-1.5 text-gray-600 dark:text-gray-400">
                {mainToggleEnabled
                   ? "Low = More transparent & glassy • High = Solid & high visibility"
-                  : "Enable AI Display to configure contrast"}
+                  : "Enable SpectraLens AI to configure contrast"}
             </p>
             <div className="grid grid-cols-3 gap-2 p-1 bg-gray-100 dark:bg-gray-800/80 rounded-xl border border-gray-200 dark:border-gray-700/80">
                {[
@@ -693,7 +693,7 @@ export default function Controls() {
             <p className="text-xs mb-1.5 text-gray-600 dark:text-gray-400">
                {mainToggleEnabled
                   ? "Automatically fade minimized floating menu after inactivity"
-                  : "Enable AI Display to configure auto-hide"}
+                  : "Enable SpectraLens AI to configure auto-hide"}
             </p>
             <div className="grid grid-cols-4 gap-1.5 p-1 bg-gray-100 dark:bg-gray-800/80 rounded-xl border border-gray-200 dark:border-gray-700/80">
                {[

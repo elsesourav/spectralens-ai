@@ -1,6 +1,6 @@
 /* eslint-disable no-undef */
 /**
- * Automated Verification & Compliance Test Suite for AI Display
+ * Automated Verification & Compliance Test Suite for SpectraLens AI
  * Run using: npm test
  */
 
@@ -25,7 +25,7 @@ function assert(condition, message) {
   }
 }
 
-console.log("\n🧪 Running AI Display Automated Test Suite...\n");
+console.log("\n🧪 Running SpectraLens AI Automated Test Suite...\n");
 
 // --- TEST SUITE 1: Manifest V3 Schema & Security Audit ---
 console.log("1. Manifest V3 Schema & Permissions Audit:");

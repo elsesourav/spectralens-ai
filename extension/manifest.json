@@ -1,5 +1,5 @@
 {
-  "name": "Ai Display",
+  "name": "SpectraLens AI",
   "version": "2.4.2",
   "description": "Fast multi-engine AI search aggregation, in-page text selection, and on-device Optical Character Recognition (OCR).",
   "manifest_version": 3,
@@ -19,7 +19,7 @@
   "background": {
     "service_worker": "./background/background.js"
   },
-  "homepage_url": "https://github.com/elsesourav",
+  "homepage_url": "https://github.com/elsesourav/spectralens-ai",
   "content_security_policy": {
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
   },
@@ -62,7 +62,7 @@
       "32": "assets/icons/32.png",
       "128": "assets/icons/128.png"
     },
-    "default_title": "Ai Display",
+    "default_title": "SpectraLens AI",
     "default_popup": "./popup/popup.html"
   },
   "options_ui": {

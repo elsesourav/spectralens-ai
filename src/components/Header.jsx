@@ -22,7 +22,7 @@ export default function Header() {
                      <img src="./../assets/icons/icon.png" alt="icon" />
                   </div>
                   <h1 className="bg-gradient-to-l from-purple-500 via-orange-400 to-pink-500 inline-block text-transparent bg-clip-text font-black text-2xl text-shadow-lg/10 text-shadow-black">
-                     AI Display
+                     SpectraLens AI
                   </h1>
                   <button
                      onClick={toggleTheme}
