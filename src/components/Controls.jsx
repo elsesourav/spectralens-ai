@@ -502,10 +502,10 @@ export default function Controls() {
           <div className="grid grid-cols-5 gap-1.5 pt-0.5">
             {[
               { label: "Never", val: 0 },
-              { label: "5s", val: 5 },
-              { label: "10s", val: 10 },
+              { label: "20s", val: 20 },
               { label: "30s", val: 30 },
               { label: "60s", val: 60 },
+              { label: "90s", val: 90 },
             ].map((opt) => (
               <button
                 key={opt.val}

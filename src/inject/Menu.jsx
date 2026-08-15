@@ -86,13 +86,12 @@ export default function Menu() {
   }, []);
 
   useEffect(() => {
-    // Request controls from parent frame
-    ES.pagePostMessage("IF_C_GET_CURRENT_CONTROLS", {}, window.parent);
-
-    // Initial storage read
-    ES.chromeStorageGetLocal(ES.KEYS.CONTROLS, (controls) => {
-      if (controls && controls.autoHideDelay !== undefined) {
-        setAutoHideDelay(Number(controls.autoHideDelay));
+    // Initial fetch directly from chrome storage
+    ES.chromeStorageGetLocal(ES.KEYS.CONTROLS, (data) => {
+      if (data && typeof data === "object") {
+        if (data.autoHideDelay !== undefined) {
+          setAutoHideDelay(Number(data.autoHideDelay));
+        }
       }
     });
 
@@ -109,38 +108,42 @@ export default function Menu() {
         }
       };
       chrome.storage.onChanged.addListener(storageListener);
-      return () => chrome.storage.onChanged.removeListener(storageListener);
     }
 
-    ES.pageOnMessage("C_IF_OPEN_CHAT", () => {
-      setIsChatOpen(true);
-      setActiveTab("chat");
-      setMenuOpacity("1");
-    });
-    ES.pageOnMessage("C_IF_CLOSE_CHAT", () => {
-      setIsChatOpen(false);
-    });
+    const unsubs = [
+      ES.pageOnMessage("C_IF_OPEN_CHAT", () => {
+        setIsChatOpen(true);
+        setActiveTab("chat");
+        setMenuOpacity("1");
+      }),
+      ES.pageOnMessage("C_IF_CLOSE_CHAT", () => {
+        setIsChatOpen(false);
+      }),
+      ES.pageOnMessage("C_IF_HIDDEN", () => {
+        setMenuOpacity("0");
+      }),
+      ES.pageOnMessage("C_IF_SHOW", () => {
+        setMenuOpacity("1");
+      }),
+      ES.pageOnMessage("IF_C_GET_CURRENT_CONTROLS", (data) => {
+        const controls = data?.controls;
+        if (controls?.autoHideDelay !== undefined) {
+          setAutoHideDelay(Number(controls.autoHideDelay));
+        }
+      }),
+      ES.pageOnMessage("C_IF_CURRENT_CONTROLS", (data) => {
+        if (data?.autoHideDelay !== undefined) {
+          setAutoHideDelay(Number(data.autoHideDelay));
+        }
+      }),
+    ];
 
-    ES.pageOnMessage("C_IF_HIDDEN", () => {
-      setMenuOpacity("0");
-    });
-    ES.pageOnMessage("C_IF_SHOW", () => {
-      setMenuOpacity("1");
-    });
-
-    // Receive initial/live controls
-    ES.pageOnMessage("IF_C_GET_CURRENT_CONTROLS", (data) => {
-      const controls = data?.controls;
-      if (controls?.autoHideDelay !== undefined) {
-        setAutoHideDelay(Number(controls.autoHideDelay));
+    return () => {
+      if (storageListener && typeof chrome !== "undefined" && chrome.storage?.onChanged) {
+        chrome.storage.onChanged.removeListener(storageListener);
       }
-    });
-
-    ES.pageOnMessage("C_IF_CURRENT_CONTROLS", (data) => {
-      if (data?.autoHideDelay !== undefined) {
-        setAutoHideDelay(Number(data.autoHideDelay));
-      }
-    });
+      unsubs.forEach((u) => u && typeof u === "function" && u());
+    };
   }, []);
 
   // Compute effective theme based on user settings
@@ -183,11 +186,12 @@ export default function Menu() {
       return;
     }
 
-    let timer;
+    let timer = null;
+
     const startTimer = () => {
-      clearTimeout(timer);
+      if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
-        setMenuOpacity("0.25");
+        setMenuOpacity("0.2");
       }, autoHideDelay * 1000);
     };
 
@@ -198,15 +202,28 @@ export default function Menu() {
 
     wakeUp();
 
+    const handleMessage = (event) => {
+      const type = event?.data?.type;
+      if (
+        type === "C_IF_ACTIVITY" ||
+        type === "C_IF_SHOW" ||
+        type === "C_IF_MENU_WINDOW_DRAG_START"
+      ) {
+        wakeUp();
+      }
+    };
+
     window.addEventListener("mousemove", wakeUp);
     window.addEventListener("pointerdown", wakeUp);
     window.addEventListener("mouseenter", wakeUp);
+    window.addEventListener("message", handleMessage);
 
     return () => {
-      clearTimeout(timer);
+      if (timer) clearTimeout(timer);
       window.removeEventListener("mousemove", wakeUp);
       window.removeEventListener("pointerdown", wakeUp);
       window.removeEventListener("mouseenter", wakeUp);
+      window.removeEventListener("message", handleMessage);
     };
   }, [isChatOpen, autoHideDelay]);
 

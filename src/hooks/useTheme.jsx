@@ -90,12 +90,20 @@ export function ThemeProvider({
       }
    }, [contextKey]);
 
-   // System theme detection
+   // System / Page theme detection
    const [systemDark, setSystemDark] = useState(() => {
       if (typeof window !== "undefined" && window.matchMedia) {
          return window.matchMedia("(prefers-color-scheme: dark)").matches;
       }
       return true;
+   });
+
+   // Page theme detected from host webpage (when inside in-page menu iframe)
+   const [pageTheme, setPageTheme] = useState(() => {
+      if (typeof window !== "undefined") {
+         return document.documentElement.getAttribute("data-page-theme") || null;
+      }
+      return null;
    });
 
    useEffect(() => {
@@ -109,11 +117,36 @@ export function ThemeProvider({
       return () => mq.removeEventListener("change", handler);
    }, []);
 
+   useEffect(() => {
+      if (contextKey !== "menu") return;
+
+      const handleMessage = (event) => {
+         const data = event?.data;
+         if (data?.pageTheme) {
+            console.log("[useTheme] Host page theme received:", data.pageTheme);
+            setPageTheme(data.pageTheme);
+         }
+      };
+
+      window.addEventListener("message", handleMessage);
+
+      // Request initial controls & page theme from content script
+      if (window.parent && window.parent !== window) {
+         window.parent.postMessage({ type: "IF_C_GET_CURRENT_CONTROLS" }, "*");
+      }
+
+      return () => window.removeEventListener("message", handleMessage);
+   }, [contextKey]);
+
    const isDarkMode = useMemo(() => {
       if (theme === "dark") return true;
       if (theme === "light") return false;
+      // When theme === "system" inside in-page menu, use host webpage theme:
+      if (contextKey === "menu" && pageTheme) {
+         return pageTheme === "dark";
+      }
       return systemDark;
-   }, [theme, systemDark]);
+   }, [theme, contextKey, pageTheme, systemDark]);
 
    useEffect(() => {
       const root = window.document.documentElement;

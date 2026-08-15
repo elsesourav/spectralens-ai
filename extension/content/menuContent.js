@@ -29,7 +29,26 @@ function __pointerenter__() {
    __main_menu__ = document.getElementById("__menuWindowIframe");
    const menuFrame = document.getElementById("__menuWindowIframe");
    pagePostMessage("C_IF_MENU_WINDOW_DRAG_START", {}, menuFrame?.contentWindow);
+   pagePostMessage("C_IF_ACTIVITY", {}, menuFrame?.contentWindow);
 }
+
+// Throttled user activity forwarding to wake up minimized widget
+let __lastActivityNotify = 0;
+function __notifyActivity__() {
+   const now = Date.now();
+   if (now - __lastActivityNotify > 1000) {
+      __lastActivityNotify = now;
+      const iframe = document.getElementById("__menuWindowIframe");
+      if (iframe?.contentWindow) {
+         pagePostMessage("C_IF_ACTIVITY", {}, iframe.contentWindow);
+      }
+   }
+}
+
+window.addEventListener("mousemove", __notifyActivity__, { passive: true });
+window.addEventListener("pointerdown", __notifyActivity__, { passive: true });
+window.addEventListener("keydown", __notifyActivity__, { passive: true });
+window.addEventListener("scroll", __notifyActivity__, { passive: true });
 
 function __pointerleave__() {
    __isDragging = false;
