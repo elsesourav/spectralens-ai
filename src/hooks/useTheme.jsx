@@ -20,17 +20,21 @@ export function ThemeProvider({
 
    // Sync from chrome storage on mount and live change
    useEffect(() => {
+      console.log("[useTheme] Initializing theme provider, current theme:", theme, "contrast:", contrastMode);
       if (typeof chrome !== "undefined" && chrome.storage?.local) {
          chrome.storage.local.get([CONTROLS_KEY]).then((res) => {
+            console.log("[useTheme] Storage initial get response:", res?.[CONTROLS_KEY]);
             if (res && res[CONTROLS_KEY]) {
                const controls =
                   typeof res[CONTROLS_KEY] === "string"
                      ? JSON.parse(res[CONTROLS_KEY])
                      : res[CONTROLS_KEY];
                if (controls?.chatbotTheme) {
+                  console.log("[useTheme] Setting initial theme from storage:", controls.chatbotTheme);
                   setThemeState(controls.chatbotTheme);
                }
                if (controls?.contrastMode) {
+                  console.log("[useTheme] Setting initial contrast from storage:", controls.contrastMode);
                   setContrastModeState(controls.contrastMode);
                }
             }
@@ -41,6 +45,7 @@ export function ThemeProvider({
                const val = changes[CONTROLS_KEY].newValue;
                const controls =
                   typeof val === "string" ? JSON.parse(val) : val;
+               console.log("[useTheme] chrome.storage onChanged detected:", controls);
                if (controls?.chatbotTheme) {
                   setThemeState(controls.chatbotTheme);
                }
@@ -65,7 +70,10 @@ export function ThemeProvider({
    useEffect(() => {
       if (typeof window === "undefined" || !window.matchMedia) return;
       const mq = window.matchMedia("(prefers-color-scheme: dark)");
-      const handler = (e) => setSystemDark(e.matches);
+      const handler = (e) => {
+         console.log("[useTheme] System color scheme changed, isDark:", e.matches);
+         setSystemDark(e.matches);
+      };
       mq.addEventListener("change", handler);
       return () => mq.removeEventListener("change", handler);
    }, []);
@@ -78,13 +86,26 @@ export function ThemeProvider({
 
    useEffect(() => {
       const root = window.document.documentElement;
-      root.classList.remove("light", "dark");
-      root.classList.add(isDarkMode ? "dark" : "light");
-      root.setAttribute("data-theme", isDarkMode ? "dark" : "light");
-      root.setAttribute("data-contrast", contrastMode);
-   }, [isDarkMode, contrastMode]);
+      const body = window.document.body;
+      const themeClass = isDarkMode ? "dark" : "light";
+      console.log("[useTheme] Applying classes to document elements:", { theme, isDarkMode, themeClass, contrastMode });
+
+      if (root) {
+         root.classList.remove("light", "dark");
+         root.classList.add(themeClass);
+         root.setAttribute("data-theme", themeClass);
+         root.setAttribute("data-contrast", contrastMode);
+      }
+      if (body) {
+         body.classList.remove("light", "dark");
+         body.classList.add(themeClass);
+         body.setAttribute("data-theme", themeClass);
+         body.setAttribute("data-contrast", contrastMode);
+      }
+   }, [isDarkMode, contrastMode, theme]);
 
    const setTheme = (newTheme) => {
+      console.log("[useTheme] setTheme requested:", newTheme);
       localStorage.setItem(storageKey, newTheme);
       setThemeState(newTheme);
 
@@ -96,6 +117,7 @@ export function ThemeProvider({
                   : res[CONTROLS_KEY]
                : {};
             controls.chatbotTheme = newTheme;
+            console.log("[useTheme] Updating chrome.storage with new theme:", controls);
             chrome.storage.local.set({
                [CONTROLS_KEY]: controls,
             });
@@ -104,6 +126,7 @@ export function ThemeProvider({
    };
 
    const setContrastMode = (newContrast) => {
+      console.log("[useTheme] setContrastMode requested:", newContrast);
       localStorage.setItem("app-contrast", newContrast);
       setContrastModeState(newContrast);
 
@@ -115,6 +138,7 @@ export function ThemeProvider({
                   : res[CONTROLS_KEY]
                : {};
             controls.contrastMode = newContrast;
+            console.log("[useTheme] Updating chrome.storage with new contrast:", controls);
             chrome.storage.local.set({
                [CONTROLS_KEY]: controls,
             });

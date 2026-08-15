@@ -29,7 +29,9 @@ export default function Sidebar({ activeTab, onSelectTab, onNewChat }) {
   ];
 
   const handleToggleTheme = () => {
-    setTheme(isDarkMode ? "light" : "dark");
+    const next = isDarkMode ? "light" : "dark";
+    console.log("[Sidebar] handleToggleTheme clicked -> switching to:", next);
+    setTheme(next);
   };
 
   const handleNewChatClick = () => {

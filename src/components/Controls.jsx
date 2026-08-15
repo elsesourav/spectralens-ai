@@ -557,7 +557,10 @@ export default function Controls({ onBack }) {
                 return (
                   <button
                     key={mode.id}
-                    onClick={() => setTheme(mode.id)}
+                    onClick={() => {
+                      console.log("[Controls] Theme button clicked:", mode.id);
+                      setTheme(mode.id);
+                    }}
                     className={`flex flex-col items-center gap-1.5 py-2 px-2 rounded-xl text-xs font-medium border transition-all focus:outline-none cursor-pointer ${
                       isSelected
                         ? "bg-blue-600 text-white border-blue-500 shadow-xs"
@@ -593,7 +596,10 @@ export default function Controls({ onBack }) {
                 return (
                   <button
                     key={cMode.id}
-                    onClick={() => setContrastMode(cMode.id)}
+                    onClick={() => {
+                      console.log("[Controls] Contrast button clicked:", cMode.id);
+                      setContrastMode(cMode.id);
+                    }}
                     className={`flex flex-col items-center gap-0.5 py-2 px-1.5 rounded-xl text-xs font-medium border transition-all focus:outline-none cursor-pointer ${
                       isSelected
                         ? "bg-blue-600 text-white border-blue-500 shadow-xs"
