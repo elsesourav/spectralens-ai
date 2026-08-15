@@ -225,18 +225,10 @@ pageOnMessage("IF_C_MENU_WINDOW_RESIZE", async (data) => {
   __iframeSize.width = width;
   __iframeSize.height = height;
 
-  if (__main_menu__) {
-    __main_menu__.style.borderRadius = isOpen ? "20px" : "9999px";
-  }
-
   const w = parseInt(width) || 440;
   __spacing = 0;
   const newBackWidth = isOpen ? w - 44 : 84;
   const newBackHeight = isOpen ? 44 : 46;
-  if (__menu_back__) {
-    __menu_back__.style.width = `${newBackWidth}px`;
-    __menu_back__.style.height = `${newBackHeight}px`;
-  }
 
   const curLeft =
     Number.parseFloat(__main_menu__?.style.left) ||
@@ -264,34 +256,38 @@ pageOnMessage("IF_C_MENU_WINDOW_RESIZE", async (data) => {
 
   __pointerOffset.x = constrainedPosition.x;
   __pointerOffset.y = constrainedPosition.y;
-  if (__menu_back__) {
-    __menu_back__.style.left = `${constrainedPosition.x}px`;
-    __menu_back__.style.top = `${constrainedPosition.y}px`;
-  }
-  if (__main_menu__) {
-    __main_menu__.style.left = `${constrainedPosition.x}px`;
-    __main_menu__.style.top = `${constrainedPosition.y}px`;
-  }
 
-  // Smooth animation for position and dimension changes
+  // Apply smooth synchronized transition
   if (!__isFirstSetup) {
     __main_menu__.style.transition =
-      "left 300ms cubic-bezier(0.16, 1, 0.3, 1), top 300ms cubic-bezier(0.16, 1, 0.3, 1), width 300ms cubic-bezier(0.16, 1, 0.3, 1), height 300ms cubic-bezier(0.16, 1, 0.3, 1), border-radius 300ms cubic-bezier(0.16, 1, 0.3, 1)";
+      "left 300ms ease-in-out, top 300ms ease-in-out, width 300ms ease-in-out, height 300ms ease-in-out, border-radius 300ms ease-in-out";
     if (__menu_back__) {
       __menu_back__.style.transition =
-        "left 300ms cubic-bezier(0.16, 1, 0.3, 1), top 300ms cubic-bezier(0.16, 1, 0.3, 1), width 300ms cubic-bezier(0.16, 1, 0.3, 1), height 300ms cubic-bezier(0.16, 1, 0.3, 1)";
+        "left 300ms ease-in-out, top 300ms ease-in-out, width 300ms ease-in-out, height 300ms ease-in-out";
     }
   } else {
     __isFirstSetup = false;
   }
 
-  __main_menu__.style.width = __iframeSize.width;
-  __main_menu__.style.height = __iframeSize.height;
+  if (__main_menu__) {
+    __main_menu__.style.left = `${constrainedPosition.x}px`;
+    __main_menu__.style.top = `${constrainedPosition.y}px`;
+    __main_menu__.style.width = __iframeSize.width;
+    __main_menu__.style.height = __iframeSize.height;
+    __main_menu__.style.borderRadius = isOpen ? "20px" : "9999px";
+  }
+
+  if (__menu_back__) {
+    __menu_back__.style.left = `${constrainedPosition.x}px`;
+    __menu_back__.style.top = `${constrainedPosition.y}px`;
+    __menu_back__.style.width = `${newBackWidth}px`;
+    __menu_back__.style.height = `${newBackHeight}px`;
+  }
 
   setTimeout(() => {
     if (__main_menu__) __main_menu__.style.transition = "";
     if (__menu_back__) __menu_back__.style.transition = "";
-  }, 320);
+  }, 300);
 });
 
 runtimeSendMessage("C_B_ON_LOAD", async (r) => {
