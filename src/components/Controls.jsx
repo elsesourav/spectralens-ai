@@ -3,7 +3,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import PropTypes from "prop-types";
 import {
   ProviderIcon,
-  DragHandleIcon,
   SettingsIcon,
 } from "./Icons.jsx";
 import {
@@ -15,6 +14,8 @@ import {
   IoFlashOutline,
   IoRefreshOutline,
   IoCheckmark,
+  IoChevronUpOutline,
+  IoChevronDownOutline,
 } from "react-icons/io5";
 import extensionUtils from "./../utils/utilsModule.js";
 import { useTheme } from "../hooks/useThemeHook.jsx";
@@ -31,8 +32,6 @@ export default function Controls({ onBack }) {
   const { theme, setTheme, contrastMode, setContrastMode } = useTheme();
 
   const [aiList, setAiList] = useState(DEFAULT_AI_OPTIONS);
-  const [draggedItem, setDraggedItem] = useState(null);
-  const [dragOverIndex, setDragOverIndex] = useState(null);
   const [maxProviderWarning, setMaxProviderWarning] = useState(false);
 
   // Widget settings
@@ -190,36 +189,29 @@ export default function Controls({ onBack }) {
     });
   };
 
-  // Drag and Drop
-  const handleDragStart = (e, index) => {
-    setDraggedItem(index);
-    e.dataTransfer.effectAllowed = "move";
+  // Move Priority Up / Down
+  const handleMoveUp = (index) => {
+    if (index <= 0) return;
+    setAiList((prev) => {
+      const next = [...prev];
+      const temp = next[index];
+      next[index] = next[index - 1];
+      next[index - 1] = temp;
+      saveControlsSettings(next);
+      return next;
+    });
   };
 
-  const handleDragOver = (e, index) => {
-    e.preventDefault();
-    if (draggedItem !== null && draggedItem !== index) {
-      setDragOverIndex(index);
-    }
-  };
-
-  const handleDrop = (e, dropIndex) => {
-    e.preventDefault();
-    if (draggedItem === null || draggedItem === dropIndex) {
-      setDraggedItem(null);
-      setDragOverIndex(null);
-      return;
-    }
-
-    const newList = [...aiList];
-    const item = newList[draggedItem];
-    newList.splice(draggedItem, 1);
-    newList.splice(dropIndex, 0, item);
-
-    setAiList(newList);
-    setDraggedItem(null);
-    setDragOverIndex(null);
-    saveControlsSettings(newList);
+  const handleMoveDown = (index) => {
+    if (index >= aiList.length - 1) return;
+    setAiList((prev) => {
+      const next = [...prev];
+      const temp = next[index];
+      next[index] = next[index + 1];
+      next[index + 1] = temp;
+      saveControlsSettings(next);
+      return next;
+    });
   };
 
   // Toggle In-Page Widget
@@ -341,30 +333,42 @@ export default function Controls({ onBack }) {
             </div>
           )}
 
-          {/* Providers List with Drag & Drop */}
+          {/* Providers List with Up/Down Priority Ordering */}
           <div className="space-y-1.5">
             {aiList.map((ai, index) => {
               const isEnabled = ai.enabled;
-              const isOver = dragOverIndex === index;
 
               return (
                 <div
                   key={ai.id}
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, index)}
-                  onDragOver={(e) => handleDragOver(e, index)}
-                  onDrop={(e) => handleDrop(e, index)}
                   className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${
                     isEnabled
                       ? "bg-white dark:bg-[#191c25] border-slate-200/80 dark:border-white/[0.08] shadow-xs"
                       : "bg-slate-100/60 dark:bg-white/[0.02] border-transparent opacity-65"
-                  } ${isOver ? "border-blue-500 scale-[1.01]" : ""}`}
+                  }`}
                 >
-                  <div className="flex items-center gap-2.5">
-                    <span className="cursor-grab active:cursor-grabbing text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300">
-                      <DragHandleIcon className="w-3.5 h-3.5" size={14} />
-                    </span>
-                    <ProviderIcon id={ai.id} className="w-4 h-4" size={18} />
+                  <div className="flex items-center gap-3">
+                    {/* Up / Down Priority Buttons */}
+                    <div className="flex flex-col items-center -space-y-0.5">
+                      <button
+                        onClick={() => handleMoveUp(index)}
+                        disabled={index === 0}
+                        className="p-0.5 rounded text-slate-400 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-slate-200/60 dark:hover:bg-white/[0.06] disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:text-slate-400 transition-colors focus:outline-none cursor-pointer disabled:cursor-not-allowed"
+                        title="Increase Priority"
+                      >
+                        <IoChevronUpOutline className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleMoveDown(index)}
+                        disabled={index === aiList.length - 1}
+                        className="p-0.5 rounded text-slate-400 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-slate-200/60 dark:hover:bg-white/[0.06] disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:text-slate-400 transition-colors focus:outline-none cursor-pointer disabled:cursor-not-allowed"
+                        title="Decrease Priority"
+                      >
+                        <IoChevronDownOutline className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    <ProviderIcon id={ai.id} className="w-5 h-5 shrink-0" size={20} />
                     <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
                       {ai.name}
                     </span>

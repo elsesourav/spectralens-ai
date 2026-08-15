@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FiMinus, FiX } from "react-icons/fi";
-import appIconUrl from "../assets/icons/icon.png";
+import { FiX } from "react-icons/fi";
 import ChatBot from "../components/ChatBot.jsx";
 import Controls from "../components/Controls.jsx";
 import HistoryView from "../components/HistoryView.jsx";
@@ -354,44 +353,30 @@ export default function Menu() {
           /* ======================================================== */
           <div className="flex flex-col h-full w-full">
             {/* Top Draggable Window Control Bar */}
-            <div className="flex items-center justify-between px-3 py-2 bg-slate-100 dark:bg-[#14161e] border-b border-slate-200 dark:border-white/[0.08] shrink-0">
-              <div className="flex items-center gap-2">
-                <img
-                  src={appIconUrl}
-                  alt="SpectraLens AI"
-                  className="w-5 h-5 rounded-md object-contain shadow-2xs"
-                />
+            <div className="flex items-center justify-between px-3.5 py-2 bg-slate-100/90 dark:bg-[#14161e] border-b border-slate-200/80 dark:border-white/[0.08] shrink-0">
+              <div className="flex items-center">
                 <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
                   SpectraLens AI
                 </span>
               </div>
 
-              {/* Draggable Center Window Bar */}
+              {/* Draggable Center Window Region (no visible icon) */}
               <div
                 ref={dragRef}
-                className={`flex-1 mx-3 py-1 flex items-center justify-center rounded-lg cursor-grab active:cursor-grabbing hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${
-                  isDragging ? "bg-blue-500/20 text-blue-400" : "text-slate-400"
+                className={`flex-1 mx-3 h-6 rounded-lg cursor-grab active:cursor-grabbing hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${
+                  isDragging ? "bg-blue-500/10" : ""
                 }`}
                 title="Drag to move chat window"
-              >
-                <DragHandleIcon className="w-3.5 h-3.5" size={14} />
-              </div>
+              />
 
-              {/* Window Controls */}
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={toggleChat}
-                  className="p-1 rounded-lg text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors focus:outline-none cursor-pointer"
-                  title="Minimize"
-                >
-                  <FiMinus className="w-3.5 h-3.5" />
-                </button>
+              {/* Window Controls (Single Close Button) */}
+              <div className="flex items-center">
                 <button
                   onClick={toggleChat}
                   className="p-1 rounded-lg text-slate-500 hover:text-rose-500 dark:text-slate-400 dark:hover:text-rose-400 hover:bg-rose-500/10 transition-colors focus:outline-none cursor-pointer"
                   title="Close"
                 >
-                  <FiX className="w-3.5 h-3.5" />
+                  <FiX className="w-4 h-4" />
                 </button>
               </div>
             </div>
