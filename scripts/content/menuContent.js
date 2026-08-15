@@ -175,9 +175,12 @@ pageOnMessage("IF_C_MENU_WINDOW_RESIZE", async (data) => {
       __main_menu__.style.borderRadius = isOpen ? "16px" : "9999px";
    }
 
-   const newBackWidth = isOpen ? 315 : 38;
+   const w = parseInt(width) || 440;
+   const newBackWidth = isOpen ? w - 44 : 38;
+   const newBackHeight = isOpen ? 40 : 48;
    if (__menu_back__) {
       __menu_back__.style.width = `${newBackWidth}px`;
+      __menu_back__.style.height = `${newBackHeight}px`;
    }
 
    const rect = __menu_back__.getBoundingClientRect();
