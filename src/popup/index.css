@@ -56,7 +56,7 @@ body::-webkit-scrollbar {
    display: none;
 }
 
-/* Beautiful Gooey Toggle Switch */
+/* Beautiful Gooey Toggle Switch with Smooth Cubic-Bezier Transition */
 input[type="checkbox"]:not(.btn) {
    --S: calc(var(--s) * 1.8);
    height: calc(var(--S) + var(--S) / 5);
@@ -70,7 +70,7 @@ input[type="checkbox"]:not(.btn) {
    background-color: var(--switch-color-off);
    box-sizing: content-box;
    overflow: hidden;
-   transition: background-color 150ms ease;
+   transition: background-color 280ms cubic-bezier(0.4, 0, 0.2, 1);
    -webkit-appearance: none;
    -moz-appearance: none;
    appearance: none;
@@ -88,7 +88,7 @@ input[type="checkbox"]:not(.btn):before {
       var(--_g) var(--_p, 0) / var(--S) 100% no-repeat content-box, #fff;
    mix-blend-mode: darken;
    filter: blur(calc(var(--S) / 12)) contrast(11);
-   transition: background-position 150ms ease, padding 150ms ease;
+   transition: background-position 280ms cubic-bezier(0.4, 0, 0.2, 1), padding 280ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 input[type="checkbox"]:not(.btn):checked {
@@ -120,20 +120,6 @@ input[type="checkbox"]:not(.btn):checked:before {
    );
 }
 
-.animated-button:before {
-   position: absolute;
-   content: "";
-   display: inline-block;
-   top: -110%;
-   left: 0;
-   width: 20%;
-   height: 100%;
-   background: #fff;
-   z-index: 5;
-   animation: shiny-btn1 3s ease-in-out infinite;
-   animation-delay: 4000ms;
-}
-
 .animated-button:after {
    position: absolute;
    content: "";
@@ -147,44 +133,46 @@ input[type="checkbox"]:not(.btn):checked:before {
    z-index: 3;
 }
 
-@-webkit-keyframes shiny-btn1 {
-   0% {
-      -webkit-transform: scale(0) rotate(45deg);
-      transform: scale(0) rotate(45deg);
-      opacity: 0;
-   }
-   80% {
-      -webkit-transform: scale(0) rotate(45deg);
-      transform: scale(0) rotate(45deg);
-      opacity: 0.5;
-   }
-   81% {
-      -webkit-transform: scale(4) rotate(45deg);
-      transform: scale(4) rotate(45deg);
-      opacity: 1;
-   }
-   100% {
-      -webkit-transform: scale(50) rotate(45deg);
-      transform: scale(50) rotate(45deg);
-      opacity: 0;
-   }
+/* Header Luxury Shine / Sine Glow Sweep */
+.animated-header {
+   position: relative;
+   overflow: hidden;
 }
 
-@keyframes shiny-btn1 {
+.animated-header:before {
+   position: absolute;
+   content: "";
+   display: inline-block;
+   top: -110%;
+   left: -60%;
+   width: 40%;
+   height: 320%;
+   background: linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.35) 50%,
+      rgba(255, 255, 255, 0) 100%
+   );
+   transform: rotate(25deg);
+   z-index: 5;
+   pointer-events: none;
+   animation: header-shine 4s ease-in-out infinite;
+}
+
+@keyframes header-shine {
    0% {
-      transform: scale(0) rotate(45deg);
+      left: -60%;
       opacity: 0;
    }
-   80% {
-      transform: scale(0) rotate(45deg);
-      opacity: 0.5;
-   }
-   81% {
-      transform: scale(4) rotate(45deg);
+   15% {
       opacity: 1;
    }
+   35% {
+      left: 140%;
+      opacity: 0;
+   }
    100% {
-      transform: scale(50) rotate(45deg);
+      left: 140%;
       opacity: 0;
    }
 }

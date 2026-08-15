@@ -149,7 +149,7 @@ export default function EnableCopyToggle() {
   };
 
   return (
-    <div className="w-full mt-2">
+    <div className="w-full">
       <div
         className={`animated-button relative w-full h-16 rounded-xl grid place-items-center shadow-lg transition-[filter,opacity] duration-150 overflow-hidden cursor-pointer ${
           !checked ? "grayscale opacity-80" : ""

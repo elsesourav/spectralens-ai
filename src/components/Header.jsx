@@ -17,7 +17,7 @@ export default function Header() {
    return (
       <div>
          <header className="relative w-full">
-            <div className="bg-gradient-to-r from-blue-800 to-indigo-900 rounded-md shadow w-full px-4">
+            <div className="animated-header bg-gradient-to-r from-blue-800 to-indigo-900 rounded-md shadow w-full px-4">
                <div className="flex h-16 items-center justify-between">
                   <div className="size-10 flex items-center justify-center">
                      <img
