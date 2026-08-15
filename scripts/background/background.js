@@ -203,6 +203,16 @@ runtimeOnMessage("P_B_TOGGLE", async (_, __, sendResponse) => {
   return sendResponse("ok");
 });
 
+runtimeOnMessage("P_B_RESET_WIDGET_POSITION", async (_, __, sendResponse) => {
+  const tabs = await getTabs();
+  for (const tab of tabs) {
+    if (tab && !isInternalPage(tab) && tab.id) {
+      tabSendMessage(tab.id, "B_C_RESET_POSITION");
+    }
+  }
+  return sendResponse("ok");
+});
+
 runtimeOnMessage("C_B_ON_LOAD", (_, sender, sendResponse) => {
   sendResponse("ok");
   const tab = sender?.tab;

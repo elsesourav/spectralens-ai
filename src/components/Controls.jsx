@@ -1,723 +1,581 @@
 /* eslint-disable no-undef */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { RxDragHandleDots2 } from "react-icons/rx";
+import PropTypes from "prop-types";
+import {
+  ProviderIcon,
+  DragHandleIcon,
+  SettingsIcon,
+} from "./Icons.jsx";
+import {
+  IoSunnyOutline,
+  IoMoonOutline,
+  IoDesktopOutline,
+  IoAlertCircleOutline,
+  IoShieldCheckmarkOutline,
+  IoFlashOutline,
+  IoRefreshOutline,
+  IoCheckmark,
+} from "react-icons/io5";
 import extensionUtils from "./../utils/utilsModule.js";
+import { useTheme } from "../hooks/useThemeHook.jsx";
 
-const AI_OPTIONS = [
-   {
-      id: "google",
-      name: "Google AI",
-      enabled: true,
-      gradient: "from-red-500 to-yellow-500",
-   },
-   {
-      id: "bing",
-      name: "Bing AI",
-      enabled: true,
-      gradient: "from-cyan-500 to-blue-600",
-   },
-   {
-      id: "gemini",
-      name: "Gemini",
-      enabled: true,
-      gradient: "from-violet-600 to-blue-500",
-   },
-   {
-      id: "perplexity",
-      name: "Perplexity",
-      enabled: false,
-      gradient: "from-emerald-500 to-cyan-500",
-   },
-   {
-      id: "grok",
-      name: "Grok AI",
-      enabled: false,
-      gradient: "from-pink-500 to-purple-600",
-   },
+const DEFAULT_AI_OPTIONS = [
+  { id: "google", name: "Google AI", enabled: true },
+  { id: "bing", name: "Bing AI", enabled: true },
+  { id: "gemini", name: "Gemini", enabled: true },
+  { id: "perplexity", name: "Perplexity", enabled: false },
+  { id: "chatgpt", name: "ChatGPT (OpenAI)", enabled: false },
+  { id: "claude", name: "Claude (Anthropic)", enabled: false },
+  { id: "deepseek", name: "DeepSeek", enabled: false },
+  { id: "grok", name: "Grok AI", enabled: false },
+  { id: "ollama", name: "Ollama (Local)", enabled: false },
 ];
 
-const getConcurrentRequestOptions = (enabledCount) => [
-   {
-      value: 1,
-      icon: "sbi-flash1",
-      color: "text-yellow-500",
-      label: "Fast",
-      description: "Fastest response, single AI",
-   },
-   {
-      value: 2,
-      icon: "sbi-balance-scale",
-      color: "text-blue-500",
-      label: "Balanced",
-      description: "Balanced speed & quality",
-   },
-   {
-      value: 3,
-      icon: "sbi-target",
-      color: "text-green-500",
-      label: "Quality",
-      description: "Good results, moderate speed",
-   },
-   {
-      value: enabledCount,
-      icon: "sbi-rocket",
-      color: "text-red-500",
-      label: "All",
-      description: `Use all ${enabledCount} enabled AIs`,
-   },
-];
+export default function Controls({ onBack }) {
+  const { theme, setTheme } = useTheme();
 
-export default function Controls() {
-   const [aiList, setAiList] = useState(AI_OPTIONS);
-   const [draggedItem, setDraggedItem] = useState(null);
-   const [dragOverIndex, setDragOverIndex] = useState(null);
-   const [mainToggleEnabled, setMainToggleEnabled] = useState(false);
-   const [concurrentRequests, setConcurrentRequests] = useState(3);
-   const [uiContrast, setUiContrast] = useState("medium");
-   const [autoHideDelay, setAutoHideDelay] = useState(0);
-   const [chatbotTheme, setChatbotTheme] = useState("auto");
-   const [dropdownOpen, setDropdownOpen] = useState(false);
-   const [isInitialized, setIsInitialized] = useState(false);
-   const dropdownRef = useRef(null);
+  const [aiList, setAiList] = useState(DEFAULT_AI_OPTIONS);
+  const [draggedItem, setDraggedItem] = useState(null);
+  const [dragOverIndex, setDragOverIndex] = useState(null);
+  const [maxProviderWarning, setMaxProviderWarning] = useState(false);
 
-   const enabledCount = aiList.filter((ai) => ai.enabled).length;
-   const concurrentOptions = getConcurrentRequestOptions(enabledCount);
+  // Widget settings
+  const [widgetEnabled, setWidgetEnabled] = useState(false);
+  const [autoHideDelay, setAutoHideDelay] = useState(0);
+  const [concurrentRequests, setConcurrentRequests] = useState(3);
 
-   // Adjust concurrent requests if it exceeds available options
-   useEffect(() => {
-      const validValues = concurrentOptions.map((opt) => opt.value);
-      if (!validValues.includes(concurrentRequests)) {
-         setConcurrentRequests(Math.min(concurrentRequests, enabledCount));
-      }
-   }, [enabledCount, concurrentRequests, concurrentOptions]);
+  // Core feature states
+  const [alwaysActiveTab, setAlwaysActiveTab] = useState(false);
+  const [enableCopy, setEnableCopy] = useState(false);
 
-   const saveSettings = useCallback(() => {
-      if (!isInitialized) return;
+  const [isInitialized, setIsInitialized] = useState(false);
+  const warningTimerRef = useRef(null);
 
-      const controlsData = {
-         aiProviders: aiList,
-         concurrentRequests: concurrentRequests,
-         uiContrast: uiContrast,
-         autoHideDelay: autoHideDelay,
-         chatbotTheme: chatbotTheme,
-      };
+  const enabledCount = aiList.filter((ai) => ai.enabled).length;
 
-      extensionUtils.chromeStorageSetLocal(
-         extensionUtils.KEYS.CONTROLS,
-         controlsData
-      );
-   }, [aiList, concurrentRequests, uiContrast, autoHideDelay, chatbotTheme, isInitialized]);
-
-   useEffect(() => {
-      saveSettings();
-   }, [saveSettings]);
-
-   useEffect(() => {
-      const loadControlsData = () => {
-         extensionUtils.chromeStorageGetLocal(
-            extensionUtils.KEYS.CONTROLS,
-            (controlsData) => {
-               if (!controlsData) {
-                  setIsInitialized(true);
-                  return;
-               }
-
-               if (
-                  controlsData.aiProviders &&
-                  Array.isArray(controlsData.aiProviders)
-               ) {
-                  setAiList(controlsData.aiProviders);
-               }
-
-               if (
-                  controlsData.concurrentRequests &&
-                  typeof controlsData.concurrentRequests === "number"
-               ) {
-                  setConcurrentRequests(controlsData.concurrentRequests);
-               }
-
-               if (controlsData.uiContrast) {
-                  setUiContrast(controlsData.uiContrast);
-               }
-
-               if (controlsData.autoHideDelay !== undefined) {
-                  setAutoHideDelay(Number(controlsData.autoHideDelay) || 0);
-               }
-
-               if (controlsData.chatbotTheme) {
-                  setChatbotTheme(controlsData.chatbotTheme);
-               }
-
-               setIsInitialized(true);
+  // Load Settings from Chrome Storage
+  useEffect(() => {
+    // 1. Controls Data
+    extensionUtils.chromeStorageGetLocal(extensionUtils.KEYS.CONTROLS, (data) => {
+      if (data) {
+        if (data.aiProviders && Array.isArray(data.aiProviders)) {
+          const storedMap = new Map(data.aiProviders.map((p) => [p.id, p]));
+          const merged = DEFAULT_AI_OPTIONS.map((def) => {
+            if (storedMap.has(def.id)) {
+              return { ...def, ...storedMap.get(def.id) };
             }
-         );
-      };
+            return def;
+          });
 
-      loadControlsData();
-   }, []);
+          // Ensure max 3 are enabled
+          let count = 0;
+          const capped = merged.map((item) => {
+            if (item.enabled) {
+              count++;
+              if (count > 3) return { ...item, enabled: false };
+            }
+            return item;
+          });
+          setAiList(capped);
+        }
 
-   useEffect(() => {
-      const checkMainToggle = async () => {
-         const settings = await extensionUtils.chromeStorageGetLocal(
-            extensionUtils.KEYS.SETTINGS
-         );
-         setMainToggleEnabled(Boolean(settings?.enable));
-      };
-
-      checkMainToggle();
-
-      const handleStorageChange = (changes) => {
-         if (changes[extensionUtils.KEYS.SETTINGS]) {
-            const val = changes[extensionUtils.KEYS.SETTINGS].newValue;
-            const parsed = typeof val === "string" ? JSON.parse(val) : val;
-            setMainToggleEnabled(Boolean(parsed?.enable));
-         }
-      };
-
-      if (typeof chrome !== "undefined" && chrome.storage?.onChanged) {
-         chrome.storage.onChanged.addListener(handleStorageChange);
-         return () => {
-            chrome.storage.onChanged.removeListener(handleStorageChange);
-         };
+        if (data.concurrentRequests !== undefined) {
+          setConcurrentRequests(Math.min(3, Math.max(1, Number(data.concurrentRequests))));
+        }
+        if (data.autoHideDelay !== undefined) {
+          setAutoHideDelay(Number(data.autoHideDelay));
+        }
       }
-   }, []);
+      setIsInitialized(true);
+    });
 
-   useEffect(() => {
-      const handleClickOutside = (event) => {
-         if (
-            dropdownRef.current &&
-            !dropdownRef.current.contains(event.target)
-         ) {
-            setDropdownOpen(false);
-         }
+    // 2. Widget Toggle
+    extensionUtils.chromeStorageGetLocal(extensionUtils.KEYS.SETTINGS, (settings) => {
+      if (settings?.enable !== undefined) {
+        setWidgetEnabled(Boolean(settings?.enable));
+      }
+    });
+
+    // 3. Always Active Tab Host Status
+    const checkAlwaysActive = async () => {
+      const tab = await extensionUtils.getActiveTab();
+      let hostname = "";
+      if (tab?.url?.startsWith("http")) {
+        try {
+          hostname = new URL(tab.url).hostname;
+        } catch {
+          // Ignore
+        }
+      }
+      extensionUtils.chromeStorageGetLocal(extensionUtils.KEYS.ALWAYS_ACTIVE_HOSTS, (hosts = []) => {
+        const activeHosts = Array.isArray(hosts) ? hosts : [];
+        if (hostname && (activeHosts.includes(hostname) || activeHosts.includes("*"))) {
+          setAlwaysActiveTab(true);
+        } else {
+          setAlwaysActiveTab(false);
+        }
+      });
+    };
+    checkAlwaysActive();
+
+    // 4. Enable Copy Host Status
+    const checkEnableCopy = async () => {
+      const tab = await extensionUtils.getActiveTab();
+      let hostname = "";
+      if (tab?.url?.startsWith("http")) {
+        try {
+          hostname = new URL(tab.url).hostname;
+        } catch {
+          // Ignore
+        }
+      }
+      extensionUtils.chromeStorageGetLocal(extensionUtils.KEYS.ENABLE_COPY_HOSTS, (hosts) => {
+        let activeHosts = hosts;
+        if (typeof activeHosts === "string") {
+          try {
+            activeHosts = JSON.parse(activeHosts);
+          } catch {
+            activeHosts = [];
+          }
+        }
+        if (Array.isArray(activeHosts) && hostname && (activeHosts.includes(hostname) || activeHosts.includes("*"))) {
+          setEnableCopy(true);
+        } else {
+          setEnableCopy(false);
+        }
+      });
+    };
+    checkEnableCopy();
+  }, []);
+
+  // Save Settings helper
+  const saveControlsSettings = useCallback(
+    (newAiList = aiList, newConcurrent = concurrentRequests, newDelay = autoHideDelay) => {
+      if (!isInitialized) return;
+      const controlsData = {
+        aiProviders: newAiList,
+        concurrentRequests: newConcurrent,
+        autoHideDelay: newDelay,
+        chatbotTheme: theme,
       };
+      extensionUtils.chromeStorageSetLocal(extensionUtils.KEYS.CONTROLS, controlsData);
+    },
+    [aiList, concurrentRequests, autoHideDelay, theme, isInitialized]
+  );
 
-      if (dropdownOpen) {
-         document.addEventListener("mousedown", handleClickOutside);
-      }
+  // Toggle Provider with strict MAX 3 limit
+  const handleToggleProvider = (providerId) => {
+    setAiList((prevList) => {
+      const target = prevList.find((p) => p.id === providerId);
+      if (!target) return prevList;
 
-      return () => {
-         document.removeEventListener("mousedown", handleClickOutside);
-      };
-   }, [dropdownOpen]);
+      const willEnable = !target.enabled;
 
-   const sortAiList = (list) => {
-      const enabled = list.filter((ai) => ai.enabled);
-      const disabled = list.filter((ai) => !ai.enabled);
-      return [...enabled, ...disabled];
-   };
-
-   const handleToggle = useCallback(
-      (id) => {
-         if (!mainToggleEnabled) return;
-
-         setAiList((prev) => {
-            const updated = prev.map((ai) => {
-               if (ai.id === id) {
-                  if (ai.enabled && enabledCount <= 1) {
-                     return ai;
-                  }
-                  return { ...ai, enabled: !ai.enabled };
-               }
-               return ai;
-            });
-
-            setTimeout(() => {
-               setAiList(sortAiList(updated));
-            }, 300);
-
-            return updated;
-         });
-      },
-      [enabledCount, mainToggleEnabled]
-   );
-
-   const handleDragStart = (e, index) => {
-      if (!mainToggleEnabled) return;
-      setDraggedItem(index);
-      e.dataTransfer.effectAllowed = "move";
-   };
-
-   const handleDragOver = (e, index) => {
-      if (!mainToggleEnabled) return;
-      e.preventDefault();
-      const draggedAI = aiList[draggedItem];
-      const targetAI = aiList[index];
-
-      if (draggedAI?.enabled && targetAI?.enabled) {
-         setDragOverIndex(index);
-      }
-   };
-
-   const handleDragLeave = () => {
-      if (!mainToggleEnabled) return;
-      setDragOverIndex(null);
-   };
-
-   const handleDrop = (e, dropIndex) => {
-      if (!mainToggleEnabled) return;
-      e.preventDefault();
-
-      if (draggedItem === null || draggedItem === dropIndex) {
-         setDraggedItem(null);
-         setDragOverIndex(null);
-         return;
-      }
-
-      const draggedAI = aiList[draggedItem];
-      const targetAI = aiList[dropIndex];
-
-      if (!draggedAI?.enabled || !targetAI?.enabled) {
-         setDraggedItem(null);
-         setDragOverIndex(null);
-         return;
+      // Check max 3 limit
+      if (willEnable && enabledCount >= 3) {
+        setMaxProviderWarning(true);
+        if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
+        warningTimerRef.current = setTimeout(() => {
+          setMaxProviderWarning(false);
+        }, 3500);
+        return prevList;
       }
 
-      const newList = [...aiList];
-      const draggedItem_copy = newList[draggedItem];
+      // Hide warning if disabling
+      if (!willEnable) {
+        setMaxProviderWarning(false);
+      }
 
-      newList.splice(draggedItem, 1);
-      newList.splice(dropIndex, 0, draggedItem_copy);
+      const updated = prevList.map((p) =>
+        p.id === providerId ? { ...p, enabled: willEnable } : p
+      );
+      saveControlsSettings(updated);
+      return updated;
+    });
+  };
 
-      setAiList(sortAiList(newList));
+  // Drag and Drop
+  const handleDragStart = (e, index) => {
+    setDraggedItem(index);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e, index) => {
+    e.preventDefault();
+    if (draggedItem !== null && draggedItem !== index) {
+      setDragOverIndex(index);
+    }
+  };
+
+  const handleDrop = (e, dropIndex) => {
+    e.preventDefault();
+    if (draggedItem === null || draggedItem === dropIndex) {
       setDraggedItem(null);
       setDragOverIndex(null);
-   };
+      return;
+    }
 
-   return (
-      <div
-         className={`relative w-full h-auto p-2 flex flex-col justify-center items-center transition-opacity duration-150 ease-out ${
-            mainToggleEnabled ? "opacity-100" : "opacity-50"
-         }`}
-      >
-         {/* ======================================================== */}
-         {/* SECTION 1: AI Engine & Provider Settings                 */}
-         {/* ======================================================== */}
-         
-         {/* AI Providers Section */}
-         <div
-            className={`relative w-full flex flex-col gap-1 transition-opacity duration-150 ease-out ${
-               mainToggleEnabled ? "opacity-100" : "opacity-50"
-            }`}
-         >
-            <div className="m-0">
-               <div className="text-lg font-semibold text-gray-900 dark:text-gray-50 flex gap-2 items-center">
-                  <i className="sbi-probot pb-1 text-[#3b82f6]" />
-                  <p>AI Providers</p>
-                  {!mainToggleEnabled && (
-                     <span className="text-xs text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded-full">
-                        Disabled
-                     </span>
-                  )}
-               </div>
-            </div>
+    const newList = [...aiList];
+    const item = newList[draggedItem];
+    newList.splice(draggedItem, 1);
+    newList.splice(dropIndex, 0, item);
 
-            <p className="text-xs mb-2 text-gray-600 dark:text-gray-400">
-               {mainToggleEnabled
-                  ? "Drag enabled AIs to reorder priority • At least one enabled"
-                  : "Enable SpectraLens AI to configure providers"}
+    setAiList(newList);
+    setDraggedItem(null);
+    setDragOverIndex(null);
+    saveControlsSettings(newList);
+  };
+
+  // Toggle In-Page Widget
+  const handleToggleWidget = () => {
+    const nextState = !widgetEnabled;
+    setWidgetEnabled(nextState);
+    const updatedSettings = { enable: nextState };
+    extensionUtils.chromeStorageSetLocal(extensionUtils.KEYS.SETTINGS, updatedSettings, () => {
+      extensionUtils.runtimeSendMessage("P_B_TOGGLE");
+    });
+  };
+
+  // Toggle Always Active Tab
+  const handleToggleAlwaysActive = () => {
+    setAlwaysActiveTab(!alwaysActiveTab);
+    extensionUtils.runtimeSendMessage("P_B_TOGGLE_ALWAYS_ACTIVE");
+  };
+
+  // Toggle Enable Copy
+  const handleToggleEnableCopy = async () => {
+    const nextState = !enableCopy;
+    setEnableCopy(nextState);
+
+    const tab = await extensionUtils.getActiveTab();
+    let hostname = "";
+    if (tab?.url?.startsWith("http")) {
+      try {
+        hostname = new URL(tab.url).hostname;
+      } catch {
+        // Ignore
+      }
+    }
+    if (!tab || !hostname) return;
+
+    extensionUtils.chromeStorageGetLocal(extensionUtils.KEYS.ENABLE_COPY_HOSTS, (storedHosts) => {
+      let hosts = storedHosts || [];
+      if (typeof hosts === "string") {
+        try {
+          hosts = JSON.parse(hosts);
+        } catch {
+          hosts = [];
+        }
+      }
+      if (!Array.isArray(hosts)) hosts = [];
+
+      if (nextState) {
+        if (!hosts.includes(hostname)) hosts.push(hostname);
+      } else {
+        hosts = hosts.filter((h) => h !== hostname && h !== "*");
+      }
+
+      extensionUtils.chromeStorageSetLocal(extensionUtils.KEYS.ENABLE_COPY_HOSTS, hosts, () => {
+        if (chrome?.tabs?.sendMessage && tab.id) {
+          chrome.tabs.sendMessage(
+            tab.id,
+            { action: nextState ? "enable_function" : "disable_function" },
+            () => {
+              void chrome.runtime.lastError;
+            }
+          );
+        }
+      });
+    });
+  };
+
+  // Reset floating widget position
+  const handleResetWidgetPosition = () => {
+    extensionUtils.chromeStorageSetLocal("menu_window_location", { x: 20, y: 20 }, () => {
+      extensionUtils.runtimeSendMessage("P_B_RESET_WIDGET_POSITION");
+    });
+  };
+
+  return (
+    <div className="flex flex-col h-full bg-[#f8fafc] dark:bg-[#0e1015] text-[#0f172a] dark:text-[#f8fafc] overflow-hidden">
+      {/* Header Bar */}
+      <div className="flex items-center justify-between px-4 py-3.5 border-b border-slate-200 dark:border-white/[0.07] bg-white/50 dark:bg-[#14161e]/50 backdrop-blur-sm shrink-0">
+        <div className="flex items-center gap-2.5">
+          <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-500 dark:text-blue-400">
+            <SettingsIcon className="w-5 h-5" size={20} />
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold tracking-tight">Settings</h2>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              Customize AI models, widget & browser controls
             </p>
-            <div className="space-y-2">
-               {aiList.map((ai, index) => {
-                  const isEnabled = ai.enabled;
-                  const canDrag = isEnabled;
-                  const isLastRequired = isEnabled && enabledCount <= 1;
-                  const enabledIndex = aiList.filter(
-                     (item, i) => item.enabled && i < index
-                  ).length;
+          </div>
+        </div>
 
-                  return (
-                     <div
-                        key={ai.id}
-                        draggable={canDrag}
-                        onDragStart={
-                           canDrag
-                              ? (e) => handleDragStart(e, index)
-                              : undefined
-                        }
-                        onDragOver={
-                           canDrag ? (e) => handleDragOver(e, index) : undefined
-                        }
-                        onDragLeave={canDrag ? handleDragLeave : undefined}
-                        onDrop={
-                           canDrag ? (e) => handleDrop(e, index) : undefined
-                        }
-                        className={`relative flex items-center justify-between p-3 rounded-lg border transition-all duration-300 transform ${
-                           isEnabled
-                              ? `bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800 scale-100 ${
-                                   dragOverIndex === index
-                                      ? "border-blue-400 dark:border-blue-500 bg-blue-100 dark:bg-blue-900/50"
-                                      : "hover:border-blue-300 dark:hover:border-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/50"
-                                } ${canDrag ? "cursor-move" : "cursor-default"}`
-                              : "bg-gray-50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 scale-95 opacity-75"
-                        }`}
-                     >
-                        <div className="flex items-center space-x-3 flex-1">
-                           <label
-                              htmlFor={ai.id}
-                              className="flex items-center space-x-3 cursor-pointer flex-1"
-                           >
-                              <input
-                                 type="checkbox"
-                                 id={ai.id}
-                                 checked={isEnabled}
-                                 onChange={() => handleToggle(ai.id)}
-                                 disabled={isLastRequired}
-                                 className={`${
-                                    isLastRequired
-                                       ? "opacity-50 cursor-not-allowed"
-                                       : ""
-                                 }`}
-                                 style={{
-                                    "--switch-color-off": "#64748b",
-                                    "--switch-color-on": "#3b82f6",
-                                 }}
-                              />
-                              <span
-                                 className={`text-sm font-bold bg-gradient-to-r ${ai.gradient} inline-block text-transparent bg-clip-text`}
-                              >
-                                 {ai.name}
-                              </span>
-                           </label>
-                        </div>
-
-                        <div className="flex items-center space-x-3">
-                           {isEnabled && (
-                              <div className="flex items-center space-x-2">
-                                 <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
-                                    {enabledIndex === 0
-                                       ? "Primary"
-                                       : enabledIndex === 1
-                                       ? "Secondary"
-                                       : `#${enabledIndex + 1}`}
-                                 </span>
-                                 {isLastRequired && enabledIndex === 0 && (
-                                    <span className="text-xs text-amber-600 dark:text-amber-400 font-medium bg-amber-50 dark:bg-amber-900/20 px-2 py-1 rounded-full">
-                                       Required
-                                    </span>
-                                 )}
-                              </div>
-                           )}
-                           <RxDragHandleDots2
-                              className={`text-gray-500 dark:text-gray-400 text-lg transition-all duration-300 transform ${
-                                 isEnabled
-                                    ? "opacity-100 scale-100"
-                                    : "opacity-0 scale-75"
-                              }`}
-                              size={30}
-                           />
-                        </div>
-                     </div>
-                  );
-               })}
-            </div>
-         </div>
-
-         <br />
-
-         {/* Simultaneous Query Request Settings */}
-         <div
-            className={`relative z-50 w-full flex flex-col gap-1 transition-all duration-700 ease-in-out ${
-               mainToggleEnabled
-                  ? "opacity-100 transform translate-y-0"
-                  : "opacity-50 transform translate-y-2"
-            }`}
-         >
-            <div className="text-lg font-semibold text-gray-900 dark:text-gray-50 flex gap-2 items-center">
-               <i className="sbi-speed text-lg text-[#00b0d8]" />
-               <p>Request Settings</p>
-               {!mainToggleEnabled && (
-                  <span className="text-xs text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded-full">
-                     Disabled
-                  </span>
-               )}
-            </div>
-            <p className="text-xs mb-3 text-gray-600 dark:text-gray-400">
-               {mainToggleEnabled
-                  ? "Choose how many AI providers to query simultaneously"
-                  : "Enable SpectraLens AI to configure request settings"}
-            </p>
-
-            <div className="relative" ref={dropdownRef}>
-               {/* Selected Option Display (Collapsed State) */}
-               {!dropdownOpen && (
-                  <button
-                     className={`w-full flex items-center justify-between p-3 cursor-pointer rounded-lg border transition-all duration-300 ease-out hover:bg-gray-100 dark:hover:bg-gray-700/50 hover:shadow-md ${
-                        concurrentRequests ===
-                        concurrentOptions.find(
-                           (opt) => opt.value === concurrentRequests
-                        )?.value
-                           ? "bg-blue-50 dark:bg-blue-950/40 border-blue-300 dark:border-blue-600 text-blue-600 dark:text-blue-400 shadow-sm"
-                           : "bg-gray-50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-50"
-                     } ${
-                        !mainToggleEnabled
-                           ? "opacity-50 cursor-not-allowed"
-                           : ""
-                     }`}
-                     onClick={() => {
-                        if (mainToggleEnabled) {
-                           setDropdownOpen(true);
-                        }
-                     }}
-                     disabled={!mainToggleEnabled}
-                  >
-                     <div className="flex items-center gap-3">
-                        {(() => {
-                           const option = concurrentOptions.find(
-                              (opt) => opt.value === concurrentRequests
-                           );
-                           return option ? (
-                              <>
-                                 <i
-                                    className={`${option.icon} ${option.color} text-lg transition-transform duration-200`}
-                                 />
-                                 <span className="font-medium transition-colors duration-200">
-                                    {option.value} Request
-                                    {option.value > 1 ? "s" : ""} -{" "}
-                                    {option.label}
-                                 </span>
-                              </>
-                           ) : null;
-                        })()}
-                     </div>
-                     <div className="flex items-center gap-2">
-                        <svg
-                           className="w-5 h-5 text-blue-600 dark:text-blue-400 transition-all duration-200"
-                           fill="currentColor"
-                           viewBox="0 0 20 20"
-                        >
-                           <path
-                              fillRule="evenodd"
-                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                              clipRule="evenodd"
-                           />
-                        </svg>
-                        <svg
-                           className="w-4 h-4 text-gray-400 transition-transform duration-300 ease-out"
-                           fill="none"
-                           stroke="currentColor"
-                           viewBox="0 0 24 24"
-                        >
-                           <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M19 9l-7 7-7-7"
-                           />
-                        </svg>
-                     </div>
-                  </button>
-               )}
-
-               {/* All Options Display (Expanded State) */}
-               <div
-                  className={`overflow-hidden transition-all duration-500 ease-out ${
-                     dropdownOpen && mainToggleEnabled
-                        ? "max-h-96 opacity-100 mt-2"
-                        : "max-h-0 opacity-0 mt-0"
-                  }`}
-               >
-                  <div
-                     className={`bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden shadow-lg transition-all duration-300 ease-out ${
-                        dropdownOpen && mainToggleEnabled
-                           ? "transform translate-y-0 scale-100"
-                           : "transform -translate-y-4 scale-95"
-                     }`}
-                  >
-                     {concurrentOptions.map((option, index) => (
-                        <button
-                           key={option.value}
-                           className={`w-full flex items-center justify-between p-3 cursor-pointer transition-all duration-200 ease-out hover:bg-gray-100 dark:hover:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700 last:border-b-0 transform ${
-                              concurrentRequests === option.value
-                                 ? "bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400"
-                                 : "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-50"
-                           } ${
-                              dropdownOpen && mainToggleEnabled
-                                 ? "translate-x-0 opacity-100"
-                                 : "translate-x-4 opacity-0"
-                           }`}
-                           style={{
-                              transitionDelay: dropdownOpen
-                                 ? `${index * 50}ms`
-                                 : "0ms",
-                              transitionDuration: "300ms",
-                           }}
-                           onClick={() => {
-                              setConcurrentRequests(option.value);
-                              setDropdownOpen(false);
-                           }}
-                        >
-                           <div className="flex items-center gap-3">
-                              <i
-                                 className={`${option.icon} ${option.color} text-lg transition-transform duration-200 hover:scale-110`}
-                              />
-                              <div className="flex flex-col items-start">
-                                 <span className="font-medium text-sm transition-colors duration-200">
-                                    {option.value} Request
-                                    {option.value > 1 ? "s" : ""} -{" "}
-                                    {option.label}
-                                 </span>
-                                 <span className="text-xs text-gray-500 dark:text-gray-400 transition-colors duration-200">
-                                    {option.description}
-                                 </span>
-                              </div>
-                           </div>
-                           {concurrentRequests === option.value && (
-                              <svg
-                                 className="w-5 h-5 text-blue-600 dark:text-blue-400 transition-all duration-300 animate-pulse"
-                                 fill="currentColor"
-                                 viewBox="0 0 20 20"
-                              >
-                                 <path
-                                    fillRule="evenodd"
-                                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                    clipRule="evenodd"
-                                 />
-                              </svg>
-                           )}
-                        </button>
-                     ))}
-                  </div>
-               </div>
-            </div>
-         </div>
-
-         <br />
-
-         {/* ======================================================== */}
-         {/* SECTION 2: Floating Menu & Appearance Customization       */}
-         {/* ======================================================== */}
-
-         {/* Chatbot Theme Mode Setting */}
-         <div
-            className={`relative z-40 w-full flex flex-col gap-1.5 transition-all duration-300 ${
-               mainToggleEnabled ? "opacity-100" : "opacity-50"
-            }`}
-         >
-            <div className="text-lg font-semibold text-gray-900 dark:text-gray-50 flex gap-2 items-center">
-               <i className="sbi-adjust text-lg text-[#3b82f6]" />
-               <p>Chatbot Theme</p>
-            </div>
-            <p className="text-xs mb-1.5 text-gray-600 dark:text-gray-400">
-               {mainToggleEnabled
-                  ? "Auto adapts to current website's light/dark mode"
-                  : "Enable SpectraLens AI to configure theme"}
-            </p>
-            <div className="grid grid-cols-3 gap-2 p-1 bg-gray-100 dark:bg-gray-800/80 rounded-xl border border-gray-200 dark:border-gray-700/80">
-               {[
-                  { id: "auto", label: "Auto", sub: "Website" },
-                  { id: "light", label: "Light", sub: "Crisp" },
-                  { id: "dark", label: "Dark", sub: "Sleek" },
-               ].map((item) => (
-                  <button
-                     key={item.id}
-                     disabled={!mainToggleEnabled}
-                     onClick={() => mainToggleEnabled && setChatbotTheme(item.id)}
-                     className={`flex flex-col items-center justify-center py-2 px-1 rounded-lg text-xs transition-all duration-200 cursor-pointer focus:outline-none ${
-                        chatbotTheme === item.id && mainToggleEnabled
-                           ? "bg-white dark:bg-blue-600 text-blue-600 dark:text-white shadow-xs font-semibold border border-blue-200/60 dark:border-blue-500 scale-[1.02]"
-                           : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-200/50 dark:hover:bg-gray-700/40"
-                     } ${!mainToggleEnabled ? "cursor-not-allowed opacity-60" : ""}`}
-                  >
-                     <span className="text-sm font-semibold">{item.label}</span>
-                     <span className="text-[10px] opacity-75">{item.sub}</span>
-                  </button>
-               ))}
-            </div>
-         </div>
-
-         <br />
-
-         {/* UI Contrast & Transparency Setting */}
-         <div
-            className={`relative z-40 w-full flex flex-col gap-1.5 transition-all duration-300 ${
-               mainToggleEnabled ? "opacity-100" : "opacity-50"
-            }`}
-         >
-            <div className="text-lg font-semibold text-gray-900 dark:text-gray-50 flex gap-2 items-center">
-               <i className="sbi-adjust text-lg text-[#3b82f6]" />
-               <p>UI Contrast & Transparency</p>
-            </div>
-            <p className="text-xs mb-1.5 text-gray-600 dark:text-gray-400">
-               {mainToggleEnabled
-                  ? "Low = More transparent & glassy • High = Solid & high visibility"
-                  : "Enable SpectraLens AI to configure contrast"}
-            </p>
-            <div className="grid grid-cols-3 gap-2 p-1 bg-gray-100 dark:bg-gray-800/80 rounded-xl border border-gray-200 dark:border-gray-700/80">
-               {[
-                  {
-                     id: "low",
-                     label: "Low",
-                     sub: "Transparent",
-                  },
-                  {
-                     id: "medium",
-                     label: "Medium",
-                     sub: "Glassy",
-                  },
-                  {
-                     id: "high",
-                     label: "High",
-                     sub: "Solid",
-                  },
-               ].map((item) => (
-                  <button
-                     key={item.id}
-                     disabled={!mainToggleEnabled}
-                     onClick={() => mainToggleEnabled && setUiContrast(item.id)}
-                     className={`flex flex-col items-center justify-center py-2 px-1 rounded-lg text-xs transition-all duration-200 cursor-pointer focus:outline-none ${
-                        uiContrast === item.id && mainToggleEnabled
-                           ? "bg-white dark:bg-blue-600 text-blue-600 dark:text-white shadow-xs font-semibold border border-blue-200/60 dark:border-blue-500 scale-[1.02]"
-                           : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-200/50 dark:hover:bg-gray-700/40"
-                     } ${!mainToggleEnabled ? "cursor-not-allowed opacity-60" : ""}`}
-                  >
-                     <span className="text-sm font-semibold">{item.label}</span>
-                     <span className="text-[10px] opacity-75">{item.sub}</span>
-                  </button>
-               ))}
-            </div>
-         </div>
-
-         <br />
-
-         {/* Floating Menu Auto-Hide Setting */}
-         <div
-            className={`relative z-40 w-full flex flex-col gap-1.5 transition-all duration-300 ${
-               mainToggleEnabled ? "opacity-100" : "opacity-50"
-            }`}
-         >
-            <div className="text-lg font-semibold text-gray-900 dark:text-gray-50 flex gap-2 items-center">
-               <i className="sbi-eye-slash text-lg text-[#3b82f6]" />
-               <p>Menu Inactivity Auto-Hide</p>
-            </div>
-            <p className="text-xs mb-1.5 text-gray-600 dark:text-gray-400">
-               {mainToggleEnabled
-                  ? "Automatically fade minimized floating menu after inactivity"
-                  : "Enable SpectraLens AI to configure auto-hide"}
-            </p>
-            <div className="grid grid-cols-4 gap-1.5 p-1 bg-gray-100 dark:bg-gray-800/80 rounded-xl border border-gray-200 dark:border-gray-700/80">
-               {[
-                  { id: 0, label: "Never", sub: "Visible" },
-                  { id: 5, label: "5s", sub: "Quick" },
-                  { id: 10, label: "10s", sub: "Normal" },
-                  { id: 30, label: "30s", sub: "Long" },
-               ].map((item) => (
-                  <button
-                     key={item.id}
-                     disabled={!mainToggleEnabled}
-                     onClick={() => mainToggleEnabled && setAutoHideDelay(item.id)}
-                     className={`flex flex-col items-center justify-center py-2 px-1 rounded-lg text-xs transition-all duration-200 cursor-pointer focus:outline-none ${
-                        autoHideDelay === item.id && mainToggleEnabled
-                           ? "bg-white dark:bg-blue-600 text-blue-600 dark:text-white shadow-xs font-semibold border border-blue-200/60 dark:border-blue-500 scale-[1.02]"
-                           : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-200/50 dark:hover:bg-gray-700/40"
-                     } ${!mainToggleEnabled ? "cursor-not-allowed opacity-60" : ""}`}
-                  >
-                     <span className="text-sm font-semibold">{item.label}</span>
-                     <span className="text-[10px] opacity-75">{item.sub}</span>
-                  </button>
-               ))}
-            </div>
-         </div>
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="px-2.5 py-1 rounded-lg text-xs font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-white/5 transition-all focus:outline-none cursor-pointer"
+          >
+            Done
+          </button>
+        )}
       </div>
-   );
+
+      {/* Settings Scrollable Content */}
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-3.5 space-y-4">
+        {/* ======================================================== */}
+        {/* SECTION 1: AI Provider Selection (Max 3 Enforcement)     */}
+        {/* ======================================================== */}
+        <section className="space-y-2.5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              Active AI Models ({enabledCount}/3)
+            </h3>
+            <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500">
+              Max 3 active
+            </span>
+          </div>
+
+          {/* Warning Banner when exceeding max 3 limit */}
+          {maxProviderWarning && (
+            <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-600 dark:text-amber-400 text-xs flex items-center gap-2 animate-fade-in">
+              <IoAlertCircleOutline className="w-4 h-4 shrink-0" />
+              <span>Maximum 3 providers can be active simultaneously. Please disable one first.</span>
+            </div>
+          )}
+
+          {/* Providers List with Drag & Drop */}
+          <div className="space-y-1.5">
+            {aiList.map((ai, index) => {
+              const isEnabled = ai.enabled;
+              const isOver = dragOverIndex === index;
+
+              return (
+                <div
+                  key={ai.id}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, index)}
+                  onDragOver={(e) => handleDragOver(e, index)}
+                  onDrop={(e) => handleDrop(e, index)}
+                  className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${
+                    isEnabled
+                      ? "bg-white dark:bg-[#191c25] border-slate-200/80 dark:border-white/[0.08] shadow-xs"
+                      : "bg-slate-100/60 dark:bg-white/[0.02] border-transparent opacity-65"
+                  } ${isOver ? "border-blue-500 scale-[1.01]" : ""}`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="cursor-grab active:cursor-grabbing text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300">
+                      <DragHandleIcon className="w-3.5 h-3.5" size={14} />
+                    </span>
+                    <ProviderIcon id={ai.id} className="w-4 h-4" size={18} />
+                    <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                      {ai.name}
+                    </span>
+                  </div>
+
+                  {/* Toggle Switch */}
+                  <button
+                    onClick={() => handleToggleProvider(ai.id)}
+                    className={`relative w-9 h-5 rounded-full transition-colors duration-200 focus:outline-none cursor-pointer ${
+                      isEnabled
+                        ? "bg-blue-600 dark:bg-blue-500"
+                        : "bg-slate-300 dark:bg-slate-700"
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-200 shadow-xs ${
+                        isEnabled ? "translate-x-4" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* ======================================================== */}
+        {/* SECTION 2: In-Page Floating Widget Settings              */}
+        {/* ======================================================== */}
+        <section className="p-3.5 rounded-2xl bg-white dark:bg-[#191c25] border border-slate-200/80 dark:border-white/[0.07] shadow-xs space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="text-xs font-semibold text-slate-900 dark:text-slate-100">
+                In-Page Floating Widget
+              </h4>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Show draggable AI pill menu on web pages
+              </p>
+            </div>
+
+            <button
+              onClick={handleToggleWidget}
+              className={`relative w-9 h-5 rounded-full transition-colors duration-200 focus:outline-none cursor-pointer ${
+                widgetEnabled ? "bg-blue-600 dark:bg-blue-500" : "bg-slate-300 dark:bg-slate-700"
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-200 shadow-xs ${
+                  widgetEnabled ? "translate-x-4" : "translate-x-0"
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* Auto-Hide Inactivity Timer */}
+          <div className="pt-2 border-t border-slate-100 dark:border-white/[0.05] space-y-1.5">
+            <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400">
+              Auto-Hide Minimized Widget
+            </span>
+            <div className="grid grid-cols-4 gap-1.5">
+              {[
+                { label: "Never", val: 0 },
+                { label: "5s", val: 5 },
+                { label: "10s", val: 10 },
+                { label: "30s", val: 30 },
+              ].map((opt) => (
+                <button
+                  key={opt.val}
+                  onClick={() => {
+                    setAutoHideDelay(opt.val);
+                    saveControlsSettings(aiList, concurrentRequests, opt.val);
+                  }}
+                  className={`py-1.5 px-2 rounded-lg text-xs font-medium transition-all focus:outline-none cursor-pointer ${
+                    autoHideDelay === opt.val
+                      ? "bg-blue-600 text-white shadow-xs"
+                      : "bg-slate-100 dark:bg-white/[0.04] text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/[0.08]"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Reset Position Button */}
+          <div className="pt-2 border-t border-slate-100 dark:border-white/[0.05] flex items-center justify-between">
+            <span className="text-[11px] text-slate-500 dark:text-slate-400">
+              Widget placement on screen
+            </span>
+            <button
+              onClick={handleResetWidgetPosition}
+              className="flex items-center gap-1 text-[11px] text-blue-600 dark:text-blue-400 hover:underline font-medium focus:outline-none cursor-pointer"
+            >
+              <IoRefreshOutline className="w-3.5 h-3.5" />
+              <span>Reset Position</span>
+            </button>
+          </div>
+        </section>
+
+        {/* ======================================================== */}
+        {/* SECTION 3: Core Browser Features (Toggles)               */}
+        {/* ======================================================== */}
+        <section className="space-y-2">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            Browser Powers
+          </h3>
+
+          {/* Always Active Tab */}
+          <div className="p-3 rounded-2xl bg-white dark:bg-[#191c25] border border-slate-200/80 dark:border-white/[0.07] shadow-xs flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="p-1.5 rounded-lg bg-orange-500/10 text-orange-500">
+                <IoFlashOutline className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="text-xs font-semibold text-slate-900 dark:text-slate-100">
+                  Always Active Tab
+                </h4>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                  Prevents videos, timers & tabs from sleeping
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={handleToggleAlwaysActive}
+              className={`relative w-9 h-5 rounded-full transition-colors duration-200 focus:outline-none cursor-pointer ${
+                alwaysActiveTab ? "bg-orange-500" : "bg-slate-300 dark:bg-slate-700"
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-200 shadow-xs ${
+                  alwaysActiveTab ? "translate-x-4" : "translate-x-0"
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* Enable Copy */}
+          <div className="p-3 rounded-2xl bg-white dark:bg-[#191c25] border border-slate-200/80 dark:border-white/[0.07] shadow-xs flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-500">
+                <IoShieldCheckmarkOutline className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="text-xs font-semibold text-slate-900 dark:text-slate-100">
+                  Enable Copy & Right-Click
+                </h4>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                  Bypasses copy-protection & context blockers
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={handleToggleEnableCopy}
+              className={`relative w-9 h-5 rounded-full transition-colors duration-200 focus:outline-none cursor-pointer ${
+                enableCopy ? "bg-indigo-600" : "bg-slate-300 dark:bg-slate-700"
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-200 shadow-xs ${
+                  enableCopy ? "translate-x-4" : "translate-x-0"
+                }`}
+              />
+            </button>
+          </div>
+        </section>
+
+        {/* ======================================================== */}
+        {/* SECTION 4: Appearance & Theme Mode                       */}
+        {/* ======================================================== */}
+        <section className="p-3.5 rounded-2xl bg-white dark:bg-[#191c25] border border-slate-200/80 dark:border-white/[0.07] shadow-xs space-y-2.5">
+          <h4 className="text-xs font-semibold text-slate-900 dark:text-slate-100">
+            Appearance
+          </h4>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { id: "dark", label: "Dark", icon: IoMoonOutline },
+              { id: "light", label: "Light", icon: IoSunnyOutline },
+              { id: "system", label: "System", icon: IoDesktopOutline },
+            ].map((mode) => {
+              const Icon = mode.icon;
+              const isSelected = theme === mode.id;
+
+              return (
+                <button
+                  key={mode.id}
+                  onClick={() => setTheme(mode.id)}
+                  className={`flex flex-col items-center gap-1.5 py-2 px-2 rounded-xl text-xs font-medium border transition-all focus:outline-none cursor-pointer ${
+                    isSelected
+                      ? "bg-blue-600 text-white border-blue-500 shadow-xs"
+                      : "bg-slate-50 dark:bg-white/[0.03] border-slate-200 dark:border-white/[0.06] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.06]"
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span>{mode.label}</span>
+                  {isSelected && <IoCheckmark className="w-3.5 h-3.5 -mt-0.5" />}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      </div>
+    </div>
+  );
 }
+
+Controls.propTypes = {
+  onBack: PropTypes.func,
+};

@@ -1,60 +1,90 @@
 import { useCallback, useEffect, useRef, useState, useMemo } from "react";
+import PropTypes from "prop-types";
+import {
+  ProviderIcon,
+  ElementSelectorIcon,
+  FilterSlidersIcon,
+  SendPlaneIcon,
+  DoubleCheckIcon,
+  ThreeDotsIcon,
+} from "./Icons.jsx";
 import {
   IoAdd,
   IoClose,
-  IoSend,
   IoSquare,
-  IoTimeOutline,
-  IoTrashOutline,
 } from "react-icons/io5";
 import UTILS from "./../utils/utilsModule.js";
 
-export default function ChatBot({ isOpen, uiContrast = "medium" }) {
+export default function ChatBot({
+  isOpen,
+  initialHistoryItem = null,
+  onClearLoadedHistory,
+  onOpenSettings,
+  onOpenSelector,
+}) {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [lastQuestion, setLastQuestion] = useState("");
   const [answers, setAnswers] = useState({});
   const [selectedProvider, setSelectedProvider] = useState("google");
+  const [messageTime, setMessageTime] = useState("");
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const currentRequestIdRef = useRef(null);
   const lastQuestionRef = useRef("");
 
   const [aiProviders, setAiProviders] = useState([]);
-
-  // Maximum concurrent requests
-  const [maxConcurrentRequest, setMaxConcurrentRequest] = useState(2);
-
-  // History state
-  const [history, setHistory] = useState([]);
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  const [showConfirmClear, setShowConfirmClear] = useState(false);
+  const [maxConcurrentRequest, setMaxConcurrentRequest] = useState(3);
 
   const scrollContainerRef = useRef(null);
   const rootRef = useRef(null);
   const textareaRef = useRef(null);
-  const providerListRef = useRef(null);
+  const moreMenuRef = useRef(null);
 
-  // Map vertical wheel to horizontal scroll for providers
+  // Close more menu when clicking outside
   useEffect(() => {
-    const el = providerListRef.current;
-    if (!el) return;
-
-    const handleWheel = (e) => {
-      if (e.deltaY !== 0) {
-        e.preventDefault();
-        el.scrollLeft += e.deltaY + e.deltaX; // accommodate trackpads too
+    const handleClickOutside = (e) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target)) {
+        setIsMoreMenuOpen(false);
       }
     };
-
-    el.addEventListener("wheel", handleWheel, { passive: false });
-    return () => el.removeEventListener("wheel", handleWheel);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Clear input function
-  const clearInput = useCallback(() => {
-    setInput("");
-  }, []);
+  // Format current time
+  const getFormattedTime = () => {
+    const d = new Date();
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  };
 
-  // Stop active AI fetching and tell background worker to close background scraper tabs
+  // Load history item if requested from outside
+  useEffect(() => {
+    if (initialHistoryItem) {
+      setInput("");
+      setLastQuestion(initialHistoryItem.question || "");
+      lastQuestionRef.current = initialHistoryItem.question || "";
+      setAnswers(initialHistoryItem.answers || {});
+      if (initialHistoryItem.timestamp) {
+        try {
+          const d = new Date(initialHistoryItem.timestamp);
+          setMessageTime(d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+        } catch {
+          setMessageTime(getFormattedTime());
+        }
+      }
+      const availableProviders = Object.keys(initialHistoryItem.answers || {});
+      if (availableProviders.length > 0) {
+        if (!initialHistoryItem.answers[selectedProvider]) {
+          setSelectedProvider(availableProviders[0]);
+        }
+      }
+      if (onClearLoadedHistory) {
+        onClearLoadedHistory();
+      }
+    }
+  }, [initialHistoryItem, onClearLoadedHistory, selectedProvider]);
+
+  // Stop active AI fetching
   const handleStopFetch = useCallback(() => {
     currentRequestIdRef.current = "stopped_" + Date.now();
     setIsLoading(false);
@@ -78,27 +108,41 @@ export default function ChatBot({ isOpen, uiContrast = "medium" }) {
 
   useEffect(() => {
     UTILS.pageOnMessage("IF_C_GET_CURRENT_CONTROLS", (data) => {
-      const { aiProviders, concurrentRequests } = data?.controls || {};
-      const enabledProviders = (aiProviders || []).filter((p) => p.enabled);
-      setAiProviders(enabledProviders);
-      setMaxConcurrentRequest(concurrentRequests);
-    });
-
-    // Load History
-    UTILS.chromeStorageGetLocal(UTILS.KEYS.HISTORY, (data) => {
-      if (data && Array.isArray(data)) {
-        setHistory(data);
+      const { aiProviders: storedProviders, concurrentRequests } = data?.controls || {};
+      if (storedProviders && Array.isArray(storedProviders)) {
+        const enabledProviders = storedProviders.filter((p) => p.enabled);
+        setAiProviders(enabledProviders);
+        if (enabledProviders.length > 0 && !enabledProviders.some((p) => p.id === selectedProvider)) {
+          setSelectedProvider(enabledProviders[0].id);
+        }
+      }
+      if (concurrentRequests) {
+        setMaxConcurrentRequest(concurrentRequests);
       }
     });
-  }, []);
+
+    // Also load directly from storage
+    UTILS.chromeStorageGetLocal(UTILS.KEYS.CONTROLS, (data) => {
+      const { aiProviders: storedProviders, concurrentRequests } = data || {};
+      if (storedProviders && Array.isArray(storedProviders)) {
+        const enabledProviders = storedProviders.filter((p) => p.enabled);
+        setAiProviders(enabledProviders);
+        if (enabledProviders.length > 0 && !enabledProviders.some((p) => p.id === selectedProvider)) {
+          setSelectedProvider(enabledProviders[0].id);
+        }
+      }
+      if (concurrentRequests) {
+        setMaxConcurrentRequest(concurrentRequests);
+      }
+    });
+  }, [selectedProvider]);
 
   // Helper to save history to storage
   const saveHistory = (newHistory) => {
-    setHistory(newHistory);
     UTILS.chromeStorageSetLocal(UTILS.KEYS.HISTORY, newHistory);
   };
 
-  // get answer from background script
+  // Get answer from background script
   const getAnswerFromBackground = async (
     question,
     provider = "google",
@@ -111,20 +155,13 @@ export default function ChatBot({ isOpen, uiContrast = "medium" }) {
     );
   };
 
-  // Concurrent provider loading - maintains constant number of active requests
+  // Concurrent provider loading
   const loadProvidersWithConcurrency = useCallback(
     async (question, requestId) => {
       const providersToProcess = [...aiProviders];
       const activeRequests = new Map();
-      let completedCount = 0;
-
-      console.log(
-        `Starting concurrent loading with max ${maxConcurrentRequest} simultaneous requests`,
-      );
 
       const startProviderRequest = (provider) => {
-        // console.log(`Starting request for ${provider.id}`);
-
         getAnswerFromBackground(question, provider.id, requestId);
 
         const promise = new Promise((resolve) => {
@@ -136,10 +173,9 @@ export default function ChatBot({ isOpen, uiContrast = "medium" }) {
 
             setAnswers((current) => {
               if (current[provider.id]) {
-                console.log(`${provider.id} completed`);
                 resolve({ provider, completed: true });
               } else {
-                setTimeout(checkAnswer, 500);
+                setTimeout(checkAnswer, 400);
               }
               return current;
             });
@@ -158,71 +194,67 @@ export default function ChatBot({ isOpen, uiContrast = "medium" }) {
       initialRequests.forEach((provider) => startProviderRequest(provider));
 
       while (activeRequests.size > 0) {
-        if (currentRequestIdRef.current !== requestId) {
-          console.log("Request cancelled, stopping concurrent loading");
-          return;
-        }
-        const completedRequest = await Promise.race(activeRequests.values());
+        const finishedPromise = await Promise.race(
+          Array.from(activeRequests.values()),
+        );
 
-        if (completedRequest.cancelled) {
-          return;
-        }
+        if (finishedPromise.cancelled) break;
 
-        if (completedRequest.completed) {
-          completedCount++;
-          const providerId = completedRequest.provider.id;
+        activeRequests.delete(finishedPromise.provider.id);
 
-          activeRequests.delete(providerId);
-
-          if (providersToProcess.length > 0) {
-            const nextProvider = providersToProcess.shift();
-            startProviderRequest(nextProvider);
-          }
+        if (providersToProcess.length > 0) {
+          const nextProvider = providersToProcess.shift();
+          startProviderRequest(nextProvider);
         }
       }
-
-      console.log(`All ${completedCount} providers completed`);
     },
     [aiProviders, maxConcurrentRequest],
   );
 
-  // Combine currently active providers with any providers present in the loaded answers
+  // Combine active providers with historical answers
   const displayedProviders = useMemo(() => {
     const combined = [...aiProviders];
-    const existingIds = new Set(aiProviders.map(p => p.id));
-    
-    // Add any providers from answers that aren't in the active list (for old chat history)
-    Object.keys(answers).forEach(providerId => {
-       if (!existingIds.has(providerId)) {
-          combined.push({
-             id: providerId,
-             // Capitalize the first letter as a fallback name
-             name: providerId.charAt(0).toUpperCase() + providerId.slice(1),
-             enabled: false // but we show it anyway because it has historical answers
-          });
-       }
+    const existingIds = new Set(aiProviders.map((p) => p.id));
+
+    Object.keys(answers).forEach((providerId) => {
+      if (!existingIds.has(providerId)) {
+        combined.push({
+          id: providerId,
+          name: providerId.charAt(0).toUpperCase() + providerId.slice(1),
+          enabled: false,
+        });
+      }
     });
+
+    if (combined.length === 0) {
+      return [
+        { id: "google", name: "Google AI", enabled: true },
+        { id: "bing", name: "Bing AI", enabled: true },
+        { id: "gemini", name: "Gemini", enabled: true },
+      ];
+    }
     return combined;
   }, [aiProviders, answers]);
+
+  // Providers shown as primary pills (first 3) vs overflow menu
+  const primaryPills = displayedProviders.slice(0, 3);
+  const overflowProviders = displayedProviders.slice(3);
 
   const handleSendMessage = useCallback(
     async (messageInput = null) => {
       const actualInput = messageInput !== null ? messageInput : input;
-
       if (actualInput?.trim() === "") return;
 
-      // Generate unique request ID
       const requestId = Date.now().toString();
       currentRequestIdRef.current = requestId;
 
       setLastQuestion(actualInput);
       lastQuestionRef.current = actualInput;
+      setMessageTime(getFormattedTime());
       setInput("");
-
       setIsLoading(true);
       setAnswers({});
 
-      // Start concurrent loading
       loadProvidersWithConcurrency(actualInput, requestId);
     },
     [input, loadProvidersWithConcurrency],
@@ -230,7 +262,6 @@ export default function ChatBot({ isOpen, uiContrast = "medium" }) {
 
   useEffect(() => {
     UTILS.pageOnMessage("IF_B_GET_ANSWER", (data) => {
-      // Ignore responses from old requests
       if (data.requestId && data.requestId !== currentRequestIdRef.current) {
         return;
       }
@@ -239,7 +270,6 @@ export default function ChatBot({ isOpen, uiContrast = "medium" }) {
 
       setAnswers((prev) => {
         const isFirstAnswer = Object.keys(prev).length === 0;
-
         if (isFirstAnswer) {
           setSelectedProvider(provider);
           setIsLoading(false);
@@ -253,16 +283,15 @@ export default function ChatBot({ isOpen, uiContrast = "medium" }) {
           },
         };
 
-        // Incrementally save/update history entry in real time
-        setHistory((prevHistory) => {
+        // Save history incrementally
+        UTILS.chromeStorageGetLocal(UTILS.KEYS.HISTORY, (prevHistory = []) => {
+          const historyList = Array.isArray(prevHistory) ? prevHistory : [];
           const reqId = data.requestId || currentRequestIdRef.current;
-          const existingIndex = prevHistory.findIndex(
-            (item) => item.id === reqId
-          );
+          const existingIndex = historyList.findIndex((item) => item.id === reqId);
 
           let updatedHistory;
           if (existingIndex >= 0) {
-            updatedHistory = [...prevHistory];
+            updatedHistory = [...historyList];
             updatedHistory[existingIndex] = {
               ...updatedHistory[existingIndex],
               answers: newAnswers,
@@ -274,11 +303,9 @@ export default function ChatBot({ isOpen, uiContrast = "medium" }) {
               answers: newAnswers,
               timestamp: Date.now(),
             };
-            updatedHistory = [newHistoryItem, ...prevHistory].slice(0, 20);
+            updatedHistory = [newHistoryItem, ...historyList].slice(0, 20);
           }
-
           saveHistory(updatedHistory);
-          return updatedHistory;
         });
 
         return newAnswers;
@@ -291,21 +318,6 @@ export default function ChatBot({ isOpen, uiContrast = "medium" }) {
       }, 100);
     });
   }, [setInput]);
-
-  // When closing, if focus is inside the chat, blur it to avoid aria/inert conflicts.
-  useEffect(() => {
-    if (!isOpen && rootRef.current) {
-      const active = document.activeElement;
-      if (active && rootRef.current.contains(active)) {
-        try {
-          active.blur();
-        } catch (err) {
-          // ignore
-          void err;
-        }
-      }
-    }
-  }, [isOpen]);
 
   // Focus textarea when chat opens
   useEffect(() => {
@@ -323,360 +335,278 @@ export default function ChatBot({ isOpen, uiContrast = "medium" }) {
     }
   };
 
-  const hasChatted = Boolean(
-    lastQuestion || isLoading || (answers && Object.keys(answers).length > 0)
-  );
+  const selectedAnswer = answers[selectedProvider];
+  const activeProviderObj =
+    displayedProviders.find((p) => p.id === selectedProvider) || {
+      id: selectedProvider,
+      name: selectedProvider.charAt(0).toUpperCase() + selectedProvider.slice(1),
+    };
 
   return (
     <div
       ref={rootRef}
-      className={`flex flex-col h-full ${isOpen ? "animate-fadeIn" : ""}`}
-      inert={!isOpen}
+      className="flex flex-col h-full bg-[#f8fafc] dark:bg-[#0e1015] text-[#0f172a] dark:text-[#f8fafc] overflow-hidden select-none"
     >
-      {/* Input area at the top */}
-      <div
-        className="p-4 border-b border-white/30 dark:border-white/20 bg-white/10 dark:bg-black/10 animate-slideUp"
-        style={{ animationDelay: "100ms" }}
-      >
-        <div className="relative w-full grid gap-2">
-          {/* Text input and buttons with smooth height transition */}
-          <div
-            className={`relative flex flex-col w-full rounded-2xl p-2.5 transition-all duration-300 ease-in-out focus-within:ring-2 focus-within:ring-indigo-500 ${
-              hasChatted ? "h-[97px]" : "h-[190px]"
-            } ${
-              uiContrast === "low"
-                ? "bg-slate-900/[0.04] dark:bg-black/25 border border-slate-900/10 dark:border-white/15 text-gray-800 dark:text-white"
-                : uiContrast === "high"
-                ? "bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 shadow-xs text-gray-900 dark:text-white"
-                : "bg-white/80 dark:bg-black/35 border border-slate-200/90 dark:border-white/20 text-gray-800 dark:text-white shadow-xs"
-            }`}
+      {/* Top Header Bar */}
+      <header className="flex items-center justify-between px-4 py-2.5 border-b border-slate-200/80 dark:border-white/[0.07] bg-white/60 dark:bg-[#14161e]/60 backdrop-blur-md shrink-0">
+        <div className="flex items-center gap-2">
+          <h1 className="text-sm font-semibold tracking-tight text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+            SpectraLens AI
+          </h1>
+        </div>
+
+        <div className="flex items-center gap-1">
+          {/* New Chat Button */}
+          <button
+            onClick={handleNewChat}
+            title="Start New Chat"
+            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-white/[0.08] transition-all focus:outline-none cursor-pointer"
           >
-            <div className="flex-1 relative w-full min-h-0">
-              <textarea
-                ref={textareaRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder={
-                  hasChatted
-                    ? "Ask a follow-up question..."
-                    : "Ask a question, paste text, or use Area OCR..."
-                }
-                className="w-full h-full pr-8 resize-none text-sm bg-transparent border-0 outline-0 text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-400 overflow-y-auto"
-                style={{ scrollbarWidth: "thin" }}
-                rows={hasChatted ? "3" : "7"}
-                autoFocus
-              />
+            <IoAdd className="w-4 h-4" />
+          </button>
+        </div>
+      </header>
 
-              {input && (
-                <button
-                  onClick={clearInput}
-                  className="absolute h-7 w-7 right-0 top-0 grid place-items-center rounded-lg text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-500 transition-colors duration-150 cursor-pointer focus:outline-none z-10"
-                  title="Clear input"
-                >
-                  <IoClose size={20} />
-                </button>
-              )}
+      {/* Provider Selector Pills Bar */}
+      <div className="flex items-center justify-between px-3 py-2 border-b border-slate-200/60 dark:border-white/[0.05] bg-slate-100/60 dark:bg-[#12141c]/80 shrink-0 gap-1.5">
+        <div className="flex items-center gap-1.5 flex-1 overflow-x-auto custom-scrollbar">
+          {primaryPills.map((provider) => {
+            const isSelected = selectedProvider === provider.id;
+            const hasAnswer = Boolean(answers[provider.id]);
+
+            return (
+              <button
+                key={provider.id}
+                onClick={() => setSelectedProvider(provider.id)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium transition-all duration-150 shrink-0 focus:outline-none cursor-pointer ${
+                  isSelected
+                    ? "bg-blue-600 text-white shadow-sm ring-1 ring-blue-500 font-semibold"
+                    : "bg-white dark:bg-[#1a1d26] text-slate-700 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-[#222634] border border-slate-200 dark:border-white/[0.06]"
+                } ${!hasAnswer && isLoading ? "opacity-75" : ""}`}
+              >
+                <ProviderIcon id={provider.id} className="w-4 h-4 shrink-0" size={16} />
+                <span>{provider.name}</span>
+                {hasAnswer && !isSelected && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Overflow 3-dots Menu for 4+ providers */}
+        {overflowProviders.length > 0 && (
+          <div className="relative shrink-0" ref={moreMenuRef}>
+            <button
+              onClick={() => setIsMoreMenuOpen((v) => !v)}
+              title="More AI Models"
+              className={`p-2 rounded-xl transition-all border focus:outline-none cursor-pointer ${
+                isMoreMenuOpen
+                  ? "bg-blue-600 text-white border-blue-500"
+                  : "bg-white dark:bg-[#1a1d26] text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-[#222634] border-slate-200 dark:border-white/[0.06]"
+              }`}
+            >
+              <ThreeDotsIcon className="w-3.5 h-3.5" size={14} />
+            </button>
+
+            {isMoreMenuOpen && (
+              <div className="absolute right-0 top-full mt-1.5 w-44 rounded-xl bg-white dark:bg-[#1a1d26] border border-slate-200 dark:border-white/10 shadow-xl py-1 z-30 animate-fade-in">
+                {overflowProviders.map((provider) => (
+                  <button
+                    key={provider.id}
+                    onClick={() => {
+                      setSelectedProvider(provider.id);
+                      setIsMoreMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-left transition-colors focus:outline-none cursor-pointer ${
+                      selectedProvider === provider.id
+                        ? "bg-blue-600/15 text-blue-600 dark:text-blue-400 font-semibold"
+                        : "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5"
+                    }`}
+                  >
+                    <ProviderIcon id={provider.id} className="w-4 h-4 shrink-0" size={16} />
+                    <span className="truncate">{provider.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Main Messages Scroll Area */}
+      <div
+        ref={scrollContainerRef}
+        className="flex-1 overflow-y-auto custom-scrollbar p-3.5 space-y-3.5"
+      >
+        {/* Welcome Empty State */}
+        {!lastQuestion && !isLoading && Object.keys(answers).length === 0 && (
+          <div className="flex flex-col items-center justify-center h-full text-center px-4 py-8 text-slate-500 dark:text-slate-400 space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-500 dark:text-blue-400 flex items-center justify-center">
+              <ProviderIcon id="google" className="w-6 h-6" size={24} />
             </div>
-
-            <div className="flex items-center justify-end pt-1">
-              {isLoading ? (
-                <button
-                  onClick={handleStopFetch}
-                  className="h-8 px-3.5 flex items-center justify-center gap-1.5 rounded-xl border border-red-500/60 bg-red-500/90 text-white hover:bg-red-600 hover:border-red-600 shadow-xs cursor-pointer active:scale-95 transition-all duration-200"
-                  title="Stop Fetching & Close Background Scraper Tabs"
-                >
-                  <IoSquare size={12} className="text-white fill-current animate-pulse" />
-                  <span className="text-xs font-semibold">Stop</span>
-                </button>
-              ) : (
-                <button
-                  onClick={() => handleSendMessage()}
-                  disabled={input.trim() === ""}
-                  className={`h-8 px-3.5 flex items-center justify-center gap-1.5 rounded-xl border transition-all duration-200 focus:outline-none ${
-                    input.trim() === ""
-                      ? "bg-gray-300/40 dark:bg-gray-600/20 border-gray-400/40 dark:border-gray-500/30 text-gray-400 dark:text-gray-500 cursor-not-allowed"
-                      : "bg-blue-500/80 border-blue-400/60 text-white hover:bg-blue-600 hover:border-blue-500 shadow-xs cursor-pointer active:scale-95"
-                  }`}
-                  title="Send message"
-                >
-                  <IoSend size={16} />
-                </button>
-              )}
+            <div>
+              <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                Compare AI Models Side-by-Side
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-[240px]">
+                Ask questions across Google AI, Bing AI, Gemini, and more in real-time.
+              </p>
             </div>
           </div>
-        </div>
-      </div>
+        )}
 
-      {/* AI Provider & Action Toolbar */}
-      <div className="relative w-full px-4 py-1.5 flex items-center gap-1.5 overflow-hidden">
-        {/* Compact New Chat Button */}
-        <button
-          onClick={handleNewChat}
-          className="size-8 flex-shrink-0 rounded-lg flex items-center justify-center border bg-blue-50/90 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border-blue-200/80 dark:border-blue-800/80 hover:bg-blue-100 dark:hover:bg-blue-900/60 hover:scale-105 active:scale-95 transition-all shadow-2xs cursor-pointer"
-          title="New Chat (+)"
-        >
-          <IoAdd size={19} />
-        </button>
-
-        {/* Compact History Button */}
-        <button
-          onClick={() => setIsHistoryOpen(true)}
-          className="size-8 flex-shrink-0 rounded-lg flex items-center justify-center border bg-white/70 dark:bg-black/40 text-gray-700 dark:text-gray-200 border-gray-200/80 dark:border-white/20 hover:bg-white/90 dark:hover:bg-black/60 hover:scale-105 active:scale-95 transition-all shadow-2xs cursor-pointer"
-          title="Chat History"
-        >
-          <IoTimeOutline size={17} />
-        </button>
-
-        <div className="w-[1px] h-4 bg-gray-300 dark:bg-white/20 flex-shrink-0 mx-0.5"></div>
-
-        {/* Scrollable Provider List */}
-        <div 
-           ref={providerListRef}
-           className="flex-1 flex flex-nowrap gap-2 items-center overflow-x-auto scrollbar-hide py-1.5 px-2 rounded-xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5 shadow-inner"
-           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-        >
-          {displayedProviders.map((provider) => (
-            <button
-              key={provider.id}
-              onClick={() => setSelectedProvider(provider.id)}
-              className={`flex-shrink-0 px-3 py-1 rounded-lg text-sm font-medium transition-all duration-200 border relative focus:outline-none ${
-                !answers[provider.id]
-                  ? // Not loaded - disabled state
-                    "bg-gray-200/50 dark:bg-gray-700/30 text-gray-400 dark:text-gray-500 border-gray-300/40 dark:border-gray-600/40 cursor-not-allowed opacity-50"
-                  : selectedProvider === provider.id
-                    ? // Active - selected state (light blue)
-                      "bg-blue-100/80 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200 border-blue-300/60 dark:border-blue-600/50 shadow-sm cursor-pointer"
-                    : // Loaded but not active - available state
-                      "bg-white/50 dark:bg-black/30 text-gray-700 dark:text-gray-200 border-white/50 dark:border-white/30 hover:bg-white/70 dark:hover:bg-black/40 hover:border-white/60 cursor-pointer"
-              }`}
-              disabled={!answers[provider.id]}
-            >
-              {provider.name}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="relative h-full flex-1 m-4 overflow-hidden">
-        <div
-          ref={scrollContainerRef}
-          className="absolute inset-0 space-y-4 overflow-y-auto"
-          style={{
-            scrollbarWidth: "none" /* Firefox */,
-            msOverflowStyle: "none" /* IE and Edge */,
-            scrollBehavior: "smooth",
-            WebkitOverflowScrolling: "touch",
-          }}
-        >
-          {/* Question display */}
-          {lastQuestion && (
-            <div
-              className={`p-3 rounded-xl transition-all duration-300 ${
-                uiContrast === "low"
-                  ? "bg-slate-900/[0.04] dark:bg-black/20 border border-slate-900/10 dark:border-white/15"
-                  : uiContrast === "high"
-                  ? "bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 shadow-sm text-gray-900 dark:text-white"
-                  : "bg-white/80 dark:bg-black/30 border border-slate-200/90 dark:border-white/25 shadow-xs"
-              }`}
-            >
-              <div className="text-gray-800 dark:text-gray-200 font-medium">
+        {/* User Message Bubble */}
+        {lastQuestion && (
+          <div className="flex flex-col items-end gap-1 animate-fade-in">
+            <div className="max-w-[85%] px-3.5 py-2.5 rounded-2xl rounded-tr-xs bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs">
+              <p className="text-xs leading-relaxed font-normal whitespace-pre-wrap">
                 {lastQuestion}
+              </p>
+              <div className="flex items-center justify-end gap-1 mt-1 text-[10px] text-blue-200/90 font-medium">
+                <span>{messageTime || getFormattedTime()}</span>
+                <DoubleCheckIcon className="w-3.5 h-3.5 text-blue-200" size={14} />
               </div>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Answers section */}
-          <div>
-            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-              Answer
-            </h3>
+        {/* AI Response Card */}
+        {(selectedAnswer || (isLoading && !selectedAnswer)) && (
+          <div className="flex flex-col gap-2 animate-fade-in">
+            <div className="p-4 rounded-2xl bg-white dark:bg-[#181920] border border-slate-200/80 dark:border-white/[0.08] shadow-xs space-y-3">
+              {/* Provider Header Badge */}
+              <div className="flex items-center justify-between pb-1 border-b border-slate-100 dark:border-white/[0.04]">
+                <div className="flex items-center gap-2">
+                  <ProviderIcon
+                    id={activeProviderObj.id}
+                    className="w-4 h-4 shrink-0"
+                    size={18}
+                  />
+                  <span className="text-xs font-semibold text-slate-900 dark:text-slate-100">
+                    {activeProviderObj.name}
+                  </span>
+                </div>
 
-            {/* Display selected answer */}
-            <div className="space-y-4">
-              {answers[selectedProvider] && (
+                {isLoading && !selectedAnswer && (
+                  <span className="text-[10px] text-blue-500 font-medium animate-pulse">
+                    Streaming response...
+                  </span>
+                )}
+              </div>
+
+              {/* Response Content Body */}
+              {selectedAnswer ? (
                 <div
-                  className={`p-3 rounded-xl transition-all duration-300 ${
-                    uiContrast === "low"
-                      ? "bg-slate-900/[0.04] dark:bg-black/20 border border-slate-900/10 dark:border-white/15"
-                      : uiContrast === "high"
-                      ? "bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 shadow-sm"
-                      : "bg-white/80 dark:bg-black/30 border border-slate-200/90 dark:border-white/25 shadow-xs"
-                  }`}
-                >
-                  <div className="text-xs text-gray-600 dark:text-gray-400 mb-1 font-medium">
-                    {displayedProviders.find((p) => p.id === selectedProvider)?.name ||
-                      selectedProvider}
-                  </div>
-
+                  className="ai-markdown text-slate-800 dark:text-slate-200 overflow-x-auto leading-relaxed"
+                  dangerouslySetInnerHTML={{
+                    __html: UTILS.sanitizeHtml(selectedAnswer.content),
+                  }}
+                />
+              ) : (
+                /* Skeleton Loading Dots */
+                <div className="flex items-center gap-2 py-3">
                   <div
-                    className="botChat whitespace-pre-wrap overflow-x-auto overflow-y-hidden"
-                    dangerouslySetInnerHTML={{
-                      __html: UTILS.sanitizeHtml(answers[selectedProvider].content),
-                    }}
+                    className="w-2 h-2 rounded-full bg-blue-500 animate-bounce"
+                    style={{ animationDelay: "0ms" }}
+                  />
+                  <div
+                    className="w-2 h-2 rounded-full bg-blue-500 animate-bounce"
+                    style={{ animationDelay: "150ms" }}
+                  />
+                  <div
+                    className="w-2 h-2 rounded-full bg-blue-500 animate-bounce"
+                    style={{ animationDelay: "300ms" }}
                   />
                 </div>
               )}
 
-              {/* Show loading for selected provider if no answer yet */}
-              {isLoading && !answers[selectedProvider] && (
-                <div
-                  className={`p-3 rounded-xl transition-all duration-300 ${
-                    uiContrast === "low"
-                      ? "bg-slate-900/[0.04] dark:bg-black/20 border border-slate-900/10 dark:border-white/15"
-                      : uiContrast === "high"
-                      ? "bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 shadow-sm"
-                      : "bg-white/80 dark:bg-black/30 border border-slate-200/90 dark:border-white/25 shadow-xs"
-                  }`}
-                >
-                  <div className="text-xs text-gray-600 dark:text-gray-400 mb-1 font-medium">
-                    {displayedProviders.find((p) => p.id === selectedProvider)?.name ||
-                      selectedProvider}
-                  </div>
-                  <div className="flex space-x-2 mt-2">
-                    <div
-                      className="w-2 h-2 rounded-full bg-blue-400/60 animate-bounce"
-                      style={{ animationDelay: "0ms" }}
-                    ></div>
-                    <div
-                      className="w-2 h-2 rounded-full bg-blue-400/60 animate-bounce"
-                      style={{ animationDelay: "150ms" }}
-                    ></div>
-                    <div
-                      className="w-2 h-2 rounded-full bg-blue-400/60 animate-bounce"
-                      style={{ animationDelay: "300ms" }}
-                    ></div>
-                  </div>
+              {/* Timestamp at bottom right */}
+              {selectedAnswer && (
+                <div className="flex items-center justify-end pt-1 border-t border-slate-100 dark:border-white/[0.04] text-[10px] text-slate-400 dark:text-slate-500 font-medium">
+                  <span>{messageTime || getFormattedTime()}</span>
                 </div>
               )}
             </div>
           </div>
-        </div>
+        )}
       </div>
 
-      {/* History Overlay Panel */}
-      <div
-        className={`absolute inset-0 z-100 bg-gray-50/95 dark:bg-[#242424]/95 backdrop-blur-md flex flex-col transition-all duration-300 ease-in-out ${
-          isHistoryOpen
-            ? "opacity-100 pointer-events-auto translate-y-0"
-            : "opacity-0 pointer-events-none translate-y-4"
-        }`}
-      >
-          <div className="p-4 border-b border-gray-200 dark:border-white/10 flex justify-between items-center bg-white/50 dark:bg-black/20">
-            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
-              <IoTimeOutline size={20} /> Chat History
-            </h2>
-            <button
-              onClick={() => setIsHistoryOpen(false)}
-              className="p-1 rounded-lg bg-white dark:bg-black text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white transition-colors cursor-pointer"
-            >
-              <IoClose size={24} />
-            </button>
-          </div>
+      {/* Bottom Input Dock Bar */}
+      <div className="p-3 border-t border-slate-200/80 dark:border-white/[0.07] bg-white/70 dark:bg-[#12141c]/80 backdrop-blur-md shrink-0">
+        <div className="relative flex items-center w-full px-3 py-2 rounded-2xl bg-white dark:bg-[#191c25] border border-slate-200/90 dark:border-white/[0.09] focus-within:border-blue-500 dark:focus-within:border-blue-500/80 focus-within:ring-1 focus-within:ring-blue-500/50 shadow-xs transition-all">
+          <input
+            ref={textareaRef}
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Ask anything..."
+            className="flex-1 bg-transparent text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 border-0 outline-none pr-2"
+          />
 
-          <div
-            className="flex-1 overflow-y-auto p-4 space-y-2 scrollbar-hide"
-            style={{ scrollbarWidth: "none" }}
-          >
-            {history.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-gray-400 dark:text-gray-500">
-                <IoTimeOutline size={48} className="mb-2 opacity-50" />
-                <p>No history yet.</p>
-              </div>
+          {input && (
+            <button
+              onClick={() => setInput("")}
+              className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors focus:outline-none cursor-pointer mr-1"
+              title="Clear text"
+            >
+              <IoClose className="w-3.5 h-3.5" />
+            </button>
+          )}
+
+          {/* Action Buttons: Element Selector & Settings Shortcut */}
+          <div className="flex items-center gap-1 pl-1 border-l border-slate-200 dark:border-white/10">
+            <button
+              onClick={onOpenSelector}
+              title="Inspect & Select Page Element"
+              className="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-all focus:outline-none cursor-pointer"
+            >
+              <ElementSelectorIcon className="w-4 h-4" size={16} />
+            </button>
+
+            <button
+              onClick={onOpenSettings}
+              title="AI Settings"
+              className="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-all focus:outline-none cursor-pointer"
+            >
+              <FilterSlidersIcon className="w-4 h-4" size={16} />
+            </button>
+
+            {/* Send / Stop Button */}
+            {isLoading ? (
+              <button
+                onClick={handleStopFetch}
+                title="Stop Fetching"
+                className="w-8 h-8 ml-1 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white flex items-center justify-center shadow-xs transition-all focus:outline-none cursor-pointer"
+              >
+                <IoSquare className="w-3 h-3 text-white fill-current animate-pulse" />
+              </button>
             ) : (
-              history.map((item, index) => (
-                <div
-                  key={item.id}
-                  onClick={() => {
-                    setLastQuestion(item.question);
-                    lastQuestionRef.current = item.question;
-                    setAnswers(item.answers);
-                    currentRequestIdRef.current = item.id;
-                    setIsLoading(false);
-                    // Select first available provider in the loaded history
-                    const providersWithAnswers = Object.keys(item.answers);
-                    if (providersWithAnswers.length > 0) {
-                      // Check if current selected provider exists in this history item
-                      if (!item.answers[selectedProvider]) {
-                        setSelectedProvider(providersWithAnswers[0]);
-                      }
-                    }
-                    setIsHistoryOpen(false);
-                  }}
-                  className="group relative bg-white/60 dark:bg-black/30 border border-gray-200 dark:border-white/10 p-3 rounded-xl cursor-pointer hover:bg-white dark:hover:bg-black/50 transition-all duration-200"
-                >
-                  <div className="flex items-start gap-3">
-                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xs font-bold mt-0.5">
-                      {index + 1}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-800 dark:text-gray-200 line-clamp-2">
-                        {item.question}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        {new Date(item.timestamp).toLocaleString()} •{" "}
-                        {Object.keys(item.answers).length} Providers
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))
+              <button
+                onClick={() => handleSendMessage()}
+                disabled={input.trim() === ""}
+                title="Send Prompt"
+                className={`w-8 h-8 ml-1 rounded-xl flex items-center justify-center transition-all focus:outline-none ${
+                  input.trim() === ""
+                    ? "bg-slate-200 dark:bg-white/10 text-slate-400 dark:text-slate-500 cursor-not-allowed"
+                    : "bg-blue-600 hover:bg-blue-700 active:scale-95 text-white shadow-xs cursor-pointer"
+                }`}
+              >
+                <SendPlaneIcon className="w-3.5 h-3.5" size={14} />
+              </button>
             )}
           </div>
-
-          {history.length > 0 && (
-            <div
-              className="border-t border-gray-200 dark:border-white/10 bg-white/50 dark:bg-black/20 overflow-hidden relative"
-              style={{ height: "92px" }}
-            >
-              {/* Clear Button View */}
-              <div
-                className={`absolute inset-0 p-4 flex flex-col justify-center transition-all duration-300 ease-in-out ${
-                  showConfirmClear
-                    ? "opacity-0 scale-95 pointer-events-none"
-                    : "opacity-100 scale-100 pointer-events-auto"
-                }`}
-              >
-                <button
-                  onClick={() => setShowConfirmClear(true)}
-                  className="w-full py-2.5 flex items-center justify-center gap-2 text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-500/10 hover:bg-red-100 dark:hover:bg-red-500/20 border border-red-100 dark:border-red-500/20 rounded-lg text-sm font-medium transition-all cursor-pointer"
-                >
-                  <IoTrashOutline size={18} /> Clear History
-                </button>
-              </div>
-
-              {/* Confirm View */}
-              <div
-                className={`absolute inset-0 p-4 flex flex-col justify-center transition-all duration-300 ease-in-out ${
-                  showConfirmClear
-                    ? "opacity-100 scale-100 pointer-events-auto"
-                    : "opacity-0 scale-105 pointer-events-none"
-                }`}
-              >
-                <p className="text-sm text-center text-gray-700 dark:text-gray-300 mb-2 font-medium">
-                  Delete all history?
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      saveHistory([]);
-                      setShowConfirmClear(false);
-                    }}
-                    className="flex-1 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors cursor-pointer"
-                  >
-                    Yes, Delete
-                  </button>
-                  <button
-                    onClick={() => setShowConfirmClear(false)}
-                    className="flex-1 py-1.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg text-sm font-medium transition-colors cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
+      </div>
     </div>
   );
 }
+
+ChatBot.propTypes = {
+  isOpen: PropTypes.bool,
+  initialHistoryItem: PropTypes.object,
+  onClearLoadedHistory: PropTypes.func,
+  onOpenSettings: PropTypes.func,
+  onOpenSelector: PropTypes.func,
+};

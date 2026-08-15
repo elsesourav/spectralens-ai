@@ -257,6 +257,20 @@ runtimeOnMessage("B_C_CLOSE_MENU", async (_, __, sendResponse) => {
    }
 });
 
+runtimeOnMessage("B_C_RESET_POSITION", async (_, __, sendResponse) => {
+   __menu_back__ = document.getElementById("__menuWindowBack");
+   __main_menu__ = document.getElementById("__menuWindowIframe");
+   if (__main_menu__ && __menu_back__) {
+      const defaultLeft = 24;
+      const defaultTop = 80;
+      __menu_back__.style.left = `${defaultLeft + __spacing}px`;
+      __menu_back__.style.top = `${defaultTop}px`;
+      __main_menu__.style.left = `${defaultLeft}px`;
+      __main_menu__.style.top = `${defaultTop}px`;
+   }
+   sendResponse && sendResponse("ok");
+});
+
 window.addEventListener("message", async (event) => {
    if (event?.data?.type?.includes("IF_B_")) {
       // console.log("Received message from background:", event.data);
