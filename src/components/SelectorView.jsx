@@ -36,23 +36,23 @@ export default function SelectorView({ onTriggerComplete }) {
   };
 
   return (
-    <div className="flex flex-col h-full bg-transparent text-[#0f172a] dark:text-[#f8fafc] overflow-hidden">
+    <div className="flex flex-col h-full bg-transparent text-slate-900 dark:text-slate-100 overflow-hidden">
       {/* View Header */}
       <div
         className={`flex items-center gap-2.5 px-4 py-3.5 border-b shrink-0 ${
           contrastMode === "solid"
-            ? "bg-slate-100 dark:bg-[#14161e] border-slate-200 dark:border-white/[0.08]"
+            ? "bg-slate-100 dark:bg-[#14161e] border-slate-200/90 dark:border-white/[0.08]"
             : contrastMode === "medium"
-            ? "bg-slate-100/30 dark:bg-black/20 backdrop-blur-sm border-slate-200/40 dark:border-white/[0.06]"
-            : "bg-transparent border-slate-200/20 dark:border-white/[0.04]"
+              ? "bg-slate-100/60 dark:bg-black/35 backdrop-blur-md border-slate-200/60 dark:border-white/[0.07]"
+              : "bg-slate-100/40 dark:bg-black/25 backdrop-blur-sm border-slate-200/50 dark:border-white/[0.06]"
         }`}
       >
-        <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-500 dark:text-blue-400">
+        <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
           <ElementSelectorIcon className="w-5 h-5" size={20} />
         </div>
         <div>
-          <h2 className="text-sm font-semibold tracking-tight">Element Selector</h2>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+          <h2 className="text-sm font-bold tracking-tight text-slate-900 dark:text-white">Element Selector</h2>
+          <p className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
             Target page content for AI contextual prompts
           </p>
         </div>
@@ -64,19 +64,19 @@ export default function SelectorView({ onTriggerComplete }) {
           <div
             className={`p-3.5 rounded-2xl border shadow-xs space-y-2.5 ${
               contrastMode === "solid"
-                ? "bg-white dark:bg-[#191c25] border-slate-200 dark:border-white/[0.08]"
+                ? "bg-white dark:bg-[#191c25] border-slate-200/90 dark:border-white/[0.08]"
                 : contrastMode === "medium"
-                ? "bg-white/35 dark:bg-white/[0.06] backdrop-blur-sm border-slate-200/40 dark:border-white/[0.06]"
-                : "bg-white/[0.06] dark:bg-white/[0.02] border-slate-200/15 dark:border-white/[0.03]"
+                  ? "bg-white/80 dark:bg-[#191c25]/75 backdrop-blur-md border-slate-200/60 dark:border-white/[0.07]"
+                  : "bg-white/50 dark:bg-white/[0.06] backdrop-blur-sm border-slate-200/40 dark:border-white/[0.06]"
             }`}
           >
-            <h3 className="text-xs font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+            <h3 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
               <IoScanOutline className="w-4 h-4 text-blue-500" />
               How Element Selection Works
             </h3>
-            <ul className="text-xs text-slate-600 dark:text-slate-400 space-y-2 leading-relaxed">
+            <ul className="text-xs text-slate-700 dark:text-slate-300 space-y-2 leading-relaxed font-normal">
               <li className="flex items-start gap-2">
-                <span className="w-4 h-4 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">
+                <span className="w-4 h-4 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">
                   1
                 </span>
                 Click the button below to launch the on-page inspector.

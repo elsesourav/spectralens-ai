@@ -145,20 +145,20 @@ export default function Menu() {
   const contrastClass = useMemo(() => {
     if (!isChatOpen) {
       if (contrastMode === "transparent") {
-        return "bg-black/5 dark:bg-black/10 border border-white/15 shadow-2xl";
+        return "bg-white/60 dark:bg-[#16171d]/60 backdrop-blur-xl border border-slate-200/50 dark:border-white/15 shadow-2xl";
       }
       if (contrastMode === "medium") {
-        return "bg-black/20 dark:bg-black/35 backdrop-blur-md border border-white/20 shadow-2xl";
+        return "bg-[#f8fafc]/80 dark:bg-[#16171d]/80 backdrop-blur-2xl border border-slate-200/70 dark:border-white/20 shadow-2xl";
       }
-      return "bg-[#16171d] border border-white/20 shadow-2xl";
+      return "bg-[#f8fafc] dark:bg-[#16171d] border border-slate-200 dark:border-white/20 shadow-2xl";
     } else {
       if (contrastMode === "transparent") {
-        return "bg-slate-900/[0.02] dark:bg-black/[0.05] border border-slate-200/20 dark:border-white/[0.06] shadow-2xl";
+        return "bg-white/65 dark:bg-[#0e1015]/65 backdrop-blur-xl border border-slate-200/50 dark:border-white/10 shadow-2xl";
       }
       if (contrastMode === "medium") {
-        return "bg-slate-900/10 dark:bg-black/25 backdrop-blur-md border border-slate-200/40 dark:border-white/10 shadow-2xl";
+        return "bg-[#f8fafc]/85 dark:bg-[#0e1015]/85 backdrop-blur-2xl border border-slate-200/70 dark:border-white/10 shadow-2xl";
       }
-      return "bg-[#f8fafc] dark:bg-[#0e1015] border border-slate-200 dark:border-white/10 shadow-2xl";
+      return "bg-[#f8fafc] dark:bg-[#0e1015] border border-slate-200/90 dark:border-white/10 shadow-2xl";
     }
   }, [isChatOpen, contrastMode]);
 
@@ -404,10 +404,10 @@ export default function Menu() {
             <div
               className={`flex items-center justify-between px-3.5 py-2 border-b shrink-0 cursor-grab active:cursor-grabbing ${
                 contrastMode === "solid"
-                  ? "bg-slate-100 dark:bg-[#14161e] border-slate-200 dark:border-white/[0.08]"
+                  ? "bg-slate-100 dark:bg-[#14161e] border-slate-200/90 dark:border-white/[0.08]"
                   : contrastMode === "medium"
-                  ? "bg-slate-100/30 dark:bg-black/20 backdrop-blur-sm border-slate-200/40 dark:border-white/[0.06]"
-                  : "bg-transparent border-slate-200/20 dark:border-white/[0.04]"
+                  ? "bg-slate-100/60 dark:bg-black/35 backdrop-blur-md border-slate-200/60 dark:border-white/[0.07]"
+                  : "bg-slate-100/40 dark:bg-black/25 backdrop-blur-sm border-slate-200/50 dark:border-white/[0.06]"
               }`}
             >
               <div className="flex items-center gap-2 select-none pointer-events-none">
@@ -425,11 +425,11 @@ export default function Menu() {
                   )}
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                  <span className="text-xs font-bold text-slate-900 dark:text-white">
                     SpectraLens AI
                   </span>
                   {isAlwaysActive && (
-                    <span className="text-[9px] px-1 py-0.2 rounded font-semibold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
                       Always Active
                     </span>
                   )}
@@ -451,7 +451,7 @@ export default function Menu() {
                     e.stopPropagation();
                     toggleChat();
                   }}
-                  className="p-1 rounded-lg text-slate-500 hover:text-rose-500 dark:text-slate-400 dark:hover:text-rose-400 hover:bg-rose-500/10 transition-colors focus:outline-none cursor-pointer"
+                  className="p-1 rounded-lg text-slate-600 hover:text-rose-600 dark:text-slate-300 dark:hover:text-rose-400 hover:bg-rose-500/10 transition-colors focus:outline-none cursor-pointer"
                   title="Close"
                 >
                   <FiX className="w-4 h-4 pointer-events-none" />

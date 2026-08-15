@@ -394,23 +394,19 @@ export default function ChatBot({
   return (
     <div
       ref={rootRef}
-      className="flex flex-col h-full bg-transparent text-[#0f172a] dark:text-[#f8fafc] overflow-hidden select-none"
+      className="flex flex-col h-full bg-transparent text-slate-900 dark:text-slate-100 overflow-hidden select-none"
     >
-      {/* Provider Selector Tabs Bar (Carved folder-tab touching chat section) */}
-      <div className="flex items-end justify-between px-3 pt-2.5 pb-0 border-b border-slate-200/80 dark:border-white/[0.08] bg-slate-100/50 dark:bg-black/20 backdrop-blur-sm shrink-0 gap-1.5 z-10">
-        <div className="relative flex items-end gap-1 flex-1 overflow-x-auto custom-scrollbar -mb-[1px]">
-          {/* Animated Sliding Active Background with Carved Inverted Corners */}
-          {primaryPills.findIndex((p) => p.id === selectedProvider) >= 0 && (
-            <div
-              className="absolute bottom-0 h-[34px] w-[104px] bg-[#f8fafc]/90 dark:bg-[#0e1015]/90 backdrop-blur-md rounded-t-xl border-t border-x border-slate-200/80 dark:border-white/[0.08] transition-transform duration-200 ease-out pointer-events-none before:content-[''] before:absolute before:-left-2.5 before:bottom-0 before:w-2.5 before:h-2.5 before:bg-transparent before:rounded-br-lg before:shadow-[2px_2px_0_0_#f8fafc] dark:before:shadow-[2px_2px_0_0_#0e1015] after:content-[''] after:absolute after:-right-2.5 after:bottom-0 after:w-2.5 after:h-2.5 after:bg-transparent after:rounded-bl-lg after:shadow-[-2px_2px_0_0_#f8fafc] dark:after:shadow-[-2px_2px_0_0_#0e1015] z-0"
-              style={{
-                transform: `translateX(${
-                  primaryPills.findIndex((p) => p.id === selectedProvider) * 108
-                }px)`,
-              }}
-            />
-          )}
-
+      {/* Provider Selector Tabs Bar */}
+      <div
+        className={`flex items-center justify-between px-3 py-1.5 border-b shrink-0 gap-1.5 z-10 ${
+          contrastMode === "solid"
+            ? "bg-slate-100 dark:bg-[#14161e] border-slate-200/90 dark:border-white/[0.08]"
+            : contrastMode === "medium"
+              ? "bg-slate-100/60 dark:bg-black/35 backdrop-blur-md border-slate-200/60 dark:border-white/[0.07]"
+              : "bg-slate-100/40 dark:bg-black/25 backdrop-blur-sm border-slate-200/50 dark:border-white/[0.06]"
+        }`}
+      >
+        <div className="flex items-center gap-1.5 flex-1 overflow-x-auto custom-scrollbar py-0.5">
           {primaryPills.map((provider) => {
             const isSelected = selectedProvider === provider.id;
             const pAns = answers[provider.id];
@@ -428,10 +424,10 @@ export default function ChatBot({
               <button
                 key={provider.id}
                 onClick={() => handleSelectProvider(provider.id)}
-                className={`relative w-[104px] h-[34px] flex items-center justify-center gap-1.5 px-2 text-xs transition-colors duration-150 shrink-0 focus:outline-none cursor-pointer select-none z-10 ${
+                className={`relative h-8 flex items-center justify-center gap-1.5 px-3 rounded-xl text-xs font-bold transition-all duration-150 shrink-0 focus:outline-none cursor-pointer select-none ${
                   isSelected
-                    ? "text-blue-600 dark:text-blue-400 font-semibold"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                    ? "bg-blue-600 text-white shadow-xs"
+                    : "bg-slate-200/70 dark:bg-white/[0.06] text-slate-800 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-white/10 font-semibold"
                 } ${!hasAnswer && isLoading ? "opacity-75" : ""}`}
               >
                 <ProviderIcon
@@ -439,10 +435,10 @@ export default function ChatBot({
                   className="w-4 h-4 shrink-0"
                   size={16}
                 />
-                <span className="truncate max-w-[62px]">{provider.name}</span>
+                <span className="truncate max-w-[70px]">{provider.name}</span>
                 {hasUnreadAnswer && (
                   <span
-                    className="w-2 h-2 rounded-full bg-emerald-500 shadow-xs shadow-emerald-500/50 shrink-0 animate-pulse"
+                    className="w-2 h-2 rounded-full bg-emerald-400 shadow-xs shadow-emerald-400/50 shrink-0 animate-pulse"
                     title="New response ready"
                   />
                 )}
@@ -453,14 +449,14 @@ export default function ChatBot({
 
         {/* Overflow 3-dots Menu for 4+ providers */}
         {overflowProviders.length > 0 && (
-          <div className="relative shrink-0 mb-1" ref={moreMenuRef}>
+          <div className="relative shrink-0" ref={moreMenuRef}>
             <button
               onClick={() => setIsMoreMenuOpen((v) => !v)}
               title="More AI Models"
               className={`p-1.5 rounded-xl transition-all border focus:outline-none cursor-pointer ${
                 isMoreMenuOpen
-                  ? "bg-blue-600 text-white border-blue-500"
-                  : "bg-white dark:bg-[#1a1d26] text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-[#222634] border-slate-200 dark:border-white/[0.06]"
+                  ? "bg-blue-600 text-white border-blue-500 shadow-xs"
+                  : "bg-slate-200/70 dark:bg-white/[0.06] text-slate-800 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-white/10 border-slate-200 dark:border-white/[0.06]"
               }`}
             >
               <ThreeDotsIcon className="w-4 h-4" size={16} />
@@ -488,10 +484,10 @@ export default function ChatBot({
                         handleSelectProvider(provider.id);
                         setIsMoreMenuOpen(false);
                       }}
-                      className={`w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-left transition-colors focus:outline-none cursor-pointer ${
+                      className={`w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-left transition-colors focus:outline-none cursor-pointer ${
                         isOverflowSelected
-                          ? "bg-blue-600/15 text-blue-600 dark:text-blue-400 font-semibold"
-                          : "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5"
+                          ? "bg-blue-600/15 text-blue-600 dark:text-blue-400 font-bold"
+                          : "text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5"
                       }`}
                     >
                       <div className="flex items-center gap-2.5">
@@ -524,15 +520,15 @@ export default function ChatBot({
       >
         {/* Welcome Empty State */}
         {!lastQuestion && !isLoading && Object.keys(answers).length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-center px-4 py-8 text-slate-500 dark:text-slate-400 space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-500 dark:text-blue-400 flex items-center justify-center">
+          <div className="flex flex-col items-center justify-center h-full text-center px-4 py-8 space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
               <ProviderIcon id="google" className="w-6 h-6" size={24} />
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
                 Compare AI Models Side-by-Side
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-[240px]">
+              <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mt-1 max-w-[240px]">
                 Ask questions across Google AI, Bing AI, Gemini, and more in
                 real-time.
               </p>
@@ -564,10 +560,10 @@ export default function ChatBot({
             <div
               className={`p-4 rounded-2xl border shadow-xs space-y-3 ${
                 contrastMode === "solid"
-                  ? "bg-white dark:bg-[#181920] border-slate-200 dark:border-white/[0.08]"
+                  ? "bg-white dark:bg-[#181920] border-slate-200/90 dark:border-white/[0.08]"
                   : contrastMode === "medium"
-                  ? "bg-white/35 dark:bg-white/[0.06] backdrop-blur-sm border-slate-200/40 dark:border-white/[0.06]"
-                  : "bg-white/[0.06] dark:bg-white/[0.02] border-slate-200/15 dark:border-white/[0.03]"
+                    ? "bg-white/80 dark:bg-[#181920]/80 backdrop-blur-md border-slate-200/60 dark:border-white/[0.07]"
+                    : "bg-white/50 dark:bg-white/[0.06] backdrop-blur-sm border-slate-200/40 dark:border-white/[0.06]"
               }`}
             >
               {/* Provider Header Badge */}
@@ -578,13 +574,13 @@ export default function ChatBot({
                     className="w-4 h-4 shrink-0"
                     size={18}
                   />
-                  <span className="text-xs font-semibold text-slate-900 dark:text-slate-100">
+                  <span className="text-xs font-bold text-slate-900 dark:text-white">
                     {activeProviderObj.name}
                   </span>
                 </div>
 
                 {isLoading && !selectedAnswerContent && (
-                  <span className="text-[10px] text-blue-500 font-medium animate-pulse">
+                  <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold animate-pulse">
                     Streaming response...
                   </span>
                 )}
@@ -593,7 +589,7 @@ export default function ChatBot({
               {/* Response Content Body */}
               {selectedAnswerContent ? (
                 <div
-                  className="ai-markdown text-slate-800 dark:text-slate-200 overflow-x-auto leading-relaxed"
+                  className="ai-markdown text-slate-900 dark:text-slate-100 overflow-x-auto leading-relaxed font-normal"
                   dangerouslySetInnerHTML={{
                     __html: UTILS.sanitizeHtml(selectedAnswerContent),
                   }}
@@ -618,7 +614,7 @@ export default function ChatBot({
 
               {/* Timestamp at bottom right */}
               {selectedAnswerContent && (
-                <div className="flex items-center justify-end pt-1 border-t border-slate-100 dark:border-white/[0.04] text-[10px] text-slate-400 dark:text-slate-500 font-medium">
+                <div className="flex items-center justify-end pt-1 border-t border-slate-100 dark:border-white/[0.04] text-[10px] text-slate-500 dark:text-slate-400 font-medium">
                   <span>{messageTime || getFormattedTime()}</span>
                 </div>
               )}
@@ -631,10 +627,10 @@ export default function ChatBot({
       <div
         className={`p-3 border-t shrink-0 ${
           contrastMode === "solid"
-            ? "bg-slate-100 dark:bg-[#14161e] border-slate-200 dark:border-white/[0.08]"
+            ? "bg-slate-100 dark:bg-[#14161e] border-slate-200/90 dark:border-white/[0.08]"
             : contrastMode === "medium"
-            ? "bg-slate-100/30 dark:bg-black/20 backdrop-blur-sm border-slate-200/40 dark:border-white/[0.06]"
-            : "bg-transparent border-slate-200/20 dark:border-white/[0.04]"
+              ? "bg-slate-100/60 dark:bg-black/35 backdrop-blur-md border-slate-200/60 dark:border-white/[0.07]"
+              : "bg-slate-100/40 dark:bg-black/25 backdrop-blur-sm border-slate-200/50 dark:border-white/[0.06]"
         }`}
       >
         <div
@@ -642,8 +638,8 @@ export default function ChatBot({
             contrastMode === "solid"
               ? "bg-white dark:bg-[#191c25] border-slate-200/90 dark:border-white/[0.09]"
               : contrastMode === "medium"
-              ? "bg-white/40 dark:bg-white/[0.08] backdrop-blur-sm border-slate-200/40 dark:border-white/[0.06]"
-              : "bg-white/[0.08] dark:bg-white/[0.04] border-slate-200/20 dark:border-white/[0.05]"
+                ? "bg-white/80 dark:bg-[#191c25]/80 backdrop-blur-md border-slate-200/60 dark:border-white/[0.08]"
+                : "bg-white/50 dark:bg-white/[0.08] backdrop-blur-sm border-slate-200/40 dark:border-white/[0.06]"
           }`}
         >
           <input

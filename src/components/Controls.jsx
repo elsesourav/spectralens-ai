@@ -1,23 +1,19 @@
 /* eslint-disable no-undef */
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ProviderIcon,
-  SettingsIcon,
-} from "./Icons.jsx";
-import {
-  IoSunnyOutline,
-  IoMoonOutline,
-  IoDesktopOutline,
   IoAlertCircleOutline,
-  IoShieldCheckmarkOutline,
-  IoFlashOutline,
-  IoRefreshOutline,
-  IoCheckmark,
-  IoChevronUpOutline,
   IoChevronDownOutline,
+  IoChevronUpOutline,
+  IoDesktopOutline,
+  IoFlashOutline,
+  IoMoonOutline,
+  IoRefreshOutline,
+  IoShieldCheckmarkOutline,
+  IoSunnyOutline,
 } from "react-icons/io5";
-import extensionUtils from "./../utils/utilsModule.js";
 import { useTheme } from "../hooks/useThemeHook.jsx";
+import extensionUtils from "./../utils/utilsModule.js";
+import { ProviderIcon } from "./Icons.jsx";
 
 const DEFAULT_AI_OPTIONS = [
   { id: "google", name: "Google AI", enabled: true },
@@ -50,45 +46,53 @@ export default function Controls() {
   // Load Settings from Chrome Storage
   useEffect(() => {
     // 1. Controls Data
-    extensionUtils.chromeStorageGetLocal(extensionUtils.KEYS.CONTROLS, (data) => {
-      if (data) {
-        if (data.aiProviders && Array.isArray(data.aiProviders)) {
-          const storedMap = new Map(data.aiProviders.map((p) => [p.id, p]));
-          const merged = DEFAULT_AI_OPTIONS.map((def) => {
-            if (storedMap.has(def.id)) {
-              return { ...def, ...storedMap.get(def.id) };
-            }
-            return def;
-          });
+    extensionUtils.chromeStorageGetLocal(
+      extensionUtils.KEYS.CONTROLS,
+      (data) => {
+        if (data) {
+          if (data.aiProviders && Array.isArray(data.aiProviders)) {
+            const storedMap = new Map(data.aiProviders.map((p) => [p.id, p]));
+            const merged = DEFAULT_AI_OPTIONS.map((def) => {
+              if (storedMap.has(def.id)) {
+                return { ...def, ...storedMap.get(def.id) };
+              }
+              return def;
+            });
 
-          // Ensure max 3 are enabled
-          let count = 0;
-          const capped = merged.map((item) => {
-            if (item.enabled) {
-              count++;
-              if (count > 3) return { ...item, enabled: false };
-            }
-            return item;
-          });
-          setAiList(capped);
-        }
+            // Ensure max 3 are enabled
+            let count = 0;
+            const capped = merged.map((item) => {
+              if (item.enabled) {
+                count++;
+                if (count > 3) return { ...item, enabled: false };
+              }
+              return item;
+            });
+            setAiList(capped);
+          }
 
-        if (data.concurrentRequests !== undefined) {
-          setConcurrentRequests(Math.min(3, Math.max(1, Number(data.concurrentRequests))));
+          if (data.concurrentRequests !== undefined) {
+            setConcurrentRequests(
+              Math.min(3, Math.max(1, Number(data.concurrentRequests))),
+            );
+          }
+          if (data.autoHideDelay !== undefined) {
+            setAutoHideDelay(Number(data.autoHideDelay));
+          }
         }
-        if (data.autoHideDelay !== undefined) {
-          setAutoHideDelay(Number(data.autoHideDelay));
-        }
-      }
-      setIsInitialized(true);
-    });
+        setIsInitialized(true);
+      },
+    );
 
     // 2. Widget Toggle
-    extensionUtils.chromeStorageGetLocal(extensionUtils.KEYS.SETTINGS, (settings) => {
-      if (settings?.enable !== undefined) {
-        setWidgetEnabled(Boolean(settings?.enable));
-      }
-    });
+    extensionUtils.chromeStorageGetLocal(
+      extensionUtils.KEYS.SETTINGS,
+      (settings) => {
+        if (settings?.enable !== undefined) {
+          setWidgetEnabled(Boolean(settings?.enable));
+        }
+      },
+    );
 
     // 3. Always Active Tab Host Status
     const checkAlwaysActive = async () => {
@@ -101,14 +105,20 @@ export default function Controls() {
           // Ignore
         }
       }
-      extensionUtils.chromeStorageGetLocal(extensionUtils.KEYS.ALWAYS_ACTIVE_HOSTS, (hosts = []) => {
-        const activeHosts = Array.isArray(hosts) ? hosts : [];
-        if (hostname && (activeHosts.includes(hostname) || activeHosts.includes("*"))) {
-          setAlwaysActiveTab(true);
-        } else {
-          setAlwaysActiveTab(false);
-        }
-      });
+      extensionUtils.chromeStorageGetLocal(
+        extensionUtils.KEYS.ALWAYS_ACTIVE_HOSTS,
+        (hosts = []) => {
+          const activeHosts = Array.isArray(hosts) ? hosts : [];
+          if (
+            hostname &&
+            (activeHosts.includes(hostname) || activeHosts.includes("*"))
+          ) {
+            setAlwaysActiveTab(true);
+          } else {
+            setAlwaysActiveTab(false);
+          }
+        },
+      );
     };
     checkAlwaysActive();
 
@@ -123,45 +133,65 @@ export default function Controls() {
           // Ignore
         }
       }
-      extensionUtils.chromeStorageGetLocal(extensionUtils.KEYS.ENABLE_COPY_HOSTS, (hosts) => {
-        let activeHosts = hosts;
-        if (typeof activeHosts === "string") {
-          try {
-            activeHosts = JSON.parse(activeHosts);
-          } catch {
-            activeHosts = [];
+      extensionUtils.chromeStorageGetLocal(
+        extensionUtils.KEYS.ENABLE_COPY_HOSTS,
+        (hosts) => {
+          let activeHosts = hosts;
+          if (typeof activeHosts === "string") {
+            try {
+              activeHosts = JSON.parse(activeHosts);
+            } catch {
+              activeHosts = [];
+            }
           }
-        }
-        if (Array.isArray(activeHosts) && hostname && (activeHosts.includes(hostname) || activeHosts.includes("*"))) {
-          setEnableCopy(true);
-        } else {
-          setEnableCopy(false);
-        }
-      });
+          if (
+            Array.isArray(activeHosts) &&
+            hostname &&
+            (activeHosts.includes(hostname) || activeHosts.includes("*"))
+          ) {
+            setEnableCopy(true);
+          } else {
+            setEnableCopy(false);
+          }
+        },
+      );
     };
     checkEnableCopy();
   }, []);
 
   // Save Settings helper
   const saveControlsSettings = useCallback(
-    (newAiList = aiList, newConcurrent = concurrentRequests, newDelay = autoHideDelay) => {
+    (
+      newAiList = aiList,
+      newConcurrent = concurrentRequests,
+      newDelay = autoHideDelay,
+    ) => {
       if (!isInitialized) return;
-      extensionUtils.chromeStorageGetLocal(extensionUtils.KEYS.CONTROLS, (existingControls = {}) => {
-        const controls =
-          existingControls && typeof existingControls === "object"
-            ? existingControls
-            : {};
-        const controlsData = {
-          ...controls,
-          aiProviders: newAiList,
-          concurrentRequests: newConcurrent,
-          autoHideDelay: newDelay,
-        };
-        console.log("[Controls] Saving controls settings (without touching theme):", controlsData);
-        extensionUtils.chromeStorageSetLocal(extensionUtils.KEYS.CONTROLS, controlsData);
-      });
+      extensionUtils.chromeStorageGetLocal(
+        extensionUtils.KEYS.CONTROLS,
+        (existingControls = {}) => {
+          const controls =
+            existingControls && typeof existingControls === "object"
+              ? existingControls
+              : {};
+          const controlsData = {
+            ...controls,
+            aiProviders: newAiList,
+            concurrentRequests: newConcurrent,
+            autoHideDelay: newDelay,
+          };
+          console.log(
+            "[Controls] Saving controls settings (without touching theme):",
+            controlsData,
+          );
+          extensionUtils.chromeStorageSetLocal(
+            extensionUtils.KEYS.CONTROLS,
+            controlsData,
+          );
+        },
+      );
     },
-    [aiList, concurrentRequests, autoHideDelay, isInitialized]
+    [aiList, concurrentRequests, autoHideDelay, isInitialized],
   );
 
   // Toggle Provider with strict MAX 3 limit
@@ -188,7 +218,7 @@ export default function Controls() {
       }
 
       const updated = prevList.map((p) =>
-        p.id === providerId ? { ...p, enabled: willEnable } : p
+        p.id === providerId ? { ...p, enabled: willEnable } : p,
       );
       saveControlsSettings(updated);
       return updated;
@@ -225,9 +255,13 @@ export default function Controls() {
     const nextState = !widgetEnabled;
     setWidgetEnabled(nextState);
     const updatedSettings = { enable: nextState };
-    extensionUtils.chromeStorageSetLocal(extensionUtils.KEYS.SETTINGS, updatedSettings, () => {
-      extensionUtils.runtimeSendMessage("P_B_TOGGLE");
-    });
+    extensionUtils.chromeStorageSetLocal(
+      extensionUtils.KEYS.SETTINGS,
+      updatedSettings,
+      () => {
+        extensionUtils.runtimeSendMessage("P_B_TOGGLE");
+      },
+    );
   };
 
   // Toggle Always Active Tab
@@ -252,60 +286,71 @@ export default function Controls() {
     }
     if (!tab || !hostname) return;
 
-    extensionUtils.chromeStorageGetLocal(extensionUtils.KEYS.ENABLE_COPY_HOSTS, (storedHosts) => {
-      let hosts = storedHosts || [];
-      if (typeof hosts === "string") {
-        try {
-          hosts = JSON.parse(hosts);
-        } catch {
-          hosts = [];
+    extensionUtils.chromeStorageGetLocal(
+      extensionUtils.KEYS.ENABLE_COPY_HOSTS,
+      (storedHosts) => {
+        let hosts = storedHosts || [];
+        if (typeof hosts === "string") {
+          try {
+            hosts = JSON.parse(hosts);
+          } catch {
+            hosts = [];
+          }
         }
-      }
-      if (!Array.isArray(hosts)) hosts = [];
+        if (!Array.isArray(hosts)) hosts = [];
 
-      if (nextState) {
-        if (!hosts.includes(hostname)) hosts.push(hostname);
-      } else {
-        hosts = hosts.filter((h) => h !== hostname && h !== "*");
-      }
+        if (nextState) {
+          if (!hosts.includes(hostname)) hosts.push(hostname);
+        } else {
+          hosts = hosts.filter((h) => h !== hostname && h !== "*");
+        }
 
-      extensionUtils.chromeStorageSetLocal(extensionUtils.KEYS.ENABLE_COPY_HOSTS, hosts, () => {
-        if (chrome?.tabs?.sendMessage && tab.id) {
-          chrome.tabs.sendMessage(
-            tab.id,
-            { action: nextState ? "enable_function" : "disable_function" },
-            () => {
-              void chrome.runtime.lastError;
+        extensionUtils.chromeStorageSetLocal(
+          extensionUtils.KEYS.ENABLE_COPY_HOSTS,
+          hosts,
+          () => {
+            if (chrome?.tabs?.sendMessage && tab.id) {
+              chrome.tabs.sendMessage(
+                tab.id,
+                { action: nextState ? "enable_function" : "disable_function" },
+                () => {
+                  void chrome.runtime.lastError;
+                },
+              );
             }
-          );
-        }
-      });
-    });
+          },
+        );
+      },
+    );
   };
 
   // Reset floating widget position
   const handleResetWidgetPosition = () => {
-    extensionUtils.chromeStorageSetLocal("menu_window_location", { x: 20, y: 20 }, () => {
-      extensionUtils.runtimeSendMessage("P_B_RESET_WIDGET_POSITION");
-    });
+    extensionUtils.chromeStorageSetLocal(
+      "menu_window_location",
+      { x: 20, y: 20 },
+      () => {
+        extensionUtils.runtimeSendMessage("P_B_RESET_WIDGET_POSITION");
+      },
+    );
   };
 
   const cardBgClass =
     contrastMode === "solid"
-      ? "bg-white dark:bg-[#191c25] border-slate-200 dark:border-white/[0.08]"
+      ? "bg-white dark:bg-[#191c25] border-slate-200/90 dark:border-white/[0.08]"
       : contrastMode === "medium"
-      ? "bg-white/35 dark:bg-white/[0.06] backdrop-blur-sm border-slate-200/40 dark:border-white/[0.06]"
-      : "bg-white/[0.06] dark:bg-white/[0.02] border-slate-200/15 dark:border-white/[0.03]";
+        ? "bg-white/80 dark:bg-[#191c25]/75 backdrop-blur-md border-slate-200/60 dark:border-white/[0.07]"
+        : "bg-white/50 dark:bg-white/[0.06] backdrop-blur-sm border-slate-200/40 dark:border-white/[0.06]";
 
   const itemBgClass =
     contrastMode === "solid"
-      ? "bg-white dark:bg-[#191c25] border-slate-200 dark:border-white/[0.08]"
+      ? "bg-white dark:bg-[#191c25] border-slate-200/90 dark:border-white/[0.08]"
       : contrastMode === "medium"
-      ? "bg-white/35 dark:bg-white/[0.06] backdrop-blur-sm border-slate-200/40 dark:border-white/[0.06]"
-      : "bg-white/[0.06] dark:bg-white/[0.02] border-slate-200/15 dark:border-white/[0.03]";
+        ? "bg-white/80 dark:bg-[#191c25]/75 backdrop-blur-md border-slate-200/60 dark:border-white/[0.07]"
+        : "bg-white/50 dark:bg-white/[0.06] backdrop-blur-sm border-slate-200/40 dark:border-white/[0.06]";
 
   return (
-    <div className="flex flex-col h-full bg-transparent text-[#0f172a] dark:text-[#f8fafc] overflow-hidden">
+    <div className="flex flex-col h-full bg-transparent text-slate-900 dark:text-slate-100 overflow-hidden">
       {/* Settings Scrollable Content */}
       <div className="flex-1 overflow-y-auto custom-scrollbar p-3.5 space-y-4">
         {/* ======================================================== */}
@@ -313,19 +358,24 @@ export default function Controls() {
         {/* ======================================================== */}
         <section className="space-y-2.5">
           <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
               Active AI Models ({enabledCount}/3)
             </h3>
-            <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500">
-              {enabledCount >= 3 ? "Limit Reached" : `${3 - enabledCount} slots open`}
+            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+              {enabledCount >= 3
+                ? "Limit Reached"
+                : `${3 - enabledCount} slots open`}
             </span>
           </div>
 
           {/* Warning Banner when exceeding max 3 limit */}
           {maxProviderWarning && (
-            <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-600 dark:text-amber-400 text-xs flex items-center gap-2 animate-fade-in">
+            <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-700 dark:text-amber-300 text-xs font-medium flex items-center gap-2 animate-fade-in">
               <IoAlertCircleOutline className="w-4 h-4 shrink-0" />
-              <span>Maximum 3 providers can be active simultaneously. Please disable one first.</span>
+              <span>
+                Maximum 3 providers can be active simultaneously. Please disable
+                one first.
+              </span>
             </div>
           )}
 
@@ -349,7 +399,7 @@ export default function Controls() {
                       <button
                         onClick={() => handleMoveUp(index)}
                         disabled={index === 0}
-                        className="p-0.5 rounded text-slate-400 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-slate-200/60 dark:hover:bg-white/[0.06] disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:text-slate-400 transition-colors focus:outline-none cursor-pointer disabled:cursor-not-allowed"
+                        className="p-0.5 rounded text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-200/60 dark:hover:bg-white/[0.06] disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:text-slate-400 transition-colors focus:outline-none cursor-pointer disabled:cursor-not-allowed"
                         title="Increase Priority"
                       >
                         <IoChevronUpOutline className="w-3.5 h-3.5" />
@@ -357,15 +407,19 @@ export default function Controls() {
                       <button
                         onClick={() => handleMoveDown(index)}
                         disabled={index === aiList.length - 1}
-                        className="p-0.5 rounded text-slate-400 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-slate-200/60 dark:hover:bg-white/[0.06] disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:text-slate-400 transition-colors focus:outline-none cursor-pointer disabled:cursor-not-allowed"
+                        className="p-0.5 rounded text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-200/60 dark:hover:bg-white/[0.06] disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:text-slate-400 transition-colors focus:outline-none cursor-pointer disabled:cursor-not-allowed"
                         title="Decrease Priority"
                       >
                         <IoChevronDownOutline className="w-3.5 h-3.5" />
                       </button>
                     </div>
 
-                    <ProviderIcon id={ai.id} className="w-5 h-5 shrink-0" size={20} />
-                    <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                    <ProviderIcon
+                      id={ai.id}
+                      className="w-5 h-5 shrink-0"
+                      size={20}
+                    />
+                    <span className="text-xs font-bold text-slate-900 dark:text-white">
                       {ai.name}
                     </span>
                   </div>
@@ -394,13 +448,15 @@ export default function Controls() {
         {/* ======================================================== */}
         {/* SECTION 2: In-Page Floating Widget Settings              */}
         {/* ======================================================== */}
-        <section className={`p-3.5 rounded-2xl border shadow-xs space-y-3 ${cardBgClass}`}>
+        <section
+          className={`p-3.5 rounded-2xl border shadow-xs space-y-3 ${cardBgClass}`}
+        >
           <div className="flex items-center justify-between">
             <div>
-              <h4 className="text-xs font-semibold text-slate-900 dark:text-slate-100">
+              <h4 className="text-xs font-bold text-slate-900 dark:text-white">
                 In-Page Floating Widget
               </h4>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              <p className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
                 Show draggable AI pill menu on web pages
               </p>
             </div>
@@ -408,7 +464,9 @@ export default function Controls() {
             <button
               onClick={handleToggleWidget}
               className={`relative w-9 h-5 rounded-full transition-colors duration-200 focus:outline-none cursor-pointer ${
-                widgetEnabled ? "bg-blue-600 dark:bg-blue-500" : "bg-slate-300 dark:bg-slate-700"
+                widgetEnabled
+                  ? "bg-blue-600 dark:bg-blue-500"
+                  : "bg-slate-300 dark:bg-slate-700"
               }`}
             >
               <span
@@ -421,7 +479,7 @@ export default function Controls() {
 
           {/* Auto-Hide Inactivity Timer */}
           <div className="pt-2 border-t border-slate-100 dark:border-white/[0.05] space-y-1.5">
-            <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400">
+            <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
               Auto-Hide Minimized Widget
             </span>
             <div className="grid grid-cols-4 gap-1.5">
@@ -437,10 +495,10 @@ export default function Controls() {
                     setAutoHideDelay(opt.val);
                     saveControlsSettings(aiList, concurrentRequests, opt.val);
                   }}
-                  className={`py-1.5 px-2 rounded-lg text-xs font-medium transition-all focus:outline-none cursor-pointer ${
+                  className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all focus:outline-none cursor-pointer ${
                     autoHideDelay === opt.val
                       ? "bg-blue-600 text-white shadow-xs"
-                      : "bg-slate-100 dark:bg-white/[0.04] text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/[0.08]"
+                      : "bg-slate-100/90 dark:bg-white/[0.05] text-slate-700 dark:text-slate-300 hover:bg-slate-200/90 dark:hover:bg-white/10 border border-slate-200/60 dark:border-white/[0.06]"
                   }`}
                 >
                   {opt.label}
@@ -451,12 +509,12 @@ export default function Controls() {
 
           {/* Reset Position Button */}
           <div className="pt-2 border-t border-slate-100 dark:border-white/[0.05] flex items-center justify-between">
-            <span className="text-[11px] text-slate-500 dark:text-slate-400">
+            <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
               Widget placement on screen
             </span>
             <button
               onClick={handleResetWidgetPosition}
-              className="flex items-center gap-1 text-[11px] text-blue-600 dark:text-blue-400 hover:underline font-medium focus:outline-none cursor-pointer"
+              className="flex items-center gap-1 text-[11px] text-blue-600 dark:text-blue-400 hover:underline font-bold focus:outline-none cursor-pointer"
             >
               <IoRefreshOutline className="w-3.5 h-3.5" />
               <span>Reset Position</span>
@@ -468,21 +526,23 @@ export default function Controls() {
         {/* SECTION 3: Core Browser Features (Toggles)               */}
         {/* ======================================================== */}
         <section className="space-y-2">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
             Browser Powers
           </h3>
 
           {/* Always Active Tab */}
-          <div className={`p-3 rounded-2xl border shadow-xs flex items-center justify-between ${cardBgClass}`}>
+          <div
+            className={`p-3 rounded-2xl border shadow-xs flex items-center justify-between ${cardBgClass}`}
+          >
             <div className="flex items-center gap-2.5">
               <div className="p-1.5 rounded-lg bg-orange-500/10 text-orange-500">
                 <IoFlashOutline className="w-4 h-4" />
               </div>
               <div>
-                <h4 className="text-xs font-semibold text-slate-900 dark:text-slate-100">
+                <h4 className="text-xs font-bold text-slate-900 dark:text-white">
                   Always Active Tab
                 </h4>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                <p className="text-[10px] font-medium text-slate-600 dark:text-slate-300">
                   Prevents videos, timers & tabs from sleeping
                 </p>
               </div>
@@ -491,7 +551,9 @@ export default function Controls() {
             <button
               onClick={handleToggleAlwaysActive}
               className={`relative w-9 h-5 rounded-full transition-colors duration-200 focus:outline-none cursor-pointer ${
-                alwaysActiveTab ? "bg-orange-500" : "bg-slate-300 dark:bg-slate-700"
+                alwaysActiveTab
+                  ? "bg-orange-500"
+                  : "bg-slate-300 dark:bg-slate-700"
               }`}
             >
               <span
@@ -503,16 +565,18 @@ export default function Controls() {
           </div>
 
           {/* Enable Copy */}
-          <div className={`p-3 rounded-2xl border shadow-xs flex items-center justify-between ${cardBgClass}`}>
+          <div
+            className={`p-3 rounded-2xl border shadow-xs flex items-center justify-between ${cardBgClass}`}
+          >
             <div className="flex items-center gap-2.5">
               <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-500">
                 <IoShieldCheckmarkOutline className="w-4 h-4" />
               </div>
               <div>
-                <h4 className="text-xs font-semibold text-slate-900 dark:text-slate-100">
+                <h4 className="text-xs font-bold text-slate-900 dark:text-white">
                   Enable Copy & Right-Click
                 </h4>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                <p className="text-[10px] font-medium text-slate-600 dark:text-slate-300">
                   Bypasses copy-protection & context blockers
                 </p>
               </div>
@@ -536,9 +600,11 @@ export default function Controls() {
         {/* ======================================================== */}
         {/* SECTION 4: Appearance & Contrast Mode                    */}
         {/* ======================================================== */}
-        <section className={`p-3.5 rounded-2xl border shadow-xs space-y-3 ${cardBgClass}`}>
+        <section
+          className={`p-3.5 rounded-2xl border shadow-xs space-y-3 ${cardBgClass}`}
+        >
           <div className="space-y-2">
-            <h4 className="text-xs font-semibold text-slate-900 dark:text-slate-100">
+            <h4 className="text-xs font-bold text-slate-900 dark:text-white">
               Theme Mode
             </h4>
             <div className="grid grid-cols-3 gap-2">
@@ -557,15 +623,14 @@ export default function Controls() {
                       console.log("[Controls] Theme button clicked:", mode.id);
                       setTheme(mode.id);
                     }}
-                    className={`flex flex-col items-center gap-1.5 py-2 px-2 rounded-xl text-xs font-medium border transition-all focus:outline-none cursor-pointer ${
+                    className={`flex flex-col items-center gap-1.5 py-2 px-2 rounded-xl text-xs font-bold border transition-all focus:outline-none cursor-pointer ${
                       isSelected
                         ? "bg-blue-600 text-white border-blue-500 shadow-xs"
-                        : "bg-slate-50 dark:bg-white/[0.03] border-slate-200 dark:border-white/[0.06] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.06]"
+                        : "bg-slate-100/90 dark:bg-white/[0.05] border-slate-200/80 dark:border-white/[0.07] text-slate-800 dark:text-slate-200 hover:bg-slate-200/90 dark:hover:bg-white/10"
                     }`}
                   >
                     <Icon className="w-4 h-4" />
                     <span>{mode.label}</span>
-                    {isSelected && <IoCheckmark className="w-3.5 h-3.5 -mt-0.5" />}
                   </button>
                 );
               })}
@@ -575,10 +640,10 @@ export default function Controls() {
           {/* Contrast / Glass Transparency Mode */}
           <div className="pt-2 border-t border-slate-100 dark:border-white/[0.05] space-y-2">
             <div className="flex items-center justify-between">
-              <h4 className="text-xs font-semibold text-slate-900 dark:text-slate-100">
+              <h4 className="text-xs font-bold text-slate-900 dark:text-white">
                 Transparency Mode
               </h4>
-              <span className="text-[11px] font-medium text-slate-400 capitalize">
+              <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 capitalize">
                 {contrastMode || "solid"}
               </span>
             </div>
@@ -586,24 +651,33 @@ export default function Controls() {
               {[
                 { id: "solid", label: "Solid", desc: "100% Opaque" },
                 { id: "medium", label: "Medium", desc: "Soft Glass" },
-                { id: "transparent", label: "Transparent", desc: "Clear Glass" },
+                {
+                  id: "transparent",
+                  label: "Transparent",
+                  desc: "Clear Glass",
+                },
               ].map((cMode) => {
                 const isSelected = (contrastMode || "solid") === cMode.id;
                 return (
                   <button
                     key={cMode.id}
                     onClick={() => {
-                      console.log("[Controls] Contrast button clicked:", cMode.id);
+                      console.log(
+                        "[Controls] Contrast button clicked:",
+                        cMode.id,
+                      );
                       setContrastMode(cMode.id);
                     }}
-                    className={`flex flex-col items-center gap-0.5 py-2 px-1.5 rounded-xl text-xs font-medium border transition-all focus:outline-none cursor-pointer ${
+                    className={`flex flex-col items-center gap-0.5 py-2 px-1.5 rounded-xl text-xs border transition-all focus:outline-none cursor-pointer ${
                       isSelected
                         ? "bg-blue-600 text-white border-blue-500 shadow-xs"
-                        : "bg-slate-50 dark:bg-white/[0.03] border-slate-200 dark:border-white/[0.06] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.06]"
+                        : "bg-slate-100/90 dark:bg-white/[0.05] border-slate-200/80 dark:border-white/[0.07] text-slate-800 dark:text-slate-200 hover:bg-slate-200/90 dark:hover:bg-white/10"
                     }`}
                   >
-                    <span className="font-semibold">{cMode.label}</span>
-                    <span className={`text-[10px] ${isSelected ? "text-blue-100" : "text-slate-400"}`}>
+                    <span className="font-bold">{cMode.label}</span>
+                    <span
+                      className={`text-[10px] font-medium ${isSelected ? "text-blue-100" : "text-slate-500 dark:text-slate-400"}`}
+                    >
                       {cMode.desc}
                     </span>
                   </button>

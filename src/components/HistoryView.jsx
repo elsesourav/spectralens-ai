@@ -35,24 +35,24 @@ export default function HistoryView({ onLoadQuery }) {
   };
 
   return (
-    <div className="flex flex-col h-full bg-transparent text-[#0f172a] dark:text-[#f8fafc] overflow-hidden">
+    <div className="flex flex-col h-full bg-transparent text-slate-900 dark:text-slate-100 overflow-hidden">
       {/* View Header */}
       <div
         className={`flex items-center justify-between px-4 py-3.5 border-b shrink-0 ${
           contrastMode === "solid"
-            ? "bg-slate-100 dark:bg-[#14161e] border-slate-200 dark:border-white/[0.08]"
+            ? "bg-slate-100 dark:bg-[#14161e] border-slate-200/90 dark:border-white/[0.08]"
             : contrastMode === "medium"
-            ? "bg-slate-100/30 dark:bg-black/20 backdrop-blur-sm border-slate-200/40 dark:border-white/[0.06]"
-            : "bg-transparent border-slate-200/20 dark:border-white/[0.04]"
+              ? "bg-slate-100/60 dark:bg-black/35 backdrop-blur-md border-slate-200/60 dark:border-white/[0.07]"
+              : "bg-slate-100/40 dark:bg-black/25 backdrop-blur-sm border-slate-200/50 dark:border-white/[0.06]"
         }`}
       >
         <div className="flex items-center gap-2.5">
-          <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-500 dark:text-blue-400">
+          <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
             <HistoryIcon className="w-5 h-5" size={20} />
           </div>
           <div>
-            <h2 className="text-sm font-semibold tracking-tight">Chat History</h2>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+            <h2 className="text-sm font-bold tracking-tight text-slate-900 dark:text-white">Chat History</h2>
+            <p className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
               {history.length} {history.length === 1 ? "saved query" : "saved queries"}
             </p>
           </div>
@@ -61,7 +61,7 @@ export default function HistoryView({ onLoadQuery }) {
         {history.length > 0 && (
           <button
             onClick={() => setShowConfirmClear(true)}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-rose-500 hover:bg-rose-500/10 dark:hover:bg-rose-500/20 transition-all font-medium focus:outline-none cursor-pointer"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 dark:hover:bg-rose-500/20 transition-all font-bold focus:outline-none cursor-pointer"
           >
             <IoTrashOutline className="w-3.5 h-3.5" />
             <span>Clear</span>
@@ -73,13 +73,13 @@ export default function HistoryView({ onLoadQuery }) {
       <div className="flex-1 overflow-y-auto custom-scrollbar p-3.5 space-y-2">
         {history.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center px-4 py-8">
-            <div className="w-12 h-12 rounded-2xl bg-slate-100/60 dark:bg-white/[0.04] flex items-center justify-center text-slate-400 mb-3 border border-slate-200/80 dark:border-white/[0.06]">
+            <div className="w-12 h-12 rounded-2xl bg-slate-200/70 dark:bg-white/[0.06] flex items-center justify-center text-slate-500 dark:text-slate-400 mb-3 border border-slate-200/80 dark:border-white/[0.06]">
               <IoTimeOutline className="w-6 h-6" />
             </div>
-            <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+            <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 mb-1">
               No History Yet
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-[220px]">
+            <p className="text-xs font-medium text-slate-600 dark:text-slate-300 max-w-[220px]">
               Ask your multi-AI assistants any questions and your queries will be saved here automatically.
             </p>
           </div>
@@ -90,22 +90,22 @@ export default function HistoryView({ onLoadQuery }) {
               onClick={() => onLoadQuery && onLoadQuery(item)}
               className={`group relative flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer shadow-xs ${
                 contrastMode === "solid"
-                  ? "bg-white dark:bg-[#191c25] hover:bg-blue-50/70 dark:hover:bg-[#202430]/90 border-slate-200 dark:border-white/[0.08]"
+                  ? "bg-white dark:bg-[#191c25] hover:bg-blue-50/70 dark:hover:bg-[#202430]/90 border-slate-200/90 dark:border-white/[0.08]"
                   : contrastMode === "medium"
-                  ? "bg-white/35 dark:bg-white/[0.06] backdrop-blur-sm hover:bg-blue-50/70 dark:hover:bg-white/[0.12] border-slate-200/40 dark:border-white/[0.06]"
-                  : "bg-white/[0.06] dark:bg-white/[0.02] hover:bg-white/15 dark:hover:bg-white/[0.06] border-slate-200/15 dark:border-white/[0.03]"
+                    ? "bg-white/80 dark:bg-[#191c25]/75 backdrop-blur-md hover:bg-blue-50/70 dark:hover:bg-white/[0.12] border-slate-200/60 dark:border-white/[0.07]"
+                    : "bg-white/50 dark:bg-white/[0.06] backdrop-blur-sm hover:bg-white/70 dark:hover:bg-white/[0.12] border-slate-200/40 dark:border-white/[0.06]"
               }`}
             >
               <div className="flex flex-col gap-1 pr-2 overflow-hidden flex-1">
-                <span className="text-xs font-medium text-slate-800 dark:text-slate-200 line-clamp-2 leading-relaxed">
+                <span className="text-xs font-bold text-slate-900 dark:text-white line-clamp-2 leading-relaxed">
                   {item.question}
                 </span>
-                <span className="text-[10px] text-slate-400 dark:text-slate-500 flex items-center gap-1">
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1">
                   <IoTimeOutline className="w-3 h-3" />
                   {formatTime(item.timestamp || item.date)}
                 </span>
               </div>
-              <IoChevronForward className="w-4 h-4 text-slate-400 group-hover:text-blue-500 group-hover:translate-x-0.5 transition-all shrink-0" />
+              <IoChevronForward className="w-4 h-4 text-slate-500 group-hover:text-blue-500 group-hover:translate-x-0.5 transition-all shrink-0" />
             </div>
           ))
         )}
