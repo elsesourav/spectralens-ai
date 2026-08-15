@@ -1,6 +1,6 @@
 import { IoSunny, IoMoon } from "react-icons/io5";
 import { useTheme } from "../hooks/useThemeHook.jsx";
-import { AppLogoIcon } from "./Icons.jsx";
+import appIconUrl from "../assets/icons/icon.png";
 
 export default function Header() {
    const { theme, setTheme } = useTheme();
@@ -20,7 +20,11 @@ export default function Header() {
             <div className="bg-gradient-to-r from-blue-800 to-indigo-900 rounded-md shadow w-full px-4">
                <div className="flex h-16 items-center justify-between">
                   <div className="size-10 flex items-center justify-center">
-                     <AppLogoIcon className="w-10 h-10 rounded-xl shadow-md" size={40} />
+                     <img
+                        src={appIconUrl}
+                        alt="SpectraLens AI"
+                        className="size-10 object-contain rounded-xl drop-shadow-md"
+                     />
                   </div>
                   <h1 className="bg-gradient-to-l from-purple-500 via-orange-400 to-pink-500 inline-block text-transparent bg-clip-text font-black text-2xl text-shadow-lg/10 text-shadow-black">
                      SpectraLens AI

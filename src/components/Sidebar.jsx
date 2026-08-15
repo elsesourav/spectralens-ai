@@ -1,6 +1,5 @@
 import PropTypes from "prop-types";
 import {
-  AppLogoIcon,
   ChatIcon,
   ElementSelectorIcon,
   HistoryIcon,
@@ -8,6 +7,7 @@ import {
 } from "./Icons.jsx";
 import { IoSunny, IoMoon } from "react-icons/io5";
 import { useTheme } from "../hooks/useThemeHook.jsx";
+import appIconUrl from "../assets/icons/icon.png";
 
 export default function Sidebar({ activeTab, onSelectTab }) {
   const { isDarkMode, setTheme } = useTheme();
@@ -49,7 +49,11 @@ export default function Sidebar({ activeTab, onSelectTab }) {
           className="p-1 rounded-xl transition-transform hover:scale-105 active:scale-95 focus:outline-none cursor-pointer"
           title="SpectraLens AI"
         >
-          <AppLogoIcon className="w-8 h-8" size={32} />
+          <img
+            src={appIconUrl}
+            alt="SpectraLens AI"
+            className="w-8 h-8 rounded-xl object-contain shadow-xs"
+          />
         </button>
 
         {/* Navigation Tabs */}

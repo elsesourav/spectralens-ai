@@ -3,8 +3,8 @@ import {
   ChatIcon,
   ElementSelectorIcon,
   DragHandleIcon,
-  AppLogoIcon,
 } from "../components/Icons.jsx";
+import appIconUrl from "../assets/icons/icon.png";
 import { FiMinus, FiX } from "react-icons/fi";
 import Sidebar from "../components/Sidebar.jsx";
 import ChatBot from "../components/ChatBot.jsx";
@@ -248,7 +248,11 @@ export default function Menu() {
             {/* Top Draggable Window Control Bar */}
             <div className="flex items-center justify-between px-3 py-2 bg-slate-100 dark:bg-[#14161e] border-b border-slate-200 dark:border-white/[0.08] shrink-0">
               <div className="flex items-center gap-2">
-                <AppLogoIcon className="w-5 h-5" size={20} />
+                <img
+                  src={appIconUrl}
+                  alt="SpectraLens AI"
+                  className="w-5 h-5 rounded-md object-contain shadow-2xs"
+                />
                 <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
                   SpectraLens AI
                 </span>
