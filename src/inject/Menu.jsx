@@ -45,6 +45,7 @@ export default function Menu() {
 
   const menuRef = useRef(null);
   const dragRef = useRef(null);
+  const headerDragRef = useRef(null);
 
   useEffect(() => {
     // Request controls & page theme from parent frame
@@ -208,49 +209,60 @@ export default function Menu() {
     );
   }, [size]);
 
-  // Handle Drag logic
+  // Drag logic: Only left 6-dot handle (minimized) & top header (expanded)
   useEffect(() => {
-    const dragEl = dragRef.current;
-    if (!dragEl) return;
-
-    let startX = 0;
-    let startY = 0;
-
-    const onPointerDown = (e) => {
+    const handlePointerDown = (e) => {
+      if (e.button !== 0) return;
       e.preventDefault();
-      startX = e.clientX;
-      startY = e.clientY;
 
-      window.addEventListener("pointermove", onPointerMove);
-      window.addEventListener("pointerup", onPointerUp);
+      let lastX = e.clientX;
+      let lastY = e.clientY;
+
+      const handlePointerMove = (moveEvent) => {
+        const deltaX = moveEvent.clientX - lastX;
+        const deltaY = moveEvent.clientY - lastY;
+        lastX = moveEvent.clientX;
+        lastY = moveEvent.clientY;
+
+        if (deltaX !== 0 || deltaY !== 0) {
+          ES.pagePostMessage(
+            "IF_C_MENU_WINDOW_MOVE",
+            { deltaX, deltaY },
+            window.parent
+          );
+        }
+      };
+
+      const handlePointerUp = () => {
+        window.removeEventListener("pointermove", handlePointerMove);
+        window.removeEventListener("pointerup", handlePointerUp);
+        window.removeEventListener("pointercancel", handlePointerUp);
+      };
+
+      window.addEventListener("pointermove", handlePointerMove);
+      window.addEventListener("pointerup", handlePointerUp);
+      window.addEventListener("pointercancel", handlePointerUp);
     };
 
-    const onPointerMove = (e) => {
-      const deltaX = e.clientX - startX;
-      const deltaY = e.clientY - startY;
+    const dragEl = dragRef.current;
+    const headerEl = headerDragRef.current;
 
-      if (deltaX !== 0 || deltaY !== 0) {
-        ES.pagePostMessage(
-          "IF_C_MENU_WINDOW_MOVE",
-          { deltaX, deltaY },
-          window.parent,
-        );
-      }
-    };
-
-    const onPointerUp = () => {
-      window.removeEventListener("pointermove", onPointerMove);
-      window.removeEventListener("pointerup", onPointerUp);
-    };
-
-    dragEl.addEventListener("pointerdown", onPointerDown);
+    if (dragEl) {
+      dragEl.addEventListener("pointerdown", handlePointerDown);
+    }
+    if (headerEl) {
+      headerEl.addEventListener("pointerdown", handlePointerDown);
+    }
 
     return () => {
-      dragEl.removeEventListener("pointerdown", onPointerDown);
-      window.removeEventListener("pointermove", onPointerMove);
-      window.removeEventListener("pointerup", onPointerUp);
+      if (dragEl) {
+        dragEl.removeEventListener("pointerdown", handlePointerDown);
+      }
+      if (headerEl) {
+        headerEl.removeEventListener("pointerdown", handlePointerDown);
+      }
     };
-  }, []);
+  }, [isChatOpen]);
 
   // Prevent scroll propagation to parent document
   useEffect(() => {
@@ -312,22 +324,23 @@ export default function Menu() {
         {!isChatOpen ? (
           <div className="relative w-full h-full px-2.5 py-1 flex items-center justify-between gap-1 select-none overflow-hidden rounded-[24px]">
             {/* Background ambient violet-blue gradient on the right section */}
-            <div className="absolute right-0 top-0 bottom-0 w-2/3 bg-gradient-to-r from-transparent via-[#8b5cf6]/25 to-[#3b82f6]/30 rounded-r-[24px] pointer-events-none" />
+            <div className="absolute right-0 top-0 bottom-0 w-2/3 bg-gradient-to-r from-transparent via-[#8b5cf6]/20 to-[#3b82f6]/25 rounded-r-[24px] pointer-events-none" />
 
-            {/* 1. Drag Handle (6 Dots on Left) */}
+            {/* 1. Drag Handle (6 Dots on Left - Old way only this drags) */}
             <div
               ref={dragRef}
-              className="w-7 h-9 flex items-center justify-center text-slate-400 hover:text-white cursor-grab active:cursor-grabbing transition-colors z-10"
+              className="w-8 h-9 flex items-center justify-center text-slate-400 hover:text-white active:text-white cursor-grab active:cursor-grabbing transition-colors z-10 select-none"
               title="Drag to reposition widget"
             >
               <DragHandleIcon
-                className="w-4 h-4 text-slate-400 hover:text-white"
+                className="w-4 h-4 text-slate-400 hover:text-white transition-colors"
                 size={18}
               />
             </div>
 
             {/* 2. Chat Button (Prominent circular gradient pill) */}
             <button
+              type="button"
               onClick={toggleChat}
               className="w-9 h-9 rounded-full flex items-center justify-center bg-gradient-to-tr from-[#8b5cf6] via-[#6366f1] to-[#3b82f6] text-white shadow-md hover:scale-105 active:scale-95 transition-all focus:outline-none cursor-pointer z-10"
               title="Open SpectraLens AI Chat"
@@ -337,6 +350,7 @@ export default function Menu() {
 
             {/* 3. Scan / Element Selector Button */}
             <button
+              type="button"
               onClick={handleSelectElement}
               className="w-9 h-9 rounded-full flex items-center justify-center text-white hover:bg-white/15 active:scale-95 transition-all focus:outline-none cursor-pointer z-10"
               title="Select Page Element / Area"
@@ -350,28 +364,35 @@ export default function Menu() {
           /* ======================================================== */
           <div className="flex flex-col h-full w-full">
             {/* Top Draggable Window Control Bar */}
-            <div className="flex items-center justify-between px-3.5 py-2 bg-slate-100/90 dark:bg-[#14161e] border-b border-slate-200/80 dark:border-white/[0.08] shrink-0">
-              <div className="flex items-center">
+            <div
+              ref={headerDragRef}
+              className="flex items-center justify-between px-3.5 py-2 bg-slate-100/90 dark:bg-[#14161e] border-b border-slate-200/80 dark:border-white/[0.08] shrink-0 cursor-grab active:cursor-grabbing"
+            >
+              <div className="flex items-center select-none pointer-events-none">
                 <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
                   SpectraLens AI
                 </span>
               </div>
 
-              {/* Draggable Center Window Region (no visible icon, clean transparent drag area) */}
+              {/* Draggable Center Window Region (completely transparent, no glow) */}
               <div
-                ref={dragRef}
-                className="flex-1 mx-2 h-full cursor-grab active:cursor-grabbing select-none"
+                className="flex-1 mx-2 h-full select-none pointer-events-none"
                 title="Drag to move chat window"
               />
 
               {/* Window Controls (Single Close Button) */}
               <div className="flex items-center">
                 <button
-                  onClick={toggleChat}
+                  type="button"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleChat();
+                  }}
                   className="p-1 rounded-lg text-slate-500 hover:text-rose-500 dark:text-slate-400 dark:hover:text-rose-400 hover:bg-rose-500/10 transition-colors focus:outline-none cursor-pointer"
                   title="Close"
                 >
-                  <FiX className="w-4 h-4" />
+                  <FiX className="w-4 h-4 pointer-events-none" />
                 </button>
               </div>
             </div>
