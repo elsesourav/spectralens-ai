@@ -1,4 +1,4 @@
-const __iframeSize = { width: "115px", height: "40px" };
+const __iframeSize = { width: "148px", height: "48px" };
 const __spacing = 0;
 let __isDragging = false;
 const __pointerOffset = { x: 0, y: 0 };
@@ -224,6 +224,16 @@ runtimeSendMessage("C_B_ON_LOAD", async (r) => {
 
 pageOnMessage("IF_C_SELECT_COORDS", async ({ coordinates }) => {
    document.getElementById("screenSelectorIframe")?.remove();
+   const menuFrame = document.getElementById("__menuWindowIframe");
+   const menuBack = document.getElementById("__menuWindowBack");
+   if (menuFrame) {
+      menuFrame.style.display = "block";
+      pagePostMessage("C_IF_VISIBLE", {}, menuFrame.contentWindow);
+      pagePostMessage("C_IF_SHOW", {}, menuFrame.contentWindow);
+   }
+   if (menuBack) {
+      menuBack.style.display = "block";
+   }
    runtimeSendMessage("C_B_CAPTURE_DOM", {
       coordinates,
       devicePixelRatio: window.devicePixelRatio,
@@ -235,26 +245,47 @@ runtimeOnMessage("B_C_OCR_RESULT", async (data, _, sendResponse) => {
    sendResponse({ success: true });
 
    const menuFrame = document.getElementById("__menuWindowIframe");
+   const menuBack = document.getElementById("__menuWindowBack");
    if (menuFrame) {
+      menuFrame.style.display = "block";
       pagePostMessage(
          "C_IF_SET_INPUTS",
          { input: text, image },
          menuFrame.contentWindow
       );
       pagePostMessage("C_IF_OPEN_CHAT", {}, menuFrame.contentWindow);
+      pagePostMessage("C_IF_VISIBLE", {}, menuFrame.contentWindow);
+      pagePostMessage("C_IF_SHOW", {}, menuFrame.contentWindow);
+   }
+   if (menuBack) {
+      menuBack.style.display = "block";
    }
 });
 
 pageOnMessage("IF_C_SELECT_CANCEL", async () => {
    console.log("Selection cancelled");
    const menuFrame = document.getElementById("__menuWindowIframe");
+   const menuBack = document.getElementById("__menuWindowBack");
    if (menuFrame) {
-      document.getElementById("screenSelectorIframe")?.remove();
+      menuFrame.style.display = "block";
       pagePostMessage("C_IF_VISIBLE", {}, menuFrame.contentWindow);
+      pagePostMessage("C_IF_SHOW", {}, menuFrame.contentWindow);
    }
+   if (menuBack) {
+      menuBack.style.display = "block";
+   }
+   document.getElementById("screenSelectorIframe")?.remove();
 });
 
 pageOnMessage("IF_C_SELECT_TEXT", () => {
+   const menuFrame = document.getElementById("__menuWindowIframe");
+   const menuBack = document.getElementById("__menuWindowBack");
+   if (menuFrame) {
+      menuFrame.style.display = "none";
+   }
+   if (menuBack) {
+      menuBack.style.display = "none";
+   }
    runtimeSendMessage("C_B_SELECT_TEXT", () => {
       setTimeout(() => {
          document.getElementById("screenSelectorIframe")?.focus();

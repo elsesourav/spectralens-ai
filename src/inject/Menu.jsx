@@ -16,7 +16,7 @@ import ES from "./../utils/utilsModule.js";
 export default function Menu() {
   const SIZES = useMemo(
     () => ({
-      min: { w: "120px", h: "40px" },
+      min: { w: "148px", h: "48px" },
       max: { w: "440px", h: "600px" },
     }),
     []
@@ -237,8 +237,8 @@ export default function Menu() {
         data-theme={effectiveTheme}
         className={`relative overflow-hidden transition-all duration-300 ease-in-out shadow-2xl ${
           isChatOpen
-            ? "rounded-2xl bg-[#f8fafc] dark:bg-[#0e1015] border border-slate-200 dark:border-white/10"
-            : "rounded-xl bg-[#202430]/95 dark:bg-[#181a24]/95 border border-slate-700/50 dark:border-white/15 shadow-xl"
+            ? "rounded-none bg-[#f8fafc] dark:bg-[#0e1015] border border-slate-200 dark:border-white/10"
+            : "rounded-full bg-[#16171d] border border-white/15 shadow-2xl"
         }`}
         style={{
           width: isChatOpen ? SIZES.max.w : SIZES.min.w,
@@ -246,35 +246,38 @@ export default function Menu() {
         }}
       >
         {/* ======================================================== */}
-        {/* Minimized Pill Mode (Left 6-Dot Drag, Big Clean Icons)    */}
+        {/* Minimized Pill Mode (Pixel-perfect matching user image)  */}
         {/* ======================================================== */}
         {!isChatOpen ? (
-          <div className="w-full h-full px-2 py-1 flex items-center justify-between gap-1 select-none">
+          <div className="relative w-full h-full px-2.5 py-1 flex items-center justify-between gap-1 select-none overflow-hidden rounded-full">
+            {/* Background ambient violet-blue gradient on the right section */}
+            <div className="absolute right-0 top-0 bottom-0 w-2/3 bg-gradient-to-r from-transparent via-[#8b5cf6]/25 to-[#3b82f6]/30 rounded-r-full pointer-events-none" />
+
             {/* 1. Drag Handle (6 Dots on Left) */}
             <div
               ref={dragRef}
-              className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-white cursor-grab active:cursor-grabbing transition-colors"
+              className="w-7 h-9 flex items-center justify-center text-slate-400 hover:text-white cursor-grab active:cursor-grabbing transition-colors z-10"
               title="Drag to reposition widget"
             >
-              <DragHandleIcon className="w-5 h-5 text-slate-400 hover:text-white" size={20} />
+              <DragHandleIcon className="w-4 h-4 text-slate-400 hover:text-white" size={18} />
             </div>
 
-            {/* 2. Chat Button (Middle) */}
+            {/* 2. Chat Button (Prominent circular gradient pill) */}
             <button
               onClick={toggleChat}
-              className="w-8 h-8 flex items-center justify-center text-slate-200 hover:text-white hover:scale-110 active:scale-95 transition-all focus:outline-none cursor-pointer"
+              className="w-9 h-9 rounded-full flex items-center justify-center bg-gradient-to-tr from-[#8b5cf6] via-[#6366f1] to-[#3b82f6] text-white shadow-md hover:scale-105 active:scale-95 transition-all focus:outline-none cursor-pointer z-10"
               title="Open SpectraLens AI Chat"
             >
               <ChatIcon className="w-5 h-5 text-white" size={20} />
             </button>
 
-            {/* 3. Scan / Element Selector Button (Right) */}
+            {/* 3. Scan / Element Selector Button */}
             <button
               onClick={handleSelectElement}
-              className="w-8 h-8 flex items-center justify-center text-slate-200 hover:text-white hover:scale-110 active:scale-95 transition-all focus:outline-none cursor-pointer"
+              className="w-9 h-9 rounded-full flex items-center justify-center text-white hover:bg-white/15 active:scale-95 transition-all focus:outline-none cursor-pointer z-10"
               title="Select Page Element / Area"
             >
-              <ElementSelectorIcon className="w-5 h-5" size={20} />
+              <ElementSelectorIcon className="w-5 h-5 text-white" size={20} />
             </button>
           </div>
         ) : (

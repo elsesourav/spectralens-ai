@@ -205,15 +205,15 @@ function __PUSH_MENU__(tabId) {
          if (!existingMWB) {
             const back = document.createElement("div");
             back.setAttribute("id", "__menuWindowBack");
-            const defaultLeft = window.innerWidth - 130;
+            const defaultLeft = window.innerWidth - 160;
             back.setAttribute(
                "style",
                `
                position: fixed;
                top: 80px;
                left: ${defaultLeft}px;
-               width: 38px;
-               height: 40px;
+               width: 40px;
+               height: 48px;
                background: transparent !important;
                z-index: 2147483646;
                cursor: move;
