@@ -395,10 +395,8 @@ export default function Controls() {
               return (
                 <div
                   key={ai.id}
-                  className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${
-                    isEnabled
-                      ? `${itemBgClass} shadow-xs`
-                      : "bg-slate-100/60 dark:bg-white/[0.02] border-transparent opacity-65"
+                  className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${itemBgClass} shadow-xs ${
+                    isEnabled ? "" : "opacity-70"
                   }`}
                 >
                   <div className="flex items-center gap-3">
@@ -435,15 +433,15 @@ export default function Controls() {
                   {/* Toggle Switch */}
                   <button
                     onClick={() => handleToggleProvider(ai.id)}
-                    className={`relative w-9 h-5 rounded-full transition-colors duration-200 focus:outline-none cursor-pointer ${
+                    className={`relative w-11 h-6 rounded-full transition-colors duration-300 focus:outline-none cursor-pointer p-0.5 shadow-inner ${
                       isEnabled
                         ? "bg-blue-600 dark:bg-blue-500"
                         : "bg-slate-300 dark:bg-slate-700"
                     }`}
                   >
                     <span
-                      className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-200 shadow-xs ${
-                        isEnabled ? "translate-x-4" : "translate-x-0"
+                      className={`block w-5 h-5 rounded-full bg-white transition-transform duration-300 shadow-md ${
+                        isEnabled ? "translate-x-5" : "translate-x-0"
                       }`}
                     />
                   </button>
@@ -454,12 +452,15 @@ export default function Controls() {
         </section>
 
         {/* ======================================================== */}
-        {/* SECTION 2: In-Page Floating Widget Settings              */}
+        {/* SECTION 2: In-Page Floating Widget                       */}
         {/* ======================================================== */}
         <section
-          className={`p-3.5 rounded-2xl border shadow-xs space-y-3 ${cardBgClass}`}
+          className={`p-3.5 rounded-2xl border shadow-xs flex items-center justify-between ${cardBgClass}`}
         >
-          <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 shrink-0">
+              <IoDesktopOutline className="w-4 h-4" />
+            </div>
             <div>
               <h4 className="text-xs font-bold text-slate-900 dark:text-white">
                 In-Page Floating Widget
@@ -468,52 +469,59 @@ export default function Controls() {
                 Show draggable AI pill menu on web pages
               </p>
             </div>
-
-            <button
-              onClick={handleToggleWidget}
-              className={`relative w-9 h-5 rounded-full transition-colors duration-200 focus:outline-none cursor-pointer ${
-                widgetEnabled
-                  ? "bg-blue-600 dark:bg-blue-500"
-                  : "bg-slate-300 dark:bg-slate-700"
-              }`}
-            >
-              <span
-                className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-200 shadow-xs ${
-                  widgetEnabled ? "translate-x-4" : "translate-x-0"
-                }`}
-              />
-            </button>
           </div>
 
-          {/* Auto-Hide Inactivity Timer */}
-          <div className="pt-2 border-t border-slate-100 dark:border-white/[0.05] space-y-1.5">
-            <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
+          <button
+            onClick={handleToggleWidget}
+            className={`relative w-11 h-6 rounded-full transition-colors duration-300 focus:outline-none cursor-pointer p-0.5 shadow-inner ${
+              widgetEnabled
+                ? "bg-blue-600 dark:bg-blue-500"
+                : "bg-slate-300 dark:bg-slate-700"
+            }`}
+          >
+            <span
+              className={`block w-5 h-5 rounded-full bg-white transition-transform duration-300 shadow-md ${
+                widgetEnabled ? "translate-x-5" : "translate-x-0"
+              }`}
+            />
+          </button>
+        </section>
+
+        {/* SECTION 2b: Auto-Hide Widget Settings                     */}
+        <section
+          className={`p-3.5 rounded-2xl border shadow-xs space-y-2.5 ${cardBgClass}`}
+        >
+          <div>
+            <h4 className="text-xs font-bold text-slate-900 dark:text-white">
               Auto-Hide Minimized Widget
-            </span>
-            <div className="grid grid-cols-5 gap-1">
-              {[
-                { label: "Never", val: 0 },
-                { label: "5s", val: 5 },
-                { label: "10s", val: 10 },
-                { label: "30s", val: 30 },
-                { label: "60s", val: 60 },
-              ].map((opt) => (
-                <button
-                  key={opt.val}
-                  onClick={() => {
-                    setAutoHideDelay(opt.val);
-                    saveControlsSettings(aiList, concurrentRequests, opt.val);
-                  }}
-                  className={`py-1.5 px-1 rounded-lg text-xs font-bold text-center transition-all focus:outline-none cursor-pointer ${
-                    autoHideDelay === opt.val
-                      ? "bg-blue-600 text-white shadow-xs"
-                      : "bg-slate-100/90 dark:bg-white/[0.05] text-slate-700 dark:text-slate-300 hover:bg-slate-200/90 dark:hover:bg-white/10 border border-slate-200/60 dark:border-white/[0.06]"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
+            </h4>
+            <p className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
+              Inactivity timer to dim the minimized pill
+            </p>
+          </div>
+          <div className="grid grid-cols-5 gap-1.5 pt-0.5">
+            {[
+              { label: "Never", val: 0 },
+              { label: "5s", val: 5 },
+              { label: "10s", val: 10 },
+              { label: "30s", val: 30 },
+              { label: "60s", val: 60 },
+            ].map((opt) => (
+              <button
+                key={opt.val}
+                onClick={() => {
+                  setAutoHideDelay(opt.val);
+                  saveControlsSettings(aiList, concurrentRequests, opt.val);
+                }}
+                className={`py-1.5 px-1 rounded-lg text-xs font-bold text-center transition-all focus:outline-none cursor-pointer ${
+                  autoHideDelay === opt.val
+                    ? "bg-blue-600 text-white shadow-xs"
+                    : "bg-slate-100/90 dark:bg-white/[0.05] text-slate-700 dark:text-slate-300 hover:bg-slate-200/90 dark:hover:bg-white/10 border border-slate-200/60 dark:border-white/[0.06]"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
           </div>
         </section>
 
@@ -530,7 +538,7 @@ export default function Controls() {
             className={`p-3 rounded-2xl border shadow-xs flex items-center justify-between ${cardBgClass}`}
           >
             <div className="flex items-center gap-2.5">
-              <div className="p-1.5 rounded-lg bg-orange-500/10 text-orange-500">
+              <div className="p-2 rounded-lg bg-orange-500/10 text-orange-500 shrink-0">
                 <IoFlashOutline className="w-4 h-4" />
               </div>
               <div>
@@ -545,15 +553,15 @@ export default function Controls() {
 
             <button
               onClick={handleToggleAlwaysActive}
-              className={`relative w-9 h-5 rounded-full transition-colors duration-200 focus:outline-none cursor-pointer ${
+              className={`relative w-11 h-6 rounded-full transition-colors duration-300 focus:outline-none cursor-pointer p-0.5 shadow-inner ${
                 alwaysActiveTab
                   ? "bg-orange-500"
                   : "bg-slate-300 dark:bg-slate-700"
               }`}
             >
               <span
-                className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-200 shadow-xs ${
-                  alwaysActiveTab ? "translate-x-4" : "translate-x-0"
+                className={`block w-5 h-5 rounded-full bg-white transition-transform duration-300 shadow-md ${
+                  alwaysActiveTab ? "translate-x-5" : "translate-x-0"
                 }`}
               />
             </button>
@@ -564,7 +572,7 @@ export default function Controls() {
             className={`p-3 rounded-2xl border shadow-xs flex items-center justify-between ${cardBgClass}`}
           >
             <div className="flex items-center gap-2.5">
-              <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-500">
+              <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-500 shrink-0">
                 <IoShieldCheckmarkOutline className="w-4 h-4" />
               </div>
               <div>
@@ -579,13 +587,13 @@ export default function Controls() {
 
             <button
               onClick={handleToggleEnableCopy}
-              className={`relative w-9 h-5 rounded-full transition-colors duration-200 focus:outline-none cursor-pointer ${
+              className={`relative w-11 h-6 rounded-full transition-colors duration-300 focus:outline-none cursor-pointer p-0.5 shadow-inner ${
                 enableCopy ? "bg-indigo-600" : "bg-slate-300 dark:bg-slate-700"
               }`}
             >
               <span
-                className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-200 shadow-xs ${
-                  enableCopy ? "translate-x-4" : "translate-x-0"
+                className={`block w-5 h-5 rounded-full bg-white transition-transform duration-300 shadow-md ${
+                  enableCopy ? "translate-x-5" : "translate-x-0"
                 }`}
               />
             </button>

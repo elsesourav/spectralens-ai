@@ -42,9 +42,7 @@ export default function SelectorView({ onTriggerComplete }) {
         className={`flex items-center gap-2.5 px-4 py-3.5 border-b shrink-0 ${
           contrastMode === "solid"
             ? "bg-slate-100 dark:bg-[#14161e] border-slate-200/90 dark:border-white/[0.08]"
-            : contrastMode === "medium"
-              ? "bg-slate-100/60 dark:bg-black/35 backdrop-blur-md border-slate-200/60 dark:border-white/[0.07]"
-              : "bg-slate-100/40 dark:bg-black/25 backdrop-blur-sm border-slate-200/50 dark:border-white/[0.06]"
+            : "bg-transparent border-slate-200/50 dark:border-white/[0.06]"
         }`}
       >
         <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">

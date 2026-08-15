@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { IoDesktopOutline } from "react-icons/io5";
 import extensionUtils from "./../utils/utilsModule.js";
 
 export default function ToggleButton() {
@@ -36,17 +37,22 @@ export default function ToggleButton() {
   return (
     <div className="w-full">
       <div
-        className="relative w-full h-[48px] rounded-xl flex items-center bg-white dark:bg-[#181a24] border border-slate-200/90 dark:border-white/[0.08] hover:border-blue-400/40 dark:hover:border-white/[0.15] shadow-xs transition-all duration-200 overflow-hidden cursor-pointer select-none"
+        className="relative w-full h-[52px] rounded-xl flex items-center bg-white dark:bg-[#181a24] border border-slate-200/90 dark:border-white/[0.08] hover:border-blue-400/40 dark:hover:border-white/[0.15] shadow-xs transition-all duration-200 overflow-hidden cursor-pointer select-none"
         onClick={handleClick}
       >
-        <div className="flex items-center justify-between w-full px-4 pointer-events-none">
-          <div className="flex flex-col items-start justify-center">
-            <span className="font-bold text-[14px] text-slate-800 dark:text-slate-100 leading-tight">
-              Floating AI Menu
-            </span>
-            <span className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal">
-              {checked ? "Active on web pages" : "Click to activate"}
-            </span>
+        <div className="flex items-center justify-between w-full px-3.5 pointer-events-none">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 shrink-0">
+              <IoDesktopOutline className="w-4 h-4" />
+            </div>
+            <div className="flex flex-col items-start justify-center">
+              <span className="font-bold text-[13px] text-slate-800 dark:text-slate-100 leading-tight">
+                Floating AI Menu
+              </span>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 leading-normal">
+                {checked ? "Active on web pages" : "Click to activate"}
+              </span>
+            </div>
           </div>
 
           <div className="flex items-center">

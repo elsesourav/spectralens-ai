@@ -1,3 +1,4 @@
+/* eslint-disable no-undef */
 import PropTypes from "prop-types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { IoClose, IoSquare } from "react-icons/io5";
@@ -23,8 +24,12 @@ export default function ChatBot({
   const [isLoading, setIsLoading] = useState(false);
   const [lastQuestion, setLastQuestion] = useState("");
   const [answers, setAnswers] = useState({});
-  const [selectedProvider, setSelectedProvider] = useState("google");
-  const [viewedProviders, setViewedProviders] = useState(new Set(["google"]));
+  const [selectedProvider, setSelectedProvider] = useState(
+    initialHistoryItem
+      ? Object.keys(initialHistoryItem.answers || {})[0] || null
+      : null,
+  );
+  const [viewedProviders, setViewedProviders] = useState(new Set());
   const [messageTime, setMessageTime] = useState("");
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const currentRequestIdRef = useRef(null);
@@ -37,6 +42,25 @@ export default function ChatBot({
   const rootRef = useRef(null);
   const textareaRef = useRef(null);
   const moreMenuRef = useRef(null);
+
+  const appIconUrl =
+    typeof chrome !== "undefined" && chrome.runtime?.getURL
+      ? chrome.runtime.getURL("assets/icons/48.png")
+      : "";
+
+  const hasAnyActivity = Boolean(
+    lastQuestion || isLoading || Object.keys(answers).length > 0,
+  );
+
+  // Auto-resize textarea height as user types
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      const scrollHeight = textareaRef.current.scrollHeight;
+      const targetHeight = Math.min(Math.max(24, scrollHeight), 120);
+      textareaRef.current.style.height = `${targetHeight}px`;
+    }
+  }, [input]);
 
   // Mark currently selected provider as viewed
   useEffect(() => {
@@ -113,9 +137,13 @@ export default function ChatBot({
     setInput("");
     setAnswers({});
     setLastQuestion("");
-    setViewedProviders(new Set(["google"]));
+    setSelectedProvider(null);
+    setViewedProviders(new Set());
     setIsLoading(false);
     currentRequestIdRef.current = null;
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "24px";
+    }
     setTimeout(() => {
       textareaRef.current?.focus();
     }, 50);
@@ -129,6 +157,7 @@ export default function ChatBot({
         const enabledProviders = storedProviders.filter((p) => p.enabled);
         setAiProviders(enabledProviders);
         if (
+          selectedProvider &&
           enabledProviders.length > 0 &&
           !enabledProviders.some((p) => p.id === selectedProvider)
         ) {
@@ -147,6 +176,7 @@ export default function ChatBot({
         const enabledProviders = storedProviders.filter((p) => p.enabled);
         setAiProviders(enabledProviders);
         if (
+          selectedProvider &&
           enabledProviders.length > 0 &&
           !enabledProviders.some((p) => p.id === selectedProvider)
         ) {
@@ -267,17 +297,28 @@ export default function ChatBot({
       const requestId = Date.now().toString();
       currentRequestIdRef.current = requestId;
 
+      const targetProvider =
+        selectedProvider ||
+        aiProviders.find((p) => p.enabled)?.id ||
+        displayedProviders[0]?.id ||
+        "google";
+
+      setSelectedProvider(targetProvider);
+      setViewedProviders(new Set([targetProvider]));
+
       setLastQuestion(actualInput);
       lastQuestionRef.current = actualInput;
       setMessageTime(getFormattedTime());
       setInput("");
+      if (textareaRef.current) {
+        textareaRef.current.style.height = "24px";
+      }
       setIsLoading(true);
       setAnswers({});
-      setViewedProviders(new Set([selectedProvider]));
 
       loadProvidersWithConcurrency(actualInput, requestId);
     },
-    [input, loadProvidersWithConcurrency, selectedProvider],
+    [input, loadProvidersWithConcurrency, selectedProvider, aiProviders, displayedProviders],
   );
 
   useEffect(() => {
@@ -379,7 +420,7 @@ export default function ChatBot({
     }
   }, [newChatTrigger, handleNewChat]);
 
-  const selectedAnswerObj = answers[selectedProvider];
+  const selectedAnswerObj = selectedProvider ? answers[selectedProvider] : null;
   const selectedAnswerContent =
     selectedAnswerObj?.content ||
     selectedAnswerObj?.answer ||
@@ -387,8 +428,10 @@ export default function ChatBot({
   const activeProviderObj = displayedProviders.find(
     (p) => p.id === selectedProvider,
   ) || {
-    id: selectedProvider,
-    name: selectedProvider.charAt(0).toUpperCase() + selectedProvider.slice(1),
+    id: selectedProvider || "google",
+    name: selectedProvider
+      ? selectedProvider.charAt(0).toUpperCase() + selectedProvider.slice(1)
+      : "Google AI",
   };
 
   return (
@@ -401,14 +444,12 @@ export default function ChatBot({
         className={`flex items-center justify-between px-3 py-2 border-b shrink-0 gap-1.5 z-10 ${
           contrastMode === "solid"
             ? "bg-slate-100 dark:bg-[#14161e] border-slate-200/90 dark:border-white/[0.08]"
-            : contrastMode === "medium"
-              ? "bg-slate-100/50 dark:bg-black/30 backdrop-blur-md border-slate-200/60 dark:border-white/[0.07]"
-              : "bg-slate-100/20 dark:bg-black/15 backdrop-blur-sm border-slate-200/40 dark:border-white/[0.06]"
+            : "bg-transparent border-slate-200/50 dark:border-white/[0.06]"
         }`}
       >
         <div className="flex items-center gap-1.5 flex-1 overflow-x-auto custom-scrollbar">
           {primaryPills.map((provider) => {
-            const isSelected = selectedProvider === provider.id;
+            const isSelected = hasAnyActivity && selectedProvider === provider.id;
             const pAns = answers[provider.id];
             const hasAnswer = Boolean(
               pAns?.content ||
@@ -419,12 +460,18 @@ export default function ChatBot({
               hasAnswer &&
               !viewedProviders.has(provider.id) &&
               selectedProvider !== provider.id;
+            const isClickable = hasAnyActivity;
 
             return (
               <button
                 key={provider.id}
-                onClick={() => handleSelectProvider(provider.id)}
-                className={`relative h-8 flex items-center justify-center gap-1.5 px-3 rounded-xl text-xs transition-all duration-150 shrink-0 focus:outline-none cursor-pointer select-none ${
+                onClick={() => isClickable && handleSelectProvider(provider.id)}
+                disabled={!isClickable}
+                className={`relative h-8 flex items-center justify-center gap-1.5 px-3 rounded-xl text-xs transition-all duration-150 shrink-0 select-none ${
+                  !isClickable
+                    ? "opacity-60 cursor-default"
+                    : "cursor-pointer"
+                } ${
                   isSelected
                     ? "bg-blue-600 text-white font-bold shadow-xs ring-1 ring-blue-500/50"
                     : contrastMode === "solid"
@@ -453,9 +500,14 @@ export default function ChatBot({
         {overflowProviders.length > 0 && (
           <div className="relative shrink-0" ref={moreMenuRef}>
             <button
-              onClick={() => setIsMoreMenuOpen((v) => !v)}
+              onClick={() => hasAnyActivity && setIsMoreMenuOpen((v) => !v)}
+              disabled={!hasAnyActivity}
               title="More AI Models"
-              className={`p-2 rounded-xl transition-all border focus:outline-none cursor-pointer ${
+              className={`p-2 rounded-xl transition-all border focus:outline-none ${
+                !hasAnyActivity
+                  ? "opacity-50 cursor-default"
+                  : "cursor-pointer"
+              } ${
                 isMoreMenuOpen
                   ? "bg-blue-600 text-white border-blue-500 shadow-xs"
                   : contrastMode === "solid"
@@ -469,7 +521,7 @@ export default function ChatBot({
             {isMoreMenuOpen && (
               <div className="absolute right-0 top-full mt-1.5 w-44 rounded-xl bg-white dark:bg-[#1a1d26] border border-slate-200 dark:border-white/10 shadow-xl py-1 z-30 animate-fade-in">
                 {overflowProviders.map((provider) => {
-                  const isOverflowSelected = selectedProvider === provider.id;
+                  const isOverflowSelected = hasAnyActivity && selectedProvider === provider.id;
                   const pAns = answers[provider.id];
                   const hasOverflowAnswer = Boolean(
                     pAns?.content ||
@@ -525,16 +577,23 @@ export default function ChatBot({
         {/* Welcome Empty State */}
         {!lastQuestion && !isLoading && Object.keys(answers).length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center px-4 py-8 space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-              <ProviderIcon id="google" className="w-6 h-6" size={24} />
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600/15 via-indigo-600/15 to-purple-600/15 border border-blue-500/20 flex items-center justify-center shadow-xs">
+              {appIconUrl ? (
+                <img
+                  src={appIconUrl}
+                  alt="SpectraLens AI"
+                  className="w-7 h-7 object-contain"
+                />
+              ) : (
+                <div className="w-6 h-6 rounded-full bg-blue-600" />
+              )}
             </div>
             <div>
               <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                Compare AI Models Side-by-Side
+                SpectraLens AI
               </h3>
               <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mt-1 max-w-[240px]">
-                Ask questions across Google AI, Bing AI, Gemini, and more in
-                real-time.
+                Ask once, compare answers from top AI models in parallel.
               </p>
             </div>
           </div>
@@ -632,13 +691,11 @@ export default function ChatBot({
         className={`p-3 border-t shrink-0 ${
           contrastMode === "solid"
             ? "bg-slate-100 dark:bg-[#14161e] border-slate-200/90 dark:border-white/[0.08]"
-            : contrastMode === "medium"
-              ? "bg-slate-100/50 dark:bg-black/30 backdrop-blur-md border-slate-200/60 dark:border-white/[0.07]"
-              : "bg-slate-100/20 dark:bg-black/15 backdrop-blur-sm border-slate-200/40 dark:border-white/[0.06]"
+            : "bg-transparent border-slate-200/50 dark:border-white/[0.06]"
         }`}
       >
         <div
-          className={`relative flex items-center w-full px-3 py-2 rounded-2xl border focus-within:border-blue-500 dark:focus-within:border-blue-500/80 focus-within:ring-1 focus-within:ring-blue-500/50 shadow-xs transition-all ${
+          className={`relative flex items-end w-full px-3 py-2 rounded-2xl border focus-within:border-blue-500 dark:focus-within:border-blue-500/80 focus-within:ring-1 focus-within:ring-blue-500/50 shadow-xs transition-all ${
             contrastMode === "solid"
               ? "bg-white dark:bg-[#191c25] border-slate-200/90 dark:border-white/[0.09]"
               : contrastMode === "medium"
@@ -646,28 +703,29 @@ export default function ChatBot({
                 : "bg-white/30 dark:bg-white/[0.06] backdrop-blur-sm border-slate-200/30 dark:border-white/[0.05]"
           }`}
         >
-          <input
+          <textarea
             ref={textareaRef}
-            type="text"
+            rows={1}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Ask anything..."
-            className="flex-1 bg-transparent text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 border-0 outline-none pr-2"
+            className="flex-1 bg-transparent text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 border-0 outline-none pr-2 resize-none custom-scrollbar leading-relaxed py-1"
+            style={{ minHeight: "24px", maxHeight: "120px" }}
           />
 
           {input && (
             <button
               onClick={() => setInput("")}
-              className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors focus:outline-none cursor-pointer mr-1"
+              className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors focus:outline-none cursor-pointer mr-1 mb-0.5"
               title="Clear text"
             >
               <IoClose className="w-3.5 h-3.5" />
             </button>
           )}
 
-          {/* Action Buttons: Element Selector Shortcut */}
-          <div className="flex items-center gap-1 pl-1 border-l border-slate-200 dark:border-white/10">
+          {/* Action Buttons: Element Selector Shortcut & Send */}
+          <div className="flex items-center gap-1 pl-1 border-l border-slate-200 dark:border-white/10 mb-0.5">
             <button
               onClick={onOpenSelector}
               title="Inspect & Select Page Element"

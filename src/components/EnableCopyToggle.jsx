@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { IoShieldCheckmarkOutline } from "react-icons/io5";
 import extensionUtils from "./../utils/utilsModule.js";
 
 export default function EnableCopyToggle() {
@@ -102,17 +103,22 @@ export default function EnableCopyToggle() {
   return (
     <div className="w-full">
       <div
-        className="relative w-full h-[48px] rounded-xl flex items-center bg-white dark:bg-[#181a24] border border-slate-200/90 dark:border-white/[0.08] hover:border-purple-400/40 dark:hover:border-white/[0.15] shadow-xs transition-all duration-200 overflow-hidden cursor-pointer select-none"
+        className="relative w-full h-[52px] rounded-xl flex items-center bg-white dark:bg-[#181a24] border border-slate-200/90 dark:border-white/[0.08] hover:border-indigo-400/40 dark:hover:border-white/[0.15] shadow-xs transition-all duration-200 overflow-hidden cursor-pointer select-none"
         onClick={handleClick}
       >
-        <div className="flex items-center justify-between w-full px-4 pointer-events-none">
-          <div className="flex flex-col items-start justify-center">
-            <span className="font-bold text-[14px] text-slate-800 dark:text-slate-100 leading-tight">
-              Enable Copy & Right Click
-            </span>
-            <span className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal">
-              {checked ? "Copy & right-click unlocked" : "Click to activate"}
-            </span>
+        <div className="flex items-center justify-between w-full px-3.5 pointer-events-none">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-500 shrink-0">
+              <IoShieldCheckmarkOutline className="w-4 h-4" />
+            </div>
+            <div className="flex flex-col items-start justify-center">
+              <span className="font-bold text-[13px] text-slate-800 dark:text-slate-100 leading-tight">
+                Enable Copy & Right-Click
+              </span>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 leading-normal">
+                {checked ? "Copy protection bypassed" : "Allow text selection & copy"}
+              </span>
+            </div>
           </div>
 
           <div className="flex items-center">
@@ -120,7 +126,7 @@ export default function EnableCopyToggle() {
               type="checkbox"
               checked={checked}
               onChange={() => {}}
-              className="switch-purple pointer-events-none"
+              className="switch-blue pointer-events-none"
             />
           </div>
         </div>

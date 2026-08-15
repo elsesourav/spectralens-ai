@@ -409,9 +409,7 @@ export default function Menu() {
               className={`flex items-center justify-between px-3.5 py-2 border-b shrink-0 cursor-grab active:cursor-grabbing ${
                 contrastMode === "solid"
                   ? "bg-slate-100 dark:bg-[#14161e] border-slate-200/90 dark:border-white/[0.08]"
-                  : contrastMode === "medium"
-                    ? "bg-slate-100/50 dark:bg-black/30 backdrop-blur-md border-slate-200/60 dark:border-white/[0.07]"
-                    : "bg-slate-100/20 dark:bg-black/15 backdrop-blur-sm border-slate-200/40 dark:border-white/[0.06]"
+                  : "bg-transparent border-slate-200/50 dark:border-white/[0.06]"
               }`}
             >
               <div className="flex items-center gap-2 select-none pointer-events-none">
