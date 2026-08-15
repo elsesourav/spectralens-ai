@@ -285,6 +285,10 @@ export default function ChatBot({
       }
 
       const provider = data.provider || "google";
+      const answerText =
+        data.answer ||
+        data.content ||
+        (typeof data === "string" ? data : "");
 
       setAnswers((prev) => {
         const isFirstAnswer = Object.keys(prev).length === 0;
@@ -298,6 +302,9 @@ export default function ChatBot({
           ...prev,
           [provider]: {
             ...data,
+            answer: answerText,
+            content: answerText,
+            provider: provider,
             timestamp: Date.now(),
           },
         };
@@ -370,7 +377,11 @@ export default function ChatBot({
     }
   }, [newChatTrigger, handleNewChat]);
 
-  const selectedAnswer = answers[selectedProvider];
+  const selectedAnswerObj = answers[selectedProvider];
+  const selectedAnswerContent =
+    selectedAnswerObj?.content ||
+    selectedAnswerObj?.answer ||
+    (typeof selectedAnswerObj === "string" ? selectedAnswerObj : "");
   const activeProviderObj = displayedProviders.find(
     (p) => p.id === selectedProvider,
   ) || {
@@ -400,7 +411,12 @@ export default function ChatBot({
 
           {primaryPills.map((provider) => {
             const isSelected = selectedProvider === provider.id;
-            const hasAnswer = Boolean(answers[provider.id]);
+            const pAns = answers[provider.id];
+            const hasAnswer = Boolean(
+              pAns?.content ||
+              pAns?.answer ||
+              (typeof pAns === "string" && pAns),
+            );
             const hasUnreadAnswer =
               hasAnswer &&
               !viewedProviders.has(provider.id) &&
@@ -452,7 +468,12 @@ export default function ChatBot({
               <div className="absolute right-0 top-full mt-1.5 w-44 rounded-xl bg-white dark:bg-[#1a1d26] border border-slate-200 dark:border-white/10 shadow-xl py-1 z-30 animate-fade-in">
                 {overflowProviders.map((provider) => {
                   const isOverflowSelected = selectedProvider === provider.id;
-                  const hasOverflowAnswer = Boolean(answers[provider.id]);
+                  const pAns = answers[provider.id];
+                  const hasOverflowAnswer = Boolean(
+                    pAns?.content ||
+                    pAns?.answer ||
+                    (typeof pAns === "string" && pAns),
+                  );
                   const hasUnreadOverflow =
                     hasOverflowAnswer &&
                     !viewedProviders.has(provider.id) &&
@@ -536,7 +557,7 @@ export default function ChatBot({
         )}
 
         {/* AI Response Card */}
-        {(selectedAnswer || (isLoading && !selectedAnswer)) && (
+        {(selectedAnswerContent || (isLoading && !selectedAnswerContent)) && (
           <div className="flex flex-col gap-2 animate-fade-in">
             <div className="p-4 rounded-2xl bg-white dark:bg-[#181920] border border-slate-200/80 dark:border-white/[0.08] shadow-xs space-y-3">
               {/* Provider Header Badge */}
@@ -552,7 +573,7 @@ export default function ChatBot({
                   </span>
                 </div>
 
-                {isLoading && !selectedAnswer && (
+                {isLoading && !selectedAnswerContent && (
                   <span className="text-[10px] text-blue-500 font-medium animate-pulse">
                     Streaming response...
                   </span>
@@ -560,11 +581,11 @@ export default function ChatBot({
               </div>
 
               {/* Response Content Body */}
-              {selectedAnswer ? (
+              {selectedAnswerContent ? (
                 <div
                   className="ai-markdown text-slate-800 dark:text-slate-200 overflow-x-auto leading-relaxed"
                   dangerouslySetInnerHTML={{
-                    __html: UTILS.sanitizeHtml(selectedAnswer.content),
+                    __html: UTILS.sanitizeHtml(selectedAnswerContent),
                   }}
                 />
               ) : (
@@ -586,7 +607,7 @@ export default function ChatBot({
               )}
 
               {/* Timestamp at bottom right */}
-              {selectedAnswer && (
+              {selectedAnswerContent && (
                 <div className="flex items-center justify-end pt-1 border-t border-slate-100 dark:border-white/[0.04] text-[10px] text-slate-400 dark:text-slate-500 font-medium">
                   <span>{messageTime || getFormattedTime()}</span>
                 </div>
