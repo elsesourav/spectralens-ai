@@ -171,6 +171,10 @@ pageOnMessage("IF_C_MENU_WINDOW_RESIZE", async (data) => {
    __iframeSize.width = width;
    __iframeSize.height = height;
 
+   if (__main_menu__) {
+      __main_menu__.style.borderRadius = isOpen ? "16px" : "9999px";
+   }
+
    const newBackWidth = isOpen ? 315 : 38;
    if (__menu_back__) {
       __menu_back__.style.width = `${newBackWidth}px`;
@@ -205,17 +209,18 @@ pageOnMessage("IF_C_MENU_WINDOW_RESIZE", async (data) => {
    // for first time remove transition
    if (!__isFirstSetup) {
       __main_menu__.style.transition =
-         "left 300ms ease, top 300ms ease, width 300ms ease, height 300ms ease";
+         "left 300ms cubic-bezier(0.16, 1, 0.3, 1), top 300ms cubic-bezier(0.16, 1, 0.3, 1), width 300ms cubic-bezier(0.16, 1, 0.3, 1), height 300ms cubic-bezier(0.16, 1, 0.3, 1), border-radius 300ms cubic-bezier(0.16, 1, 0.3, 1)";
    } else {
       __isFirstSetup = false;
    }
 
+   __main_menu__.style.borderRadius = isOpen ? "20px" : "24px";
    __main_menu__.style.width = __iframeSize.width;
    __main_menu__.style.height = __iframeSize.height;
 
    setTimeout(() => {
       __main_menu__.style.transition = "";
-   }, 300);
+   }, 320);
 });
 
 runtimeSendMessage("C_B_ON_LOAD", async (r) => {

@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FiMinus, FiX } from "react-icons/fi";
+import appIconUrl from "../assets/icons/icon.png";
+import ChatBot from "../components/ChatBot.jsx";
+import Controls from "../components/Controls.jsx";
+import HistoryView from "../components/HistoryView.jsx";
 import {
   ChatIcon,
-  ElementSelectorIcon,
   DragHandleIcon,
+  ElementSelectorIcon,
 } from "../components/Icons.jsx";
-import appIconUrl from "../assets/icons/icon.png";
-import { FiMinus, FiX } from "react-icons/fi";
-import Sidebar from "../components/Sidebar.jsx";
-import ChatBot from "../components/ChatBot.jsx";
 import SelectorView from "../components/SelectorView.jsx";
-import HistoryView from "../components/HistoryView.jsx";
-import Controls from "../components/Controls.jsx";
+import Sidebar from "../components/Sidebar.jsx";
 import ES from "./../utils/utilsModule.js";
 
 export default function Menu() {
@@ -19,7 +19,7 @@ export default function Menu() {
       min: { w: "148px", h: "48px" },
       max: { w: "440px", h: "600px" },
     }),
-    []
+    [],
   );
 
   // State
@@ -29,7 +29,12 @@ export default function Menu() {
   const [menuOpacity, setMenuOpacity] = useState("1");
   const [isDragging, setIsDragging] = useState(false);
   const [autoHideDelay, setAutoHideDelay] = useState(0);
-  const [chatbotTheme, setChatbotTheme] = useState("auto");
+  const [chatbotTheme, setChatbotTheme] = useState(() => {
+    return localStorage.getItem("app-theme") || "system";
+  });
+  const [contrastMode, setContrastMode] = useState(() => {
+    return localStorage.getItem("app-contrast") || "solid";
+  });
   const [loadedHistoryItem, setLoadedHistoryItem] = useState(null);
   const [pageTheme, setPageTheme] = useState(() => {
     if (typeof window !== "undefined" && window.matchMedia) {
@@ -46,6 +51,21 @@ export default function Menu() {
   useEffect(() => {
     // Request controls & page theme from parent frame
     ES.pagePostMessage("IF_C_GET_CURRENT_CONTROLS", {}, window.parent);
+
+    // Initial storage read
+    ES.chromeStorageGetLocal(ES.KEYS.CONTROLS, (controls) => {
+      if (controls) {
+        if (controls.autoHideDelay !== undefined) {
+          setAutoHideDelay(Number(controls.autoHideDelay));
+        }
+        if (controls.chatbotTheme) {
+          setChatbotTheme(controls.chatbotTheme);
+        }
+        if (controls.contrastMode) {
+          setContrastMode(controls.contrastMode);
+        }
+      }
+    });
 
     ES.pageOnMessage("C_IF_OPEN_CHAT", () => {
       setIsChatOpen(true);
@@ -71,12 +91,33 @@ export default function Menu() {
     });
 
     // Receive initial/live controls
+    ES.pageOnMessage("IF_C_GET_CURRENT_CONTROLS", (data) => {
+      if (data?.pageTheme) {
+        setPageTheme(data.pageTheme);
+      }
+      const controls = data?.controls;
+      if (controls) {
+        if (controls.autoHideDelay !== undefined) {
+          setAutoHideDelay(Number(controls.autoHideDelay));
+        }
+        if (controls.chatbotTheme) {
+          setChatbotTheme(controls.chatbotTheme);
+        }
+        if (controls.contrastMode) {
+          setContrastMode(controls.contrastMode);
+        }
+      }
+    });
+
     ES.pageOnMessage("C_IF_CURRENT_CONTROLS", (data) => {
       if (data?.autoHideDelay !== undefined) {
         setAutoHideDelay(Number(data.autoHideDelay));
       }
       if (data?.chatbotTheme) {
         setChatbotTheme(data.chatbotTheme);
+      }
+      if (data?.contrastMode) {
+        setContrastMode(data.contrastMode);
       }
     });
   }, []);
@@ -85,9 +126,30 @@ export default function Menu() {
   const effectiveTheme = useMemo(() => {
     if (chatbotTheme === "light") return "light";
     if (chatbotTheme === "dark") return "dark";
-    // 'auto' matches page theme
+    // 'system' or 'auto' matches page theme
     return pageTheme === "dark" ? "dark" : "light";
   }, [chatbotTheme, pageTheme]);
+
+  // Dynamic theme & contrast class
+  const contrastClass = useMemo(() => {
+    if (!isChatOpen) {
+      if (contrastMode === "transparent") {
+        return "bg-[#16171d]/60 backdrop-blur-xl border border-white/15 shadow-2xl";
+      }
+      if (contrastMode === "medium") {
+        return "bg-[#16171d]/85 backdrop-blur-md border border-white/15 shadow-2xl";
+      }
+      return "bg-[#16171d] border border-white/20 shadow-2xl";
+    } else {
+      if (contrastMode === "transparent") {
+        return "bg-[#f8fafc]/80 dark:bg-[#0e1015]/75 backdrop-blur-2xl border border-slate-200/60 dark:border-white/[0.08] shadow-2xl";
+      }
+      if (contrastMode === "medium") {
+        return "bg-[#f8fafc]/95 dark:bg-[#0e1015]/90 backdrop-blur-md border border-slate-200/80 dark:border-white/10 shadow-2xl";
+      }
+      return "bg-[#f8fafc] dark:bg-[#0e1015] border border-slate-200 dark:border-white/10 shadow-2xl";
+    }
+  }, [isChatOpen, contrastMode]);
 
   // Sync theme class to document element
   useEffect(() => {
@@ -98,7 +160,9 @@ export default function Menu() {
       document.documentElement.classList.remove("dark");
       document.documentElement.classList.add("light");
     }
-  }, [effectiveTheme]);
+    document.documentElement.setAttribute("data-theme", effectiveTheme);
+    document.documentElement.setAttribute("data-contrast", contrastMode);
+  }, [effectiveTheme, contrastMode]);
 
   // Auto-hide inactivity timer when minimized
   useEffect(() => {
@@ -142,7 +206,7 @@ export default function Menu() {
         height: size.h,
         isOpen,
       },
-      window.parent
+      window.parent,
     );
   }, [size]);
 
@@ -172,7 +236,7 @@ export default function Menu() {
         ES.pagePostMessage(
           "IF_C_MENU_WINDOW_MOVE",
           { deltaX, deltaY },
-          window.parent
+          window.parent,
         );
       }
     };
@@ -205,7 +269,9 @@ export default function Menu() {
     return () => {
       window.removeEventListener("wheel", stopPropagation, { passive: false });
       window.removeEventListener("scroll", stopPropagation, { passive: false });
-      window.removeEventListener("touchmove", stopPropagation, { passive: false });
+      window.removeEventListener("touchmove", stopPropagation, {
+        passive: false,
+      });
     };
   }, []);
 
@@ -235,11 +301,10 @@ export default function Menu() {
     >
       <main
         data-theme={effectiveTheme}
-        className={`relative overflow-hidden transition-all duration-300 ease-in-out shadow-2xl ${
-          isChatOpen
-            ? "rounded-none bg-[#f8fafc] dark:bg-[#0e1015] border border-slate-200 dark:border-white/10"
-            : "rounded-full bg-[#16171d] border border-white/15 shadow-2xl"
-        }`}
+        data-contrast={contrastMode}
+        className={`relative overflow-hidden transition-all duration-300 ease-out shadow-2xl ${
+          isChatOpen ? "rounded-[20px]" : "rounded-[24px]"
+        } ${contrastClass}`}
         style={{
           width: isChatOpen ? SIZES.max.w : SIZES.min.w,
           height: isChatOpen ? SIZES.max.h : SIZES.min.h,
@@ -249,9 +314,9 @@ export default function Menu() {
         {/* Minimized Pill Mode (Pixel-perfect matching user image)  */}
         {/* ======================================================== */}
         {!isChatOpen ? (
-          <div className="relative w-full h-full px-2.5 py-1 flex items-center justify-between gap-1 select-none overflow-hidden rounded-full">
+          <div className="relative w-full h-full px-2.5 py-1 flex items-center justify-between gap-1 select-none overflow-hidden rounded-[24px]">
             {/* Background ambient violet-blue gradient on the right section */}
-            <div className="absolute right-0 top-0 bottom-0 w-2/3 bg-gradient-to-r from-transparent via-[#8b5cf6]/25 to-[#3b82f6]/30 rounded-r-full pointer-events-none" />
+            <div className="absolute right-0 top-0 bottom-0 w-2/3 bg-gradient-to-r from-transparent via-[#8b5cf6]/25 to-[#3b82f6]/30 rounded-r-[24px] pointer-events-none" />
 
             {/* 1. Drag Handle (6 Dots on Left) */}
             <div
@@ -259,7 +324,10 @@ export default function Menu() {
               className="w-7 h-9 flex items-center justify-center text-slate-400 hover:text-white cursor-grab active:cursor-grabbing transition-colors z-10"
               title="Drag to reposition widget"
             >
-              <DragHandleIcon className="w-4 h-4 text-slate-400 hover:text-white" size={18} />
+              <DragHandleIcon
+                className="w-4 h-4 text-slate-400 hover:text-white"
+                size={18}
+              />
             </div>
 
             {/* 2. Chat Button (Prominent circular gradient pill) */}
@@ -352,7 +420,9 @@ export default function Menu() {
                 {/* Element Selector View */}
                 {activeTab === "selector" && (
                   <div className="w-full h-full animate-fade-in">
-                    <SelectorView onTriggerComplete={() => handleSelectElement()} />
+                    <SelectorView
+                      onTriggerComplete={() => handleSelectElement()}
+                    />
                   </div>
                 )}
 

@@ -158,11 +158,9 @@ function __PUSH_MENU__(tabId) {
             frame.setAttribute("frameborder", "0");
             frame.setAttribute("allowtransparency", "true");
 
-            // Add additional style attributes with dynamic theme
-            const currentStyle = frame.getAttribute("style") || "";
             frame.setAttribute(
                "style",
-               `${currentStyle}; color-scheme: ${currentTheme} !important; border-radius: 12px;`
+               "background: transparent !important; background-color: transparent !important; border: none !important; border-radius: 9999px;"
             );
 
             const style = document.createElement("style");
@@ -171,10 +169,12 @@ function __PUSH_MENU__(tabId) {
                   position: fixed;
                   top: 0px;
                   left: 0px;
-                  width: 160px;
-                  height: 50px;
+                  width: 148px;
+                  height: 48px;
                   background: transparent !important;
-                  /* background-color: #0f04; */
+                  background-color: transparent !important;
+                  border: none !important;
+                  border-radius: 9999px;
                   z-index: 825003263;
                   transition: opacity 200ms ease-in-out;
                }
