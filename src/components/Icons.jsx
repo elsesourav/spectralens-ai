@@ -281,7 +281,43 @@ export function ElementSelectorIcon({ className = "w-5 h-5", size = 20 }) {
 ElementSelectorIcon.propTypes = { className: PropTypes.string, size: PropTypes.number };
 
 // ==========================================
-// 8. Navigation & Utility UI Icons
+// 8. Diamond Move / Drag Icon (Matching screenshot)
+// ==========================================
+export function DiamondMoveIcon({ className = "w-4 h-4", size = 16 }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+    >
+      <rect
+        x="12"
+        y="2"
+        width="14.14"
+        height="14.14"
+        rx="2"
+        transform="rotate(45 12 2)"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      />
+      <path
+        d="M12 7V17M7 12H17M12 7L10 9M12 7L14 9M12 17L10 15M12 17L14 15M7 12L9 10M7 12L9 14M17 12L15 10M17 12L15 14"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+DiamondMoveIcon.propTypes = { className: PropTypes.string, size: PropTypes.number };
+
+// ==========================================
+// 9. Navigation & Utility UI Icons
 // ==========================================
 export function HistoryIcon({ className = "w-5 h-5", size = 20 }) {
   return (
@@ -335,22 +371,22 @@ export function SettingsIcon({ className = "w-5 h-5", size = 20 }) {
 
 SettingsIcon.propTypes = { className: PropTypes.string, size: PropTypes.number };
 
-export function DragHandleIcon({ className = "w-4 h-4", size = 16 }) {
+export function DragHandleIcon({ className = "w-5 h-5", size = 20 }) {
   return (
     <svg
       className={className}
       width={size}
       height={size}
-      viewBox="0 0 16 16"
+      viewBox="0 0 24 24"
       fill="currentColor"
       xmlns="http://www.w3.org/2000/svg"
     >
-      <circle cx="5" cy="4" r="1.5" />
-      <circle cx="11" cy="4" r="1.5" />
-      <circle cx="5" cy="8" r="1.5" />
-      <circle cx="11" cy="8" r="1.5" />
-      <circle cx="5" cy="12" r="1.5" />
-      <circle cx="11" cy="12" r="1.5" />
+      <circle cx="8" cy="6" r="2.2" />
+      <circle cx="16" cy="6" r="2.2" />
+      <circle cx="8" cy="12" r="2.2" />
+      <circle cx="16" cy="12" r="2.2" />
+      <circle cx="8" cy="18" r="2.2" />
+      <circle cx="16" cy="18" r="2.2" />
     </svg>
   );
 }

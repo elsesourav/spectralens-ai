@@ -16,7 +16,7 @@ import ES from "./../utils/utilsModule.js";
 export default function Menu() {
   const SIZES = useMemo(
     () => ({
-      min: { w: "152px", h: "46px" },
+      min: { w: "120px", h: "40px" },
       max: { w: "440px", h: "600px" },
     }),
     []
@@ -59,41 +59,41 @@ export default function Menu() {
     ES.pageOnMessage("C_IF_HIDDEN", () => {
       setMenuOpacity("0");
     });
-    ES.pageOnMessage("C_IF_VISIBLE", () => {
+    ES.pageOnMessage("C_IF_SHOW", () => {
       setMenuOpacity("1");
     });
 
-    ES.pageOnMessage("C_IF_MENU_WINDOW_DRAG_START", () => {
-      setIsDragging(true);
+    // Parent page theme detector
+    ES.pageOnMessage("C_IF_PAGE_THEME", (msg) => {
+      if (msg?.theme) {
+        setPageTheme(msg.theme);
+      }
     });
 
-    ES.pageOnMessage("C_IF_MENU_WINDOW_DRAG_END", () => {
-      setIsDragging(false);
-    });
-
-    ES.pageOnMessage("IF_C_GET_CURRENT_CONTROLS", (data) => {
-      const { autoHideDelay: delay, chatbotTheme: theme } = data?.controls || {};
-      if (delay !== undefined) setAutoHideDelay(Number(delay) || 0);
-      if (theme) setChatbotTheme(theme);
-      if (data?.pageTheme) setPageTheme(data.pageTheme);
-    });
-
-    ES.chromeStorageGetLocal(ES.KEYS.CONTROLS, (data) => {
-      if (data?.autoHideDelay !== undefined) setAutoHideDelay(Number(data.autoHideDelay) || 0);
-      if (data?.chatbotTheme) setChatbotTheme(data.chatbotTheme);
+    // Receive initial/live controls
+    ES.pageOnMessage("C_IF_CURRENT_CONTROLS", (data) => {
+      if (data?.autoHideDelay !== undefined) {
+        setAutoHideDelay(Number(data.autoHideDelay));
+      }
+      if (data?.chatbotTheme) {
+        setChatbotTheme(data.chatbotTheme);
+      }
     });
   }, []);
 
+  // Compute effective theme based on user settings
   const effectiveTheme = useMemo(() => {
-    if (chatbotTheme === "dark") return "dark";
     if (chatbotTheme === "light") return "light";
-    return pageTheme || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    if (chatbotTheme === "dark") return "dark";
+    // 'auto' matches page theme
+    return pageTheme === "dark" ? "dark" : "light";
   }, [chatbotTheme, pageTheme]);
 
+  // Sync theme class to document element
   useEffect(() => {
     if (effectiveTheme === "dark") {
-      document.documentElement.classList.add("dark");
       document.documentElement.classList.remove("light");
+      document.documentElement.classList.add("dark");
     } else {
       document.documentElement.classList.remove("dark");
       document.documentElement.classList.add("light");
@@ -108,14 +108,14 @@ export default function Menu() {
     }
 
     let timer = setTimeout(() => {
-      setMenuOpacity("0.25");
+      setMenuOpacity("0.2");
     }, autoHideDelay * 1000);
 
     const handleUserActivity = () => {
       setMenuOpacity("1");
       clearTimeout(timer);
       timer = setTimeout(() => {
-        setMenuOpacity("0.25");
+        setMenuOpacity("0.2");
       }, autoHideDelay * 1000);
     };
 
@@ -144,11 +144,53 @@ export default function Menu() {
       },
       window.parent
     );
-
-    if (isOpen) {
-      ES.pagePostMessage("IF_C_GET_CURRENT_CONTROLS", {}, window.parent);
-    }
   }, [size]);
+
+  // Handle Drag logic
+  useEffect(() => {
+    const dragEl = dragRef.current;
+    if (!dragEl) return;
+
+    let startX = 0;
+    let startY = 0;
+
+    const onPointerDown = (e) => {
+      e.preventDefault();
+      setIsDragging(true);
+      startX = e.clientX;
+      startY = e.clientY;
+
+      window.addEventListener("pointermove", onPointerMove);
+      window.addEventListener("pointerup", onPointerUp);
+    };
+
+    const onPointerMove = (e) => {
+      const deltaX = e.clientX - startX;
+      const deltaY = e.clientY - startY;
+
+      if (deltaX !== 0 || deltaY !== 0) {
+        ES.pagePostMessage(
+          "IF_C_MENU_WINDOW_MOVE",
+          { deltaX, deltaY },
+          window.parent
+        );
+      }
+    };
+
+    const onPointerUp = () => {
+      setIsDragging(false);
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+    };
+
+    dragEl.addEventListener("pointerdown", onPointerDown);
+
+    return () => {
+      dragEl.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+    };
+  }, []);
 
   // Prevent scroll propagation to parent document
   useEffect(() => {
@@ -168,11 +210,9 @@ export default function Menu() {
   }, []);
 
   const toggleChat = useCallback(() => {
+    setIsChatOpen((prev) => !prev);
     if (!isChatOpen) {
       setActiveTab("chat");
-      setIsChatOpen(true);
-    } else {
-      setIsChatOpen(false);
     }
   }, [isChatOpen]);
 
@@ -198,7 +238,7 @@ export default function Menu() {
         className={`relative overflow-hidden transition-all duration-300 ease-in-out shadow-2xl ${
           isChatOpen
             ? "rounded-2xl bg-[#f8fafc] dark:bg-[#0e1015] border border-slate-200 dark:border-white/10"
-            : "rounded-full bg-[#181a22] border border-white/10 shadow-xl"
+            : "rounded-xl bg-[#202430]/95 dark:bg-[#181a24]/95 border border-slate-700/50 dark:border-white/15 shadow-xl"
         }`}
         style={{
           width: isChatOpen ? SIZES.max.w : SIZES.min.w,
@@ -206,39 +246,36 @@ export default function Menu() {
         }}
       >
         {/* ======================================================== */}
-        {/* Minimized Pill Bar Mode (Pixel-perfect matching Image)   */}
+        {/* Minimized Pill Mode (Left 6-Dot Drag, Big Clean Icons)    */}
         {/* ======================================================== */}
         {!isChatOpen ? (
-          <div className="w-full h-full px-3 py-1 flex items-center justify-between gap-2">
-            {/* Drag Handle (6 Dots) */}
+          <div className="w-full h-full px-2 py-1 flex items-center justify-between gap-1 select-none">
+            {/* 1. Drag Handle (6 Dots on Left) */}
             <div
               ref={dragRef}
-              className="p-1 text-slate-400 hover:text-slate-200 cursor-grab active:cursor-grabbing transition-colors flex items-center justify-center"
+              className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-white cursor-grab active:cursor-grabbing transition-colors"
               title="Drag to reposition widget"
             >
-              <DragHandleIcon className="w-4 h-4 text-slate-400" size={16} />
+              <DragHandleIcon className="w-5 h-5 text-slate-400 hover:text-white" size={20} />
             </div>
 
-            {/* Tool Actions Container */}
-            <div className="flex items-center gap-2 flex-1 justify-end">
-              {/* Chat Button (with gradient active pill) */}
-              <button
-                onClick={toggleChat}
-                className="relative w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 focus:outline-none cursor-pointer bg-gradient-to-tr from-[#6366f1] via-[#8b5cf6] to-[#3b82f6] text-white shadow-md hover:scale-105 active:scale-95"
-                title="Open SpectraLens AI Chat"
-              >
-                <ChatIcon className="w-4 h-4 text-white" size={16} />
-              </button>
+            {/* 2. Chat Button (Middle) */}
+            <button
+              onClick={toggleChat}
+              className="w-8 h-8 flex items-center justify-center text-slate-200 hover:text-white hover:scale-110 active:scale-95 transition-all focus:outline-none cursor-pointer"
+              title="Open SpectraLens AI Chat"
+            >
+              <ChatIcon className="w-5 h-5 text-white" size={20} />
+            </button>
 
-              {/* Element Selector Button */}
-              <button
-                onClick={handleSelectElement}
-                className="relative w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 focus:outline-none cursor-pointer text-slate-300 hover:text-white hover:bg-white/10 active:scale-95"
-                title="Select Page Element / Area"
-              >
-                <ElementSelectorIcon className="w-4 h-4" size={16} />
-              </button>
-            </div>
+            {/* 3. Scan / Element Selector Button (Right) */}
+            <button
+              onClick={handleSelectElement}
+              className="w-8 h-8 flex items-center justify-center text-slate-200 hover:text-white hover:scale-110 active:scale-95 transition-all focus:outline-none cursor-pointer"
+              title="Select Page Element / Area"
+            >
+              <ElementSelectorIcon className="w-5 h-5" size={20} />
+            </button>
           </div>
         ) : (
           /* ======================================================== */

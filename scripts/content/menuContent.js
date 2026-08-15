@@ -1,5 +1,5 @@
-const __iframeSize = { width: "160px", height: "50px" };
-const __spacing = 110;
+const __iframeSize = { width: "115px", height: "40px" };
+const __spacing = 0;
 let __isDragging = false;
 const __pointerOffset = { x: 0, y: 0 };
 let __main_menu__ = null;
@@ -142,6 +142,26 @@ function detectPageTheme() {
 }
 
 /* -------- Message Passing Section --------- */
+pageOnMessage("IF_C_MENU_WINDOW_MOVE", async (data) => {
+   const { deltaX, deltaY } = data || {};
+   __menu_back__ = document.getElementById("__menuWindowBack");
+   __main_menu__ = document.getElementById("__menuWindowIframe");
+   if (__main_menu__ && deltaX !== undefined && deltaY !== undefined) {
+      const curLeft = Number.parseFloat(__main_menu__.style.left) || 0;
+      const curTop = Number.parseFloat(__main_menu__.style.top) || 0;
+      const constrainedPosition = __applyCollisionDetection__(
+         curLeft + deltaX,
+         curTop + deltaY
+      );
+      __main_menu__.style.left = `${constrainedPosition.x}px`;
+      __main_menu__.style.top = `${constrainedPosition.y}px`;
+      if (__menu_back__) {
+         __menu_back__.style.left = `${constrainedPosition.x + __spacing}px`;
+         __menu_back__.style.top = `${constrainedPosition.y}px`;
+      }
+   }
+});
+
 pageOnMessage("IF_C_MENU_WINDOW_RESIZE", async (data) => {
    const { width, height, isOpen } = data;
 
@@ -151,8 +171,10 @@ pageOnMessage("IF_C_MENU_WINDOW_RESIZE", async (data) => {
    __iframeSize.width = width;
    __iframeSize.height = height;
 
-   const newBackWidth = isOpen ? 315 : 50;
-   __menu_back__.style.width = `${newBackWidth}px`;
+   const newBackWidth = isOpen ? 315 : 38;
+   if (__menu_back__) {
+      __menu_back__.style.width = `${newBackWidth}px`;
+   }
 
    const rect = __menu_back__.getBoundingClientRect();
    let constrainedPosition = __applyCollisionDetection__(

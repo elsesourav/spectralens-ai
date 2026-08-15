@@ -205,18 +205,19 @@ function __PUSH_MENU__(tabId) {
          if (!existingMWB) {
             const back = document.createElement("div");
             back.setAttribute("id", "__menuWindowBack");
-            const left = window.innerWidth - 110;
+            const defaultLeft = window.innerWidth - 130;
             back.setAttribute(
                "style",
                `
                position: fixed;
                top: 80px;
-               left: ${left}px;
-               width: 50px;
-               height: 50px;
+               left: ${defaultLeft}px;
+               width: 38px;
+               height: 40px;
                background: transparent !important;
                z-index: 2147483646;
                cursor: move;
+               border-radius: 12px 0 0 12px;
                `
             );
             document.body.append(back);
