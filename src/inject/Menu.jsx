@@ -28,7 +28,6 @@ export default function Menu() {
   // State
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("chat"); // 'chat' | 'selector' | 'history' | 'settings'
-  const [size, setSize] = useState(SIZES.min);
   const [menuOpacity, setMenuOpacity] = useState("1");
   const [autoHideDelay, setAutoHideDelay] = useState(0);
   const [autoMinimizeDelay, setAutoMinimizeDelay] = useState(0);
@@ -286,21 +285,20 @@ export default function Menu() {
   }, [isChatOpen, autoHideDelay]);
 
   useEffect(() => {
-    setSize(isChatOpen ? SIZES.max : SIZES.min);
-  }, [isChatOpen, SIZES]);
-
-  useEffect(() => {
-    const isOpen = isChatOpen;
+    const currentSize = isChatOpen ? SIZES.max : SIZES.min;
     ES.pagePostMessage(
       "IF_C_MENU_WINDOW_RESIZE",
       {
-        width: size.w,
-        height: size.h,
-        isOpen,
+        width: currentSize.w,
+        height: currentSize.h,
+        isOpen: isChatOpen,
       },
       window.parent,
     );
-  }, [size, isChatOpen]);
+    if (isChatOpen) {
+      ES.pagePostMessage("IF_C_GET_CURRENT_CONTROLS", {}, window.parent);
+    }
+  }, [isChatOpen, SIZES]);
 
   // Drag logic:
   // - Minimized: Only left 6-dot drag handle (`dragRef`).

@@ -14,16 +14,19 @@ const __lastLocation = { x: 0, y: 0 };
 
 // Collision detection function to keep back within viewport bounds
 const __applyCollisionDetection__ = (left, top) => {
-  const menuWidth = parseInt(__iframeSize.width);
-  const menuHeight = parseInt(__iframeSize.height);
+  const menuWidth = parseInt(__iframeSize.width) || 164;
+  const menuHeight = parseInt(__iframeSize.height) || 46;
+  const margin = 12;
 
   // Get viewport dimensions
   const VW = window.innerWidth;
   const VH = window.innerHeight;
 
-  // Constrain position to viewport bounds
-  const constrainedLeft = Math.max(0, Math.min(left, VW - menuWidth));
-  const constrainedTop = Math.max(0, Math.min(top, VH - menuHeight));
+  // Constrain position to viewport bounds with safe margin
+  const maxLeft = Math.max(0, VW - menuWidth - margin);
+  const maxTop = Math.max(0, VH - menuHeight - margin);
+  const constrainedLeft = Math.max(margin, Math.min(left, maxLeft));
+  const constrainedTop = Math.max(margin, Math.min(top, maxTop));
 
   return { x: constrainedLeft, y: constrainedTop };
 };
@@ -193,6 +196,7 @@ function detectPageTheme() {
 /* -------- Message Passing Section --------- */
 pageOnMessage("IF_C_MENU_WINDOW_MOVE", async (data) => {
   const { deltaX, deltaY } = data || {};
+  __isNoMoveOpenToClose = false;
   __menu_back__ = document.getElementById("__menuWindowBack");
   __main_menu__ = document.getElementById("__menuWindowIframe");
   if (__main_menu__ && deltaX !== undefined && deltaY !== undefined) {
@@ -234,22 +238,26 @@ pageOnMessage("IF_C_MENU_WINDOW_RESIZE", async (data) => {
   }
 
   const rect = __menu_back__.getBoundingClientRect();
-  let constrainedPosition = __applyCollisionDetection__(
-    rect.left - __spacing,
-    rect.top,
-  );
 
-  // if no change open and close then set old position
+  // If opening: remember closed position before expanding
   if (isOpen && !__isNoMoveOpenToClose) {
     __lastLocation.x = parseInt(rect.left);
     __lastLocation.y = parseInt(rect.top);
     __isNoMoveOpenToClose = true;
-  } else if (__isNoMoveOpenToClose) {
+  }
+
+  // Calculate constrained position ensuring full window stays inside viewport
+  const targetX = isOpen
+    ? rect.left - __spacing
+    : (__isNoMoveOpenToClose ? __lastLocation.x - __spacing : rect.left - __spacing);
+  const targetY = isOpen
+    ? rect.top
+    : (__isNoMoveOpenToClose ? __lastLocation.y : rect.top);
+
+  const constrainedPosition = __applyCollisionDetection__(targetX, targetY);
+
+  if (!isOpen && __isNoMoveOpenToClose) {
     __isNoMoveOpenToClose = false;
-    constrainedPosition = {
-      x: __lastLocation.x - __spacing,
-      y: __lastLocation.y,
-    };
   }
 
   __pointerOffset.x = constrainedPosition.x + __spacing;

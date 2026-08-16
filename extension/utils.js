@@ -59,50 +59,53 @@ function getActiveTab() {
 
 /** Send a message via chrome.runtime to the background/service worker */
 function runtimeSendMessage(type, message, callback) {
-   if (!chrome.runtime?.id) {
-      if (__isDevMode) {
-         originalConsoleError.call(console, "Message Error: Extension context invalidated.");
+   try {
+      if (!chrome.runtime?.id) {
+         if (typeof message === "function") message(undefined);
+         else callback && callback(undefined);
+         return;
       }
+      if (typeof message === "function") {
+         chrome.runtime.sendMessage({ type }, (response) => {
+            const err = chrome.runtime?.lastError;
+            if (err && __isDevMode) {
+               console.warn("Message Error:", err.message);
+            }
+            message(response);
+         });
+      } else {
+         chrome.runtime.sendMessage({ ...message, type }, (response) => {
+            const err = chrome.runtime?.lastError;
+            if (err && __isDevMode) {
+               console.warn("Message Error:", err.message);
+            }
+            callback && callback(response);
+         });
+      }
+   } catch {
       if (typeof message === "function") message(undefined);
       else callback && callback(undefined);
-      return;
-   }
-   if (typeof message === "function") {
-      chrome.runtime.sendMessage({ type }, (response) => {
-         const err = chrome.runtime.lastError;
-         if (err && __isDevMode) {
-            originalConsoleError.call(console, "Message Error:", err.message);
-         }
-         message(response);
-      });
-   } else {
-      chrome.runtime.sendMessage({ ...message, type }, (response) => {
-         const err = chrome.runtime.lastError;
-         if (err && __isDevMode) {
-            originalConsoleError.call(console, "Message Error:", err.message);
-         }
-         callback && callback(response);
-      });
    }
 }
 
 /** Listen for a specific message type via chrome.runtime */
 function runtimeOnMessage(type, callback) {
-   if (!chrome.runtime?.id) {
-      if (__isDevMode) {
-         originalConsoleError.call(console, "Message Error: Extension context invalidated.");
+   try {
+      if (!chrome.runtime?.id) {
+         return;
       }
-      return;
-   }
-   chrome.runtime.onMessage.addListener((message, sender, response) => {
-      if (type === message?.type) {
-         const isAsync = callback(message, sender, response);
-         if (isAsync === true) {
-            return true;
+      chrome.runtime.onMessage.addListener((message, sender, response) => {
+         if (type === message?.type) {
+            const isAsync = callback(message, sender, response);
+            if (isAsync === true) {
+               return true;
+            }
          }
-      }
-      return false;
-   });
+         return false;
+      });
+   } catch {
+      // Extension context invalidated gracefully ignored
+   }
 }
 
 /** Send a message to a specific tab */

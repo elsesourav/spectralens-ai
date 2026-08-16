@@ -1,7 +1,12 @@
-/* eslint-disable no-undef */
+/* global chrome */
 import PropTypes from "prop-types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { IoClose, IoSquare } from "react-icons/io5";
+import {
+  IoCheckmark,
+  IoClose,
+  IoCopyOutline,
+  IoSquare,
+} from "react-icons/io5";
 import { useTheme } from "../hooks/useThemeHook.jsx";
 import UTILS from "./../utils/utilsModule.js";
 import {
@@ -33,6 +38,7 @@ export default function ChatBot({
   const [viewedProviders, setViewedProviders] = useState(new Set());
   const [messageTime, setMessageTime] = useState("");
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+  const [isUserCopied, setIsUserCopied] = useState(false);
   const currentRequestIdRef = useRef(null);
   const lastQuestionRef = useRef("");
 
@@ -43,6 +49,30 @@ export default function ChatBot({
   const rootRef = useRef(null);
   const textareaRef = useRef(null);
   const moreMenuRef = useRef(null);
+
+  const scrollToBottom = useCallback((smooth = true) => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({
+        top: scrollContainerRef.current.scrollHeight,
+        behavior: smooth ? "smooth" : "auto",
+      });
+    }
+  }, []);
+
+  const handleCopyUserQuestion = useCallback(
+    (e) => {
+      e?.stopPropagation();
+      if (!lastQuestion) return;
+      navigator.clipboard
+        .writeText(lastQuestion)
+        .then(() => {
+          setIsUserCopied(true);
+          setTimeout(() => setIsUserCopied(false), 2000);
+        })
+        .catch(() => {});
+    },
+    [lastQuestion],
+  );
 
   const appIconUrl =
     typeof chrome !== "undefined" && chrome.runtime?.getURL
@@ -337,11 +367,17 @@ export default function ChatBot({
       lastQuestionRef.current = actualInput;
       setMessageTime(getFormattedTime());
       setInput("");
+      setIsMultiLineInput(false);
       if (textareaRef.current) {
         textareaRef.current.style.height = "24px";
       }
       setIsLoading(true);
       setAnswers({});
+
+      // Scroll to maximum bottom immediately on send
+      scrollToBottom(false);
+      setTimeout(() => scrollToBottom(true), 50);
+      setTimeout(() => scrollToBottom(true), 200);
 
       loadProvidersWithConcurrency(actualInput, requestId);
     },
@@ -351,6 +387,7 @@ export default function ChatBot({
       selectedProvider,
       aiProviders,
       displayedProviders,
+      scrollToBottom,
     ],
   );
 
@@ -462,34 +499,49 @@ export default function ChatBot({
     }
   }, [newChatTrigger, handleNewChat]);
 
-  const selectedAnswerObj = selectedProvider ? answers[selectedProvider] : null;
-  const selectedAnswerContent =
-    selectedAnswerObj?.content ||
-    selectedAnswerObj?.answer ||
-    (typeof selectedAnswerObj === "string" ? selectedAnswerObj : "");
-  const activeProviderObj = displayedProviders.find(
-    (p) => p.id === selectedProvider,
-  ) || {
-    id: selectedProvider || "google",
-    name: selectedProvider
-      ? selectedProvider.charAt(0).toUpperCase() + selectedProvider.slice(1)
-      : "Google AI",
-  };
+  // Providers list memoized
+  const allProvidersList = useMemo(() => {
+    const list = [...aiProviders];
+    const existingIds = new Set(aiProviders.map((p) => p.id));
+    Object.keys(answers).forEach((id) => {
+      if (!existingIds.has(id)) {
+        list.push({
+          id,
+          name: id.charAt(0).toUpperCase() + id.slice(1),
+          enabled: false,
+        });
+      }
+    });
+    return list;
+  }, [aiProviders, answers]);
+
+  const activeProviderObj = useMemo(() => {
+    return (
+      allProvidersList.find((p) => p.id === selectedProvider) || {
+        id: selectedProvider || "google",
+        name:
+          selectedProvider
+            ? selectedProvider.charAt(0).toUpperCase() +
+              selectedProvider.slice(1)
+            : "Google AI",
+      }
+    );
+  }, [allProvidersList, selectedProvider]);
+
+  const selectedAnswerContent = useMemo(() => {
+    if (!selectedProvider) return "";
+    const pAns = answers[selectedProvider];
+    return pAns?.content || pAns?.answer || (typeof pAns === "string" ? pAns : "");
+  }, [answers, selectedProvider]);
 
   return (
     <div
       ref={rootRef}
-      className="flex flex-col h-full bg-transparent text-slate-900 dark:text-slate-100 overflow-hidden select-none"
+      className="flex flex-col h-full w-full overflow-hidden text-slate-800 dark:text-slate-200 select-none"
     >
-      {/* Provider Selector Tabs Bar (Sleek modern segmented pills) */}
-      <div
-        className={`flex items-center justify-between px-3 py-2 border-b shrink-0 gap-1.5 z-10 ${
-          contrastMode === "solid"
-            ? "bg-slate-100 dark:bg-[#14161e] border-slate-200/90 dark:border-white/[0.08]"
-            : "bg-transparent border-slate-200/50 dark:border-white/[0.06]"
-        }`}
-      >
-        <div className="flex items-center gap-1.5 flex-1 overflow-x-auto custom-scrollbar">
+      {/* Provider Pill Bar */}
+      <div className="flex items-center justify-between gap-1.5 px-3.5 py-2 border-b border-slate-200/50 dark:border-white/[0.06] bg-slate-50/50 dark:bg-black/10 shrink-0">
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar flex-1 py-0.5">
           {primaryPills.map((provider) => {
             const isSelected =
               hasAnyActivity && selectedProvider === provider.id;
@@ -502,33 +554,35 @@ export default function ChatBot({
             const hasUnreadAnswer =
               hasAnswer &&
               !viewedProviders.has(provider.id) &&
-              selectedProvider !== provider.id;
-            const isClickable = hasAnyActivity;
+              !isSelected;
 
             return (
               <button
                 key={provider.id}
-                onClick={() => isClickable && handleSelectProvider(provider.id)}
-                disabled={!isClickable}
-                className={`relative h-8 flex items-center justify-center gap-1.5 px-3 rounded-xl text-xs transition-all duration-150 shrink-0 select-none ${
-                  !isClickable ? "opacity-60 cursor-default" : "cursor-pointer"
+                onClick={() => hasAnyActivity && handleSelectProvider(provider.id)}
+                disabled={!hasAnyActivity}
+                className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border shrink-0 focus:outline-none ${
+                  !hasAnyActivity
+                    ? "opacity-50 cursor-default"
+                    : "cursor-pointer"
                 } ${
                   isSelected
-                    ? "bg-blue-600 text-white font-bold shadow-xs ring-1 ring-blue-500/50"
+                    ? "bg-blue-600 text-white border-blue-500 shadow-xs scale-100"
                     : contrastMode === "solid"
-                      ? "bg-slate-200/80 dark:bg-white/[0.06] text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10 hover:text-slate-900 dark:hover:text-white font-semibold"
-                      : "bg-white/40 dark:bg-white/[0.05] text-slate-800 dark:text-slate-200 hover:bg-white/60 dark:hover:bg-white/10 font-semibold border border-slate-200/40 dark:border-white/[0.06]"
-                } ${!hasAnswer && isLoading ? "opacity-75" : ""}`}
+                      ? "bg-slate-200/80 dark:bg-white/[0.06] text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10 border-slate-200 dark:border-white/[0.06]"
+                      : "bg-white/40 dark:bg-white/[0.05] text-slate-800 dark:text-slate-200 hover:bg-white/60 dark:hover:bg-white/10 border-slate-200/40 dark:border-white/[0.06]"
+                }`}
               >
                 <ProviderIcon
                   id={provider.id}
-                  className="w-4 h-4 shrink-0"
-                  size={16}
+                  className="w-3.5 h-3.5 shrink-0"
+                  size={14}
                 />
-                <span className="truncate max-w-[70px]">{provider.name}</span>
+                <span>{provider.name}</span>
+
                 {hasUnreadAnswer && (
                   <span
-                    className="w-2 h-2 rounded-full bg-emerald-400 shadow-xs shadow-emerald-400/50 shrink-0 animate-pulse"
+                    className="w-2 h-2 rounded-full bg-emerald-500 shadow-xs shadow-emerald-500/50 shrink-0 animate-pulse"
                     title="New response ready"
                   />
                 )}
@@ -641,12 +695,34 @@ export default function ChatBot({
 
         {/* User Message Bubble */}
         {lastQuestion && (
-          <div className="flex flex-col items-end gap-1 animate-fade-in">
-            <div className="max-w-[85%] px-3.5 py-2.5 rounded-2xl rounded-tr-xs bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs">
-              <p className="text-xs leading-relaxed font-normal whitespace-pre-wrap">
+          <div className="flex flex-col items-end gap-1 animate-fade-in group">
+            <div className="relative max-w-[85%] px-3.5 py-2.5 rounded-2xl rounded-tr-xs bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs">
+              <p
+                className="text-xs leading-relaxed font-normal whitespace-pre-wrap break-words max-h-[7.2em] overflow-y-auto custom-scrollbar pr-1 select-text"
+                title={lastQuestion}
+              >
                 {lastQuestion}
               </p>
-              <div className="flex items-center justify-end gap-1 mt-1 text-[10px] text-blue-200/90 font-medium">
+              <div className="flex items-center justify-between gap-4 mt-2 pt-1.5 border-t border-white/15 text-[10px] text-blue-100 font-medium">
+                {/* Copy User Question Button */}
+                <button
+                  type="button"
+                  onClick={handleCopyUserQuestion}
+                  className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white/15 hover:bg-white/25 active:scale-95 transition-all text-white cursor-pointer focus:outline-none"
+                  title="Copy sent message"
+                >
+                  {isUserCopied ? (
+                    <>
+                      <IoCheckmark className="w-3 h-3 text-emerald-300" />
+                      <span className="text-emerald-200 text-[10px] font-semibold">Copied</span>
+                    </>
+                  ) : (
+                    <>
+                      <IoCopyOutline className="w-3 h-3 text-blue-100" />
+                      <span>Copy</span>
+                    </>
+                  )}
+                </button>
                 <span>{messageTime || getFormattedTime()}</span>
               </div>
             </div>
