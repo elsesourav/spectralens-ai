@@ -239,8 +239,8 @@ function runtimeOnMessage(type, callback) {
       }
       chrome.runtime.onMessage.addListener((message, sender, response) => {
          if (type === message?.type) {
-            const isAsync = callback(message, sender, response);
-            if (isAsync === true) {
+            const result = callback(message, sender, response);
+            if (result === true || (result && typeof result.then === "function")) {
                return true;
             }
          }
@@ -342,6 +342,313 @@ function sanitizeHtml(htmlString) {
    }
 }
 
+/**
+ * Converts a DOM element or HTML string into clean, beautiful GitHub Flavored Markdown (GFM).
+ * Handles code blocks with languages, tables, nested lists, KaTeX math, blockquotes,
+ * headings, task list checkboxes, strikethrough, and inline formatting.
+ *
+ * @param {Element|string} rootNode - DOM node or HTML string
+ * @returns {string} Clean Markdown formatted string
+ */
+function domToMarkdown(rootNode) {
+   if (!rootNode) return "";
+
+   function serializeNode(node, depth = 0, listType = null, listIndex = 1) {
+      if (!node) return "";
+
+      // 1. Text Node
+      if (node.nodeType === Node.TEXT_NODE) {
+         return node.nodeValue;
+      }
+
+      // 2. Ignore non-element nodes (comments, etc.)
+      if (node.nodeType !== Node.ELEMENT_NODE) {
+         return "";
+      }
+
+      const tag = node.tagName.toLowerCase();
+
+      // Ignore scripts, styles, SVGs, copy buttons, tooltips, dialogs
+      if (
+         [
+            "script", "style", "noscript", "svg", "button",
+            "mat-icon", "use", "path", "dialog", "form"
+         ].includes(tag) ||
+         node.getAttribute("aria-hidden") === "true" ||
+         node.getAttribute("role") === "dialog" ||
+         node.getAttribute("role") === "button" ||
+         node.getAttribute("role") === "toolbar" ||
+         node.classList?.contains("copy-button") ||
+         node.classList?.contains("action-button") ||
+         node.classList?.contains("screen-reader-only") ||
+         node.classList?.contains("sr-only") ||
+         node.classList?.contains("hidden") ||
+         node.style?.display === "none" ||
+         node.style?.visibility === "hidden"
+      ) {
+         return "";
+      }
+
+      // KaTeX / MathML formula handling
+      if (node.classList?.contains("katex-mathml") || node.classList?.contains("katex-html")) {
+         if (node.classList?.contains("katex-mathml")) {
+            const annotation = node.querySelector("annotation");
+            if (annotation) {
+               const isDisplay = node.closest(".katex-display") !== null;
+               return isDisplay
+                  ? `\n\n$$${annotation.textContent.trim()}$$\n\n`
+                  : `$${annotation.textContent.trim()}$`;
+            }
+         } else {
+            if (node.parentElement?.querySelector(".katex-mathml")) return "";
+         }
+      }
+
+      // Code blocks: <pre><code>
+      if (tag === "pre") {
+         const codeEl = node.querySelector("code") || node;
+         const langMatch = (codeEl.className || "").match(/language-([a-z0-9_-]+)/i);
+         const lang = langMatch ? langMatch[1] : "";
+         const codeContent = (codeEl.textContent || "").replace(/^\n+|\n+$/g, "");
+         return `\n\n\`\`\`${lang}\n${codeContent}\n\`\`\`\n\n`;
+      }
+
+      // Recursive children helper
+      const processChildren = () => {
+         let result = "";
+         let itemIdx = 1;
+         for (const child of node.childNodes) {
+            result += serializeNode(
+               child,
+               tag === "ul" || tag === "ol" ? depth + 1 : depth,
+               tag === "ol" ? "ol" : tag === "ul" ? "ul" : listType,
+               itemIdx
+            );
+            if (child.nodeType === Node.ELEMENT_NODE && child.tagName.toLowerCase() === "li") {
+               itemIdx++;
+            }
+         }
+         return result;
+      };
+
+      switch (tag) {
+         case "h1":
+            return `\n\n# ${processChildren().trim()}\n\n`;
+         case "h2":
+            return `\n\n## ${processChildren().trim()}\n\n`;
+         case "h3":
+            return `\n\n### ${processChildren().trim()}\n\n`;
+         case "h4":
+            return `\n\n#### ${processChildren().trim()}\n\n`;
+         case "h5":
+            return `\n\n##### ${processChildren().trim()}\n\n`;
+         case "h6":
+            return `\n\n###### ${processChildren().trim()}\n\n`;
+         case "p":
+            return `\n\n${processChildren().trim()}\n\n`;
+         case "br":
+            return "\n";
+         case "hr":
+            return "\n\n---\n\n";
+         case "strong":
+         case "b": {
+            const txt = processChildren().trim();
+            return txt ? `**${txt}**` : "";
+         }
+         case "em":
+         case "i": {
+            const txt = processChildren().trim();
+            return txt ? `*${txt}*` : "";
+         }
+         case "del":
+         case "s":
+         case "strike": {
+            const txt = processChildren().trim();
+            return txt ? `~~${txt}~~` : "";
+         }
+         case "mark": {
+            const txt = processChildren().trim();
+            return txt ? `==${txt}==` : "";
+         }
+         case "code": {
+            if (node.parentElement && node.parentElement.tagName.toLowerCase() === "pre") {
+               return processChildren();
+            }
+            const txt = processChildren().trim();
+            return txt ? `\`${txt}\`` : "";
+         }
+         case "blockquote": {
+            const content = processChildren().trim().replace(/\n/g, "\n> ");
+            return `\n\n> ${content}\n\n`;
+         }
+         case "ul":
+         case "ol": {
+            const listContent = processChildren().trim();
+            return depth === 1 ? `\n\n${listContent}\n\n` : `\n${listContent}`;
+         }
+         case "li": {
+            const indent = "  ".repeat(Math.max(0, depth - 1));
+            const prefix = listType === "ol" ? `${listIndex}. ` : "- ";
+
+            const checkbox = node.querySelector('input[type="checkbox"]');
+            let checkPrefix = "";
+            if (checkbox) {
+               checkPrefix = checkbox.checked ? "[x] " : "[ ] ";
+            }
+
+            const childContent = processChildren().trim();
+            return `\n${indent}${prefix}${checkPrefix}${childContent}`;
+         }
+         case "table": {
+            return `\n\n${parseTableToMarkdown(node)}\n\n`;
+         }
+         case "a": {
+            const href = node.getAttribute("href");
+            const linkText = processChildren().trim();
+            if (!href || href.startsWith("javascript:")) return linkText;
+            return `[${linkText || href}](${href})`;
+         }
+         default:
+            return processChildren();
+      }
+   }
+
+   function parseTableToMarkdown(tableEl) {
+      const rows = Array.from(tableEl.querySelectorAll("tr"));
+      if (rows.length === 0) return "";
+
+      const tableMatrix = [];
+      rows.forEach((row) => {
+         const cells = Array.from(row.querySelectorAll("th, td")).map((c) =>
+            c.textContent.trim().replace(/\|/g, "\\|").replace(/\n+/g, " ")
+         );
+         if (cells.length > 0) {
+            tableMatrix.push(cells);
+         }
+      });
+
+      if (tableMatrix.length === 0) return "";
+
+      const maxCols = Math.max(...tableMatrix.map((r) => r.length));
+      const normalized = tableMatrix.map((r) => {
+         const copy = [...r];
+         while (copy.length < maxCols) copy.push("");
+         return copy;
+      });
+
+      const header = `| ${normalized[0].join(" | ")} |`;
+      const separator = `| ${normalized[0].map(() => "---").join(" | ")} |`;
+      const bodyRows = normalized
+         .slice(1)
+         .map((r) => `| ${r.join(" | ")} |`)
+         .join("\n");
+
+      return `${header}\n${separator}${bodyRows ? `\n${bodyRows}` : ""}`;
+   }
+
+   let rawMd = "";
+   if (typeof rootNode === "string") {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(rootNode, "text/html");
+      rawMd = serializeNode(doc.body);
+   } else {
+      rawMd = serializeNode(rootNode);
+   }
+
+   let cleaned = rawMd
+      .replace(/\r\n/g, "\n")
+      .replace(/\n{3,}/g, "\n\n");
+
+   // Strip AI assistant footer noise, feedback forms, share links & legal boilerplate
+   cleaned = cleaned
+      .replace(/Quick results from the web[\s\S]*?(?=\n\n|\*\*[A-Z]|Hello|Hi\b|I am|Sure|Here|Please|$)/i, "")
+      .replace(/#*\s*Share public link[\s\S]*$/i, "")
+      .replace(/This public link shares a thread[\s\S]*$/i, "")
+      .replace(/Facebook\s+Gmail\s+X\s+Reddit\s+WhatsApp[\s\S]*$/i, "")
+      .replace(/Saved time\s*Clear\s*Helpful[\s\S]*$/i, "")
+      .replace(/(?:Saved time|Clear|Helpful|Comprehensive|Incorrect|Inappropriate|Not working|Unhelpful){2,}[\s\S]*$/i, "")
+      .replace(/A copy of this chat will be included[\s\S]*$/i, "")
+      .replace(/Thanks for letting us know[\s\S]*$/i, "")
+      .replace(/Google may use account and system data[\s\S]*$/i, "")
+      .replace(/For legal issues,\s*\[make a legal removal request\][\s\S]*$/i, "");
+
+   return cleaned.trim();
+}
+
+/**
+ * Converts formatted HTML into clean, structured Markdown text.
+ */
+function htmlToMarkdown(html) {
+   return domToMarkdown(html);
+}
+
+/**
+ * Converts clean Markdown text into secure styled HTML for rendering.
+ */
+function markdownToHtml(md) {
+   if (!md || typeof md !== "string") return "";
+   if (/<(?:div|p|h[1-6]|ul|ol|li|table|pre)[^>]*>/i.test(md)) {
+      return md; // Already HTML
+   }
+
+   let html = md
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+
+   // Code blocks (fenced)
+   html = html.replace(/```([a-z0-9_-]*)\n([\s\S]*?)```/g, (_, lang, code) => {
+      return `<pre class="bg-slate-900 text-slate-100 p-3 rounded-xl overflow-x-auto my-2 text-xs font-mono"><code class="language-${lang}">${code}</code></pre>`;
+   });
+
+   // Tables
+   html = html.replace(/(?:^|\n)(\|.+?\|\n\|[\s\-:|]+\|\n(?:\|.+?\|\n?)+)/g, (match) => {
+      const lines = match.trim().split("\n");
+      if (lines.length < 2) return match;
+      const headers = lines[0]
+         .split("|")
+         .filter((_, i, arr) => i > 0 && i < arr.length - 1)
+         .map((h) => `<th class="border border-slate-300 dark:border-slate-700 px-3 py-1.5 bg-slate-100 dark:bg-white/[0.06] text-xs font-bold">${h.trim()}</th>`)
+         .join("");
+      const rows = lines.slice(2).map((r) => {
+         const cells = r
+            .split("|")
+            .filter((_, i, arr) => i > 0 && i < arr.length - 1)
+            .map((c) => `<td class="border border-slate-300 dark:border-slate-700 px-3 py-1 text-xs">${c.trim()}</td>`)
+            .join("");
+         return `<tr>${cells}</tr>`;
+      }).join("");
+      return `<div class="overflow-x-auto my-2"><table class="w-full border-collapse border border-slate-300 dark:border-slate-700 text-left"><thead><tr>${headers}</tr></thead><tbody>${rows}</tbody></table></div>`;
+   });
+
+   // Blockquotes
+   html = html.replace(/(?:^|\n)>[ ]?(.*?)(?=\n[^\n>]|\n*$)/g, '<blockquote class="border-l-4 border-blue-500 pl-3 py-1 my-2 italic text-slate-600 dark:text-slate-300">$1</blockquote>');
+
+   // Headings
+   html = html.replace(/^### (.*?)$/gm, '<h3 class="text-sm font-bold text-slate-900 dark:text-white mt-3 mb-1">$1</h3>');
+   html = html.replace(/^## (.*?)$/gm, '<h2 class="text-base font-bold text-slate-900 dark:text-white mt-3.5 mb-1.5">$1</h2>');
+   html = html.replace(/^# (.*?)$/gm, '<h1 class="text-lg font-extrabold text-slate-900 dark:text-white mt-4 mb-2">$1</h1>');
+
+   // Inline styles
+   html = html.replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-slate-900 dark:text-white">$1</strong>');
+   html = html.replace(/\*(.*?)\*/g, '<em class="italic">$1</em>');
+   html = html.replace(/~~(.*?)~~/g, '<del class="line-through opacity-70">$1</del>');
+   html = html.replace(/`([^`]+)`/g, '<code class="px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-white/[0.08] text-blue-600 dark:text-blue-400 font-mono text-[11px]">$1</code>');
+
+   // Links
+   html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-blue-400 underline hover:text-blue-700 font-medium">$1</a>');
+
+   // Lists
+   html = html.replace(/^\s*-\s+(.*?)$/gm, '<li class="ml-4 list-disc text-xs leading-relaxed">$1</li>');
+   html = html.replace(/^\s*(\d+)\.\s+(.*?)$/gm, '<li class="ml-4 list-decimal text-xs leading-relaxed">$2</li>');
+
+   // Paragraphs & newlines
+   html = html.replace(/\n\n+/g, '<div class="my-2"></div>');
+   html = html.replace(/\n/g, '<br/>');
+
+   return html;
+}
+
 const extensionUtils = {
    // Messaging
    runtimeSendMessage,
@@ -364,6 +671,9 @@ const extensionUtils = {
    wait,
    debounce,
    sanitizeHtml,
+   domToMarkdown,
+   htmlToMarkdown,
+   markdownToHtml,
 
    // Constants
    KEYS,

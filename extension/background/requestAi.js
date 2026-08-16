@@ -13,6 +13,35 @@ function cancelAllAiRequests() {
   });
 }
 
+/* --- Error Formatting Helper --- */
+
+function formatProviderError(providerId, shortReason) {
+  const providerNames = {
+    google: "Google AI",
+    chatgpt: "ChatGPT",
+    claude: "Claude",
+    gemini: "Gemini",
+    grok: "Grok",
+    perplexity: "Perplexity",
+    bing: "Bing Copilot",
+  };
+  const name =
+    providerNames[providerId?.toLowerCase()] ||
+    (providerId
+      ? providerId.charAt(0).toUpperCase() + providerId.slice(1)
+      : "AI Provider");
+
+  const cleanShort = shortReason
+    ? String(shortReason)
+        .replace(/^Error:\s*/i, "")
+        .replace(/<[^>]*>/g, "")
+        .trim()
+        .slice(0, 60)
+    : "No response";
+
+  return `> ⚠️ **Please log in to ${name}**\n>\n> Unable to load response. Make sure you are signed in to **${name}** in your browser and have an active session, then ask again.\n\n*Error: ${cleanShort}*`;
+}
+
 /* --- Shared Helper --- */
 
 /**
@@ -27,6 +56,11 @@ function cancelAllAiRequests() {
  */
 function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
   return new Promise((resolve) => {
+    const providerId = extractArgs?.[0] || "ai";
+    console.log(
+      `[SpectraLens:Background] 🚀 fetchAiAnswer starting for url: ${url} (requestId: ${requestId})`,
+    );
+
     // If we have a new requestId, cancel all existing fetching tabs
     if (requestId && currentRequestId !== requestId) {
       activeAiTabs.forEach((id) => {
@@ -38,19 +72,29 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
 
     let isResolved = false;
     let timeoutId = null;
+    let isExecuting = false;
 
     chrome.tabs.create({ url, active: false }, (tab) => {
       if (!tab || !tab.id) {
-        resolve("<mark>Unable to open query tab. Please try again.</mark>");
+        console.error(
+          "[SpectraLens:Background] ❌ Failed to create tab for:",
+          url,
+        );
+        resolve(formatProviderError(providerId, "Tab creation failed"));
         return;
       }
 
       const tabId = tab.id;
       activeAiTabs.push(tabId);
+      console.log(
+        `[SpectraLens:Background] 📑 Tab #${tabId} created in background.`,
+      );
       chromeTabMediaAccess(tabId, true);
 
       function cleanup() {
         if (timeoutId) clearTimeout(timeoutId);
+        chrome.tabs.onUpdated.removeListener(listener);
+        chrome.tabs.onRemoved.removeListener(onRemoved);
         chromeTabMediaAccess(tabId, false);
         chrome.tabs.remove(tabId).catch(() => {});
         activeAiTabs = activeAiTabs.filter((id) => id !== tabId);
@@ -60,31 +104,56 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
         if (!isResolved) {
           isResolved = true;
           cleanup();
+          console.log(
+            `[SpectraLens:Background] ✅ fetchAiAnswer resolved for Tab #${tabId}, result length: ${val?.length || 0}`,
+          );
           resolve(val);
         }
       }
 
       // 25s timeout protection
       timeoutId = setTimeout(() => {
-        chrome.tabs.onUpdated.removeListener(listener);
-        chrome.tabs.onRemoved.removeListener(onRemoved);
-        safeResolve("<mark>Request timed out. Please check your network connection.</mark>");
+        console.warn(
+          `[SpectraLens:Background] ⏱️ Timeout reached for Tab #${tabId}`,
+        );
+        safeResolve(formatProviderError(providerId, "Request timed out"));
       }, 25000);
+
+      function runInjection() {
+        if (isResolved) return;
+
+        console.log(
+          `[SpectraLens:Background] 💉 Injecting adapter into Tab #${tabId}...`,
+        );
+        executeScriptReturn(
+          tabId,
+          extractFn,
+          (injectResult) => {
+            console.log(
+              `[SpectraLens:Background] 📥 Received execution result from Tab #${tabId}:`,
+              injectResult,
+            );
+            const cleanedHtml = injectResult?.[0]?.result || "";
+            // If result is valid non-empty markdown response, resolve
+            if (
+              cleanedHtml &&
+              !cleanedHtml.includes("No response generated") &&
+              !cleanedHtml.includes("Empty response") &&
+              !cleanedHtml.includes("Please log in to")
+            ) {
+              safeResolve(cleanedHtml);
+            }
+          },
+          extractArgs,
+        );
+      }
 
       function listener(updatedTabId, info) {
         if (updatedTabId === tabId && info.status === "complete") {
-          chrome.tabs.onUpdated.removeListener(listener);
-          chrome.tabs.onRemoved.removeListener(onRemoved);
-
-          executeScriptReturn(
-            tabId,
-            extractFn,
-            (injectResult) => {
-              const cleanedHtml = injectResult?.[0]?.result || "";
-              safeResolve(cleanedHtml);
-            },
-            extractArgs,
+          console.log(
+            `[SpectraLens:Background] 🌐 Tab #${tabId} load status: COMPLETE. Running adapter...`,
           );
+          runInjection();
         }
       }
 
@@ -93,9 +162,8 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
       // Handle cases where the tab is closed before it finishes (e.g. by cancellation)
       function onRemoved(removedTabId) {
         if (removedTabId === tabId) {
-          chrome.tabs.onRemoved.removeListener(onRemoved);
-          chrome.tabs.onUpdated.removeListener(listener);
-          safeResolve(""); // Resolve empty to let the UI discard it
+          console.log(`[SpectraLens:Background] 🚪 Tab #${tabId} was closed.`);
+          safeResolve("");
         }
       }
       chrome.tabs.onRemoved.addListener(onRemoved);
@@ -105,134 +173,157 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
 
 /* --- Provider Functions --- */
 
-async function getGoogleAiAnswer(q, requestId) {
-  const url = `https://www.google.com/search?q=${encodeURIComponent(q)}&sa=X&udm=50&hl=en`;
+/**
+ * Generic adapter runner executed inside the target provider tab
+ */
+function runTabAdapter(providerId, prompt) {
+  return new Promise(async (resolve) => {
+    function getShortError(pid, reason) {
+      if (typeof formatProviderError === "function") {
+        return formatProviderError(pid, reason);
+      }
+      return `> ⚠️ **Please log in to ${pid || "AI Provider"}**\n>\n> Unable to load response. Make sure you are signed in and have an active session.\n\n*Error: ${reason || "Failed"}*`;
+    }
 
-  return fetchAiAnswer(
-    url,
-    () => {
-      return new Promise(async (resolve) => {
-        async function findContent() {
-          const container = document.querySelector(
-            'div[data-container-id="main-col"]',
-          );
-          if (!container) return null;
-          return await getProcessedHTML(container, "google");
+    try {
+      console.log(
+        `[SpectraLens:Tab] 🚀 Running adapter for "${providerId}" with prompt: "${prompt.slice(0, 30)}..."`,
+      );
+      const adapter =
+        typeof ProviderAdapterRegistry !== "undefined"
+          ? ProviderAdapterRegistry.getAdapter(providerId) ||
+            ProviderAdapterRegistry.getAdapterForCurrentPage()
+          : null;
+
+      if (!adapter) {
+        console.error(
+          `[SpectraLens:Tab] ❌ Provider adapter not found for "${providerId}"`,
+        );
+        resolve(getShortError(providerId, "Adapter not found"));
+        return;
+      }
+
+      // 1. FAST PATH: Check if response container is already loaded (e.g. from direct search URL)
+      console.log(`[SpectraLens:Tab] Checking if response container is already present on page...`);
+      const existingContainer = adapter.findResponseContainer();
+      if (existingContainer && existingContainer.textContent.trim().length > 25) {
+        console.log(`[SpectraLens:Tab] 🎯 Response container already present on page. Observing response...`);
+        const answer = await adapter.observeResponse(15000);
+        resolve(answer || getShortError(providerId, "Empty response"));
+        return;
+      }
+
+      // 2. Otherwise: Locate input box (up to 12s)
+      let input = adapter.findInput();
+      let attempts = 0;
+      while (!input && attempts < 25) {
+        // Also check if response container appeared in the meantime
+        if (adapter.findResponseContainer()?.textContent?.trim()?.length > 25) {
+          console.log(`[SpectraLens:Tab] 🎯 Response container appeared while waiting for input!`);
+          const answer = await adapter.observeResponse(15000);
+          resolve(answer || getShortError(providerId, "Empty response"));
+          return;
         }
-        resolve(await pollForContent(findContent));
-      });
-    },
-    [],
-    requestId,
+        await new Promise((r) => setTimeout(r, 400));
+        input = adapter.findInput();
+        attempts++;
+      }
+
+      // If no input box and still no response container
+      if (!input) {
+        const finalCheck = adapter.findResponseContainer();
+        if (finalCheck && finalCheck.textContent.trim().length > 25) {
+          const answer = await adapter.observeResponse(15000);
+          resolve(answer || getShortError(providerId, "Empty response"));
+          return;
+        }
+        console.warn(
+          `[SpectraLens:Tab] ⚠️ Input box not found for "${providerId}" after 25 attempts.`,
+        );
+        resolve(getShortError(providerId, "Input box not found or login required"));
+        return;
+      }
+
+      console.log(
+        `[SpectraLens:Tab] ✍️ Input element located for "${providerId}". Inserting prompt...`,
+      );
+
+      // 3. Insert prompt
+      const inserted = await adapter.insertPrompt(prompt);
+      if (!inserted) {
+        console.error(
+          `[SpectraLens:Tab] ❌ Failed to insert prompt into "${providerId}" editor.`,
+        );
+        resolve(getShortError(providerId, "Failed to insert prompt"));
+        return;
+      }
+
+      await new Promise((r) => setTimeout(r, 300));
+
+      // 4. Submit
+      console.log(`[SpectraLens:Tab] 🔘 Submitting prompt for "${providerId}"...`);
+      await adapter.submit();
+
+      // 5. Observe and return streaming response
+      console.log(
+        `[SpectraLens:Tab] ⏳ Observing response for "${providerId}"...`,
+      );
+      const answer = await adapter.observeResponse(22000);
+      console.log(
+        `[SpectraLens:Tab] ✅ Response received for "${providerId}", length: ${answer?.length || 0}`,
+      );
+      resolve(answer || getShortError(providerId, "No response generated"));
+    } catch (e) {
+      console.error(`[SpectraLens:Tab] ❌ Error running adapter:`, e);
+      resolve(getShortError(providerId, e?.message || "Execution error"));
+    }
+  });
+}
+
+async function getGoogleAiAnswer(q, requestId) {
+  const url = "https://www.google.com/?hl=en";
+  console.log(
+    `[SpectraLens:Background] 🔍 getGoogleAiAnswer (opening google.com -> AI Mode ON -> typing & sending prompt) for: "${q}" (requestId: ${requestId})`,
   );
+
+  return fetchAiAnswer(url, runTabAdapter, ["google", q], requestId);
 }
 
 async function getBingAiAnswer(q, requestId) {
-  const url = `https://www.bing.com/copilotsearch?q=${encodeURIComponent(q)}&FORM=CSSCOP`;
-
-  return fetchAiAnswer(
-    url,
-    () => {
-      return new Promise(async (resolve) => {
-        async function findContent() {
-          const container = document
-            .querySelector(".frame_cont iframe")
-            ?.contentDocument?.querySelector("#ca_main .gs_multianshead_main");
-          if (!container) return "";
-          return await getProcessedHTML(container);
-        }
-        resolve(await pollForContent(findContent, "bing"));
-      });
-    },
-    [],
-    requestId,
+  const url = "https://www.bing.com/";
+  console.log(
+    `[SpectraLens:Background] 🔍 getBingAiAnswer (input + send button) triggered for: "${q}" (requestId: ${requestId})`,
   );
+
+  return fetchAiAnswer(url, runTabAdapter, ["bing", q], requestId);
 }
 
 async function getGrokAnswer(q, requestId) {
   const url = `https://grok.com/?q=${encodeURIComponent(q)}`;
 
-  return fetchAiAnswer(
-    url,
-    () => {
-      return new Promise(async (resolve) => {
-        async function findContent() {
-          const container1 = document.querySelector(
-            "main #last-reply-container > div:nth-child(2) > div > [dir='auto']",
-          );
-          const container2 = document.querySelector(
-            "main #last-reply-container .thinking-container ~ div",
-          );
-
-          const isLimitOver = [...document.querySelectorAll("div")].find((el) =>
-            el
-              .querySelector("h2")
-              ?.textContent.includes("Sign up to continue with Grok"),
-          );
-
-          if (isLimitOver) return false;
-          if (!container1 && !container2) return "";
-
-          return await getProcessedHTML(container1 || container2, "grok");
-        }
-        resolve(await pollForContent(findContent));
-      });
-    },
-    [],
-    requestId,
-  );
+  return fetchAiAnswer(url, runTabAdapter, ["grok", q], requestId);
 }
 
 async function getPerplexityAnswer(q, requestId) {
   const url = `https://www.perplexity.ai/search?q=${encodeURIComponent(q)}`;
 
-  return fetchAiAnswer(
-    url,
-    () => {
-      return new Promise(async (resolve) => {
-        async function findContent() {
-          const container = document.querySelector("#markdown-content-0");
-          if (!container) return "";
-          return await getProcessedHTML(container, "perplexity");
-        }
-        resolve(await pollForContent(findContent));
-      });
-    },
-    [],
-    requestId,
-  );
+  return fetchAiAnswer(url, runTabAdapter, ["perplexity", q], requestId);
 }
 
 async function getGeminiAnswer(q, requestId) {
   const url = "https://gemini.google.com/app?hl=en";
 
-  return fetchAiAnswer(
-    url,
-    (prompt) => {
-      return new Promise(async (resolve) => {
-        const getSearchArea = () => {
-          return document.querySelector(
-            "div.ql-editor.textarea, rich-textarea > div, div[contenteditable='true']",
-          );
-        };
+  return fetchAiAnswer(url, runTabAdapter, ["gemini", q], requestId);
+}
 
-        const isFindSearchArea = await pollForContent(getSearchArea);
-        if (!isFindSearchArea) {
-          resolve("");
-          return;
-        }
+async function getChatGptAnswer(q, requestId) {
+  const url = "https://chatgpt.com/";
 
-        await submitToGemini(prompt);
+  return fetchAiAnswer(url, runTabAdapter, ["chatgpt", q], requestId);
+}
 
-        async function findContent() {
-          const container = document.querySelector(".markdown-main-panel");
-          if (!container) return "";
-          return await getProcessedHTML(container, "gemini");
-        }
-        resolve(await pollForContent(findContent));
-      });
-    },
-    [q],
-    requestId,
-  );
+async function getClaudeAnswer(q, requestId) {
+  const url = "https://claude.ai/new";
+
+  return fetchAiAnswer(url, runTabAdapter, ["claude", q], requestId);
 }

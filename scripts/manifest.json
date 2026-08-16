@@ -32,6 +32,7 @@
       "js": [
         "./utils.js",
         "./content/enableCopy.js",
+        "./content/providerAdapters.js",
         "./content/content.js",
         "./content/menuContent.js"
       ]
@@ -49,7 +50,8 @@
         "inject/selection.html",
         "inject/menuWindow.html",
         "offscreen/offscreen.html",
-        "utils.js"
+        "utils.js",
+        "content/providerAdapters.js"
       ],
       "matches": ["http://*/*", "https://*/*"]
     }

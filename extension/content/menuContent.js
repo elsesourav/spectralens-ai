@@ -405,11 +405,16 @@ window.addEventListener("message", async (event) => {
   if (!msgType) return;
 
   if (msgType.includes("IF_B_")) {
-    // console.log("Received message from background:", event.data);
+    console.log(`[SpectraLens:ContentBridge] 🌉 Forwarding "${msgType}" from iframe to background:`, event.data);
 
     runtimeSendMessage(msgType, { ...event.data }, (res) => {
+      console.log(`[SpectraLens:ContentBridge] 📥 Received response from background for "${msgType}":`, res);
       const iframe = document.getElementById("__menuWindowIframe");
-      pagePostMessage(msgType, res, iframe?.contentWindow);
+      if (res) {
+        pagePostMessage(msgType, res, iframe?.contentWindow);
+      } else {
+        console.warn(`[SpectraLens:ContentBridge] ⚠️ Background returned empty/null response for "${msgType}"`);
+      }
     });
   } else if (msgType === "IF_C_GET_CURRENT_CONTROLS") {
     const iframe = document.getElementById("__menuWindowIframe");

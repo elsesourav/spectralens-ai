@@ -187,6 +187,7 @@ function __PUSH_MENU__(tabId) {
             frame.setAttribute("id", "__menuWindowIframe");
             frame.setAttribute("frameborder", "0");
             frame.setAttribute("allowtransparency", "true");
+            frame.setAttribute("allow", "clipboard-write; clipboard-read");
 
             frame.setAttribute(
                "style",

@@ -39,6 +39,7 @@ export default function ChatBot({
   const [messageTime, setMessageTime] = useState("");
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const [isUserCopied, setIsUserCopied] = useState(false);
+  const [copiedProviderId, setCopiedProviderId] = useState(null);
   const currentRequestIdRef = useRef(null);
   const lastQuestionRef = useRef("");
 
@@ -72,6 +73,59 @@ export default function ChatBot({
         .catch(() => {});
     },
     [lastQuestion],
+  );
+
+  const selectedAnswerContent = useMemo(() => {
+    if (!selectedProvider) return "";
+    const pAns = answers[selectedProvider];
+    return pAns?.content || pAns?.answer || (typeof pAns === "string" ? pAns : "");
+  }, [answers, selectedProvider]);
+
+  const handleCopyAiAnswer = useCallback(
+    (e) => {
+      e?.stopPropagation();
+      if (!selectedAnswerContent) return;
+      const cleanMarkdown = UTILS.htmlToMarkdown(selectedAnswerContent);
+
+      const fallbackCopy = (text) => {
+        try {
+          const tempArea = document.createElement("textarea");
+          tempArea.value = text;
+          tempArea.style.position = "fixed";
+          tempArea.style.left = "-9999px";
+          tempArea.style.top = "-9999px";
+          document.body.appendChild(tempArea);
+          tempArea.focus();
+          tempArea.select();
+          const success = document.execCommand("copy");
+          document.body.removeChild(tempArea);
+          if (success) {
+            setCopiedProviderId(selectedProvider);
+            setTimeout(() => setCopiedProviderId(null), 2000);
+          }
+        } catch (err) {
+          console.warn("[SpectraLens:ChatBot] fallbackCopy failed:", err);
+        }
+      };
+
+      if (
+        navigator.clipboard &&
+        typeof navigator.clipboard.writeText === "function"
+      ) {
+        navigator.clipboard
+          .writeText(cleanMarkdown)
+          .then(() => {
+            setCopiedProviderId(selectedProvider);
+            setTimeout(() => setCopiedProviderId(null), 2000);
+          })
+          .catch(() => {
+            fallbackCopy(cleanMarkdown);
+          });
+      } else {
+        fallbackCopy(cleanMarkdown);
+      }
+    },
+    [selectedAnswerContent, selectedProvider],
   );
 
   const appIconUrl =
@@ -254,6 +308,7 @@ export default function ChatBot({
     provider = "google",
     requestId,
   ) => {
+    console.log(`[SpectraLens:ChatBot] 🚀 Posting IF_B_GET_ANSWER for provider: "${provider}", query: "${question.slice(0, 30)}..." (requestId: ${requestId})`);
     UTILS.pagePostMessage(
       "IF_B_GET_ANSWER",
       { question, provider, requestId },
@@ -393,13 +448,18 @@ export default function ChatBot({
 
   useEffect(() => {
     UTILS.pageOnMessage("IF_B_GET_ANSWER", (data) => {
+      console.log("[SpectraLens:ChatBot] 📥 Received IF_B_GET_ANSWER in UI:", data);
+      if (!data || typeof data !== "object") return;
       if (data.requestId && data.requestId !== currentRequestIdRef.current) {
+        console.warn(`[SpectraLens:ChatBot] ⚠️ Discarding outdated response for requestId: ${data.requestId} (current: ${currentRequestIdRef.current})`);
         return;
       }
 
       const provider = data.provider || "google";
       const answerText =
         data.answer || data.content || (typeof data === "string" ? data : "");
+
+      console.log(`[SpectraLens:ChatBot] ✅ Updating answer for "${provider}", text length: ${answerText.length}`);
 
       setAnswers((prev) => {
         const isFirstAnswer = Object.keys(prev).length === 0;
@@ -527,12 +587,6 @@ export default function ChatBot({
       }
     );
   }, [allProvidersList, selectedProvider]);
-
-  const selectedAnswerContent = useMemo(() => {
-    if (!selectedProvider) return "";
-    const pAns = answers[selectedProvider];
-    return pAns?.content || pAns?.answer || (typeof pAns === "string" ? pAns : "");
-  }, [answers, selectedProvider]);
 
   return (
     <div
@@ -741,8 +795,8 @@ export default function ChatBot({
                     : "bg-white/30 dark:bg-white/[0.05] backdrop-blur-sm border-slate-200/30 dark:border-white/[0.05]"
               }`}
             >
-              {/* Provider Header Badge */}
-              <div className="flex items-center justify-between pb-1 border-b border-slate-100 dark:border-white/[0.04]">
+              {/* Provider Header Badge & Copy Button */}
+              <div className="flex items-center justify-between pb-1.5 border-b border-slate-100 dark:border-white/[0.04]">
                 <div className="flex items-center gap-2">
                   <ProviderIcon
                     id={activeProviderObj.id}
@@ -754,11 +808,13 @@ export default function ChatBot({
                   </span>
                 </div>
 
-                {isLoading && !selectedAnswerContent && (
-                  <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold animate-pulse">
-                    Streaming response...
-                  </span>
-                )}
+                <div className="flex items-center gap-2">
+                  {isLoading && !selectedAnswerContent && (
+                    <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold animate-pulse">
+                      Streaming response...
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Response Content Body */}
@@ -766,7 +822,11 @@ export default function ChatBot({
                 <div
                   className="ai-markdown text-slate-900 dark:text-slate-100 overflow-x-auto leading-relaxed font-normal"
                   dangerouslySetInnerHTML={{
-                    __html: UTILS.sanitizeHtml(selectedAnswerContent),
+                    __html: UTILS.sanitizeHtml(
+                      typeof UTILS.markdownToHtml === "function"
+                        ? UTILS.markdownToHtml(selectedAnswerContent)
+                        : selectedAnswerContent,
+                    ),
                   }}
                 />
               ) : (
@@ -787,9 +847,29 @@ export default function ChatBot({
                 </div>
               )}
 
-              {/* Timestamp at bottom right */}
+              {/* Footer with Timestamp and Action */}
               {selectedAnswerContent && (
-                <div className="flex items-center justify-end pt-1 border-t border-slate-100 dark:border-white/[0.04] text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-white/[0.04] text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                  <button
+                    type="button"
+                    onClick={handleCopyAiAnswer}
+                    className="flex items-center gap-1.5 px-2 py-0.5 rounded-md hover:bg-slate-100 dark:hover:bg-white/[0.08] hover:text-blue-600 dark:hover:text-blue-400 transition-all cursor-pointer focus:outline-none"
+                    title="Copy answer"
+                  >
+                    {copiedProviderId === selectedProvider ? (
+                      <>
+                        <IoCheckmark className="w-3.5 h-3.5 text-emerald-500" />
+                        <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                          Copied
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <IoCopyOutline className="w-3.5 h-3.5" />
+                        <span>Copy</span>
+                      </>
+                    )}
+                  </button>
                   <span>{messageTime || getFormattedTime()}</span>
                 </div>
               )}

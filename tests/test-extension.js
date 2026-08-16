@@ -79,6 +79,7 @@ const requiredFiles = [
   "background/background.js",
   "content/content.js",
   "content/enableCopy.js",
+  "content/providerAdapters.js",
   "offscreen/worker.js",
   "offscreen/offscreen.html",
   "assets/icons/16.png",

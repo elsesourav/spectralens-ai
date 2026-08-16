@@ -400,35 +400,63 @@ runtimeOnMessage(
   },
 );
 
+runtimeOnMessage("TAB_LOG", (data, sender) => {
+  const tag = data?.tag || (sender?.tab ? `Tab #${sender.tab.id}` : "Tab");
+  const msg = data?.message || "";
+  const extra = data?.data
+    ? typeof data.data === "object"
+      ? JSON.stringify(data.data)
+      : data.data
+    : "";
+  console.log(`[SpectraLens:${tag}] ${msg} ${extra}`);
+});
+
 runtimeOnMessage("IF_B_STOP_FETCH", (_, __, sendResponse) => {
   cancelAllAiRequests();
   sendResponse({ status: "cancelled" });
 });
 
-runtimeOnMessage("IF_B_GET_ANSWER", async ({ data }, { tab }, sendResponse) => {
-  // console.log("Received request for answer:", data);
+runtimeOnMessage("IF_B_GET_ANSWER", async (payload, sender, sendResponse) => {
+  const data = payload?.data || payload || {};
   const provider = data.provider || "google";
   const requestId = data.requestId;
+  const question = data.question || "";
+  console.log(`[SpectraLens:Background] 📨 Received IF_B_GET_ANSWER for provider: "${provider}", question: "${question.slice(0, 30)}..." (requestId: ${requestId})`);
 
-  let answer;
-  switch (provider) {
-    case "google":
-      answer = await getGoogleAiAnswer(data.question, requestId);
-      break;
-    case "bing":
-      answer = await getBingAiAnswer(data.question, requestId);
-      break;
-    case "perplexity":
-      answer = await getPerplexityAnswer(data.question, requestId);
-      break;
-    case "grok":
-      answer = await getGrokAnswer(data.question, requestId);
-      break;
-    case "gemini":
-      answer = await getGeminiAnswer(data.question, requestId);
-      break;
-    default:
-      answer = await getGoogleAiAnswer(data.question, requestId);
+  let answer = "";
+  try {
+    switch (provider) {
+      case "google":
+        answer = await getGoogleAiAnswer(question, requestId);
+        break;
+      case "bing":
+        answer = await getBingAiAnswer(question, requestId);
+        break;
+      case "perplexity":
+        answer = await getPerplexityAnswer(question, requestId);
+        break;
+      case "grok":
+        answer = await getGrokAnswer(question, requestId);
+        break;
+      case "gemini":
+        answer = await getGeminiAnswer(question, requestId);
+        break;
+      case "chatgpt":
+        answer = await getChatGptAnswer(question, requestId);
+        break;
+      case "claude":
+        answer = await getClaudeAnswer(question, requestId);
+        break;
+      default:
+        answer = await getGoogleAiAnswer(question, requestId);
+    }
+  } catch (err) {
+    console.error(`[SpectraLens:Background] ❌ Error in IF_B_GET_ANSWER for ${provider}:`, err);
+    answer = typeof formatProviderError === "function"
+      ? formatProviderError(provider, err?.message || "Failed to fetch response")
+      : `> ⚠️ **Please log in to ${provider}**\n>\n> Unable to load response.\n\n*Error: ${err?.message || "Failed"}*`;
   }
+
+  console.log(`[SpectraLens:Background] 📤 Sending response back to content script for provider: "${provider}", answer length: ${answer?.length || 0}`);
   sendResponse({ status: "success", answer, provider, requestId });
 });

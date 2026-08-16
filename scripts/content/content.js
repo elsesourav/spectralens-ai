@@ -158,6 +158,15 @@ function getProcessedHTML(container, provider) {
           removeElementsBySelector(container, "* > button:has(mat-icon)");
           removeElementsBySelector(container, "response-element");
           break;
+
+        case "chatgpt":
+          removeElementsBySelector(container, "button");
+          removeElementsBySelector(container, "[data-testid*='copy']");
+          break;
+
+        case "claude":
+          removeElementsBySelector(container, "button");
+          break;
       }
     }
 
@@ -251,6 +260,77 @@ async function submitToGemini(prompt) {
     }
   } else {
     console.error("Gemini input box not found.");
+  }
+}
+
+/** Type a prompt into ChatGPT editor and submit it */
+async function submitToChatGpt(prompt) {
+  const editor = document.querySelector(
+    "#prompt-textarea, textarea[data-id='root'], div[contenteditable='true'][id='prompt-textarea']",
+  );
+
+  if (editor) {
+    if (editor.tagName.toLowerCase() === "textarea") {
+      editor.value = prompt;
+      editor.dispatchEvent(new Event("input", { bubbles: true }));
+      editor.dispatchEvent(new Event("change", { bubbles: true }));
+    } else {
+      editor.textContent = prompt;
+      editor.dispatchEvent(
+        new InputEvent("input", {
+          bubbles: true,
+          cancelable: true,
+          inputType: "insertText",
+          data: prompt,
+        }),
+      );
+    }
+
+    await new Promise((r) => setTimeout(r, 200));
+
+    const sendBtn = document.querySelector(
+      "button[data-testid='send-button'], button[aria-label*='Send prompt'], button[aria-label*='Send']",
+    );
+    if (sendBtn && !sendBtn.disabled) {
+      sendBtn.click();
+    } else {
+      editor.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          code: "Enter",
+          keyCode: 13,
+          bubbles: true,
+        }),
+      );
+    }
+  }
+}
+
+/** Type a prompt into Claude editor and submit it */
+async function submitToClaude(prompt) {
+  const editor = document.querySelector(
+    "div.ProseMirror, fieldset div[contenteditable='true'], div[contenteditable='true']",
+  );
+
+  if (editor) {
+    editor.textContent = prompt;
+    editor.dispatchEvent(
+      new InputEvent("input", {
+        bubbles: true,
+        cancelable: true,
+        inputType: "insertText",
+        data: prompt,
+      }),
+    );
+
+    await new Promise((r) => setTimeout(r, 200));
+
+    const sendBtn = document.querySelector(
+      "button[aria-label*='Send Message'], button[aria-label*='Send']",
+    );
+    if (sendBtn) {
+      sendBtn.click();
+    }
   }
 }
 
