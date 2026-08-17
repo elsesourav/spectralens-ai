@@ -18,7 +18,7 @@ export default function Menu() {
 
   const SIZES = useMemo(
     () => ({
-      min: { w: "126px", h: "46px" },
+      min: { w: "154px", h: "48px" },
       max: { w: "440px", h: "600px" },
     }),
     [],
@@ -32,6 +32,10 @@ export default function Menu() {
   const [autoMinimizeDelay, setAutoMinimizeDelay] = useState(0);
   const [pendingScanInput, setPendingScanInput] = useState(null);
   const [loadedHistoryItem, setLoadedHistoryItem] = useState(null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [isDraggingWidget, setIsDraggingWidget] = useState(false);
+  const [dragHover, setDragHover] = useState(false);
+  const [chatHover, setChatHover] = useState(false);
 
   const menuRef = useRef(null);
   const dragRef = useRef(null);
@@ -39,6 +43,30 @@ export default function Menu() {
   const windowContainerRef = useRef(null);
   const [newChatKey, setNewChatKey] = useState(0);
   const [isAlwaysActive, setIsAlwaysActive] = useState(false);
+
+  // Check first-time onboarding hint
+  useEffect(() => {
+    ES.chromeStorageGetLocal(ES.KEYS.WIDGET_HINT_SEEN, (seen) => {
+      if (!seen) {
+        setShowOnboarding(true);
+        const timer = setTimeout(() => {
+          setShowOnboarding(false);
+          ES.chromeStorageSetLocal(ES.KEYS.WIDGET_HINT_SEEN, true);
+        }, 3000);
+        return () => clearTimeout(timer);
+      }
+    });
+  }, []);
+
+  const dismissOnboarding = useCallback(() => {
+    setShowOnboarding((prev) => {
+      if (prev) {
+        ES.chromeStorageSetLocal(ES.KEYS.WIDGET_HINT_SEEN, true);
+        return false;
+      }
+      return false;
+    });
+  }, []);
 
   // Check and observe Always Active Tab status
   useEffect(() => {
@@ -300,7 +328,7 @@ export default function Menu() {
   }, [isChatOpen, SIZES]);
 
   // Drag logic:
-  // - Minimized: Only left 6-dot drag handle (`dragRef`).
+  // - Minimized: Only dedicated 6-dot drag handle (`dragRef`).
   // - Expanded: Drag from ONLY the top header bar (`headerRef`). Left sidebar/panel and content are not draggable.
   useEffect(() => {
     const handlePointerDown = (e) => {
@@ -313,6 +341,11 @@ export default function Menu() {
         )
       ) {
         return;
+      }
+
+      dismissOnboarding();
+      if (!isChatOpen) {
+        setIsDraggingWidget(true);
       }
 
       let lastX = e.clientX;
@@ -334,6 +367,7 @@ export default function Menu() {
       };
 
       const handlePointerUp = () => {
+        setIsDraggingWidget(false);
         window.removeEventListener("pointermove", handlePointerMove);
         window.removeEventListener("pointerup", handlePointerUp);
         window.removeEventListener("pointercancel", handlePointerUp);
@@ -414,64 +448,133 @@ export default function Menu() {
       <main
         data-theme={effectiveTheme}
         data-contrast={contrastMode}
-        className={`relative overflow-hidden transition-all duration-300 ease-out shadow-2xl ${
-          isChatOpen ? "rounded-[20px]" : "rounded-[24px]"
-        } ${contrastClass} ${!isChatOpen && !isDimmed ? "animated-pill-glow" : ""}`}
+        className={`relative ${
+          isChatOpen ? "overflow-hidden rounded-[20px]" : "overflow-visible rounded-[24px]"
+        } transition-all duration-300 ease-out shadow-2xl ${contrastClass} ${
+          !isChatOpen && !isDimmed ? "animated-pill-glow" : ""
+        }`}
         style={{
           width: isChatOpen ? SIZES.max.w : SIZES.min.w,
           height: isChatOpen ? SIZES.max.h : SIZES.min.h,
         }}
       >
         {/* ======================================================== */}
-        {/* Minimized Pill Mode (Pixel-perfect matching user image)  */}
+        {/* Minimized Pill Mode (Pixel-perfect matching UX design)   */}
         {/* ======================================================== */}
         <div
-          className={`relative w-full h-full px-2 py-1 items-center justify-between select-none overflow-hidden rounded-[24px] ${
+          className={`relative w-full h-full px-2.5 py-1.5 items-center justify-between select-none overflow-visible rounded-[24px] ${
             isChatOpen ? "hidden" : "flex"
           }`}
         >
-          {/* Background ambient violet-blue gradient on the right section */}
-          <div className="absolute right-0 top-0 bottom-0 w-2/3 bg-gradient-to-r from-transparent via-[#8b5cf6]/15 dark:via-[#8b5cf6]/20 to-[#3b82f6]/20 dark:to-[#3b82f6]/25 rounded-r-[24px] pointer-events-none" />
+          {/* Subtle Ambient right-side glow */}
+          <div className="absolute right-0 top-0 bottom-0 w-1/2 bg-gradient-to-r from-transparent via-[#8b5cf6]/10 dark:via-[#8b5cf6]/15 to-[#3b82f6]/15 dark:to-[#3b82f6]/20 rounded-r-[24px] pointer-events-none" />
 
-          {/* Left section: App Logo & 6-Dots Drag Handle (Covered by __menuWindowBack: 0px to 84px) */}
+          {/* 1. LEFT: Brand Identity (SpectraLens Logo) */}
           <div
-            ref={dragRef}
-            className="flex items-center gap-3 pl-1 z-10 shrink-0 cursor-grab active:cursor-grabbing select-none"
-            title="Drag to reposition widget"
+            className="flex items-center justify-center shrink-0 select-none pointer-events-none"
+            title="SpectraLens AI"
           >
-            <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-blue-500/20 via-indigo-500/20 to-purple-500/20 ring-2 ring-blue-400/50 dark:ring-blue-400/40 flex items-center justify-center shadow-xs shrink-0 pointer-events-none">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500/20 via-indigo-500/20 to-purple-500/20 ring-1.5 ring-blue-400/40 dark:ring-blue-400/50 flex items-center justify-center shadow-xs">
               {appIconUrl ? (
                 <img
                   src={appIconUrl}
                   alt="SpectraLens AI"
-                  className="w-4.5 h-4.5 rounded-md object-contain pointer-events-none"
+                  className="w-5 h-5 rounded-md object-contain pointer-events-none"
                 />
               ) : (
-                <div className="w-3.5 h-3.5 rounded-full bg-blue-600" />
+                <div className="w-4 h-4 rounded-full bg-blue-600" />
               )}
             </div>
-            <DragHandleIcon
-              className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
-              size={16}
-            />
           </div>
 
-          {/* Right section: Chat Button */}
-          <div className="flex items-center pr-1 z-10 shrink-0">
+          {/* Hairline Separator 1 */}
+          <div className="w-[1px] h-4 bg-slate-300/40 dark:bg-white/10 shrink-0 pointer-events-none" />
+
+          {/* 2. MIDDLE: Dedicated Drag Handle (6 Dots) */}
+          <div className="relative flex items-center justify-center">
+            <div
+              ref={dragRef}
+              onMouseEnter={() => setDragHover(true)}
+              onMouseLeave={() => setDragHover(false)}
+              onPointerDown={dismissOnboarding}
+              role="button"
+              tabIndex={-1}
+              aria-label="Drag SpectraLens AI widget"
+              className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-150 select-none ${
+                isDraggingWidget
+                  ? "cursor-grabbing bg-emerald-500/25 ring-1 ring-emerald-500/60 text-emerald-400 scale-95"
+                  : dragHover
+                    ? "cursor-grab bg-emerald-500/10 dark:bg-emerald-500/15 ring-1 ring-emerald-500/30 text-emerald-500 dark:text-emerald-400 shadow-xs"
+                    : "cursor-grab text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+              }`}
+            >
+              <DragHandleIcon
+                className="w-4 h-4 transition-colors"
+                size={16}
+              />
+            </div>
+
+            {/* Hover Tooltip: "Drag to move" */}
+            {dragHover && !isDraggingWidget && !showOnboarding && (
+              <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-md bg-slate-900/95 dark:bg-black/95 text-emerald-300 text-[9px] font-semibold tracking-wide shadow-lg border border-emerald-500/30 whitespace-nowrap pointer-events-none z-50">
+                Drag to move
+              </div>
+            )}
+
+            {/* First-time Onboarding Hint for Drag */}
+            {showOnboarding && (
+              <div className="absolute -top-7 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none z-50">
+                <div className="px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[9px] font-bold shadow-md shadow-emerald-900/40 whitespace-nowrap">
+                  Drag to move
+                </div>
+                <div className="w-1.5 h-1.5 bg-emerald-600 rotate-45 -mt-0.5" />
+              </div>
+            )}
+          </div>
+
+          {/* Hairline Separator 2 */}
+          <div className="w-[1px] h-4 bg-slate-300/40 dark:bg-white/10 shrink-0 pointer-events-none" />
+
+          {/* 3. RIGHT: Primary Chat Button (💬) */}
+          <div className="relative flex items-center justify-center">
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
+                dismissOnboarding();
                 toggleChat();
               }}
-              className="w-7 h-7 rounded-full flex items-center justify-center p-1 border border-slate-300/80 dark:border-white/25 bg-white/40 dark:bg-white/10 hover:bg-white/80 dark:hover:bg-white/20 hover:border-blue-400/70 dark:hover:border-blue-400/60 text-slate-800 dark:text-white shadow-2xs hover:scale-105 active:scale-95 transition-all focus:outline-none cursor-pointer"
-              title="Open Chat Window"
+              onMouseEnter={() => setChatHover(true)}
+              onMouseLeave={() => setChatHover(false)}
+              aria-label="Open SpectraLens AI"
+              className={`w-8 h-8 rounded-full flex items-center justify-center p-1 border transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-purple-400/70 cursor-pointer ${
+                chatHover
+                  ? "bg-gradient-to-tr from-purple-600/30 to-blue-600/30 border-purple-400/60 ring-2 ring-purple-400/40 text-white scale-[1.03] shadow-md shadow-purple-500/20"
+                  : "bg-white/40 dark:bg-white/10 border-slate-300/80 dark:border-white/20 text-slate-800 dark:text-white active:scale-[0.97]"
+              }`}
             >
               <ChatIcon
                 className="w-4 h-4 text-slate-800 dark:text-white"
                 size={16}
               />
             </button>
+
+            {/* Hover Tooltip: "Open SpectraLens AI" */}
+            {chatHover && !showOnboarding && (
+              <div className="absolute -bottom-7 right-0 px-2 py-0.5 rounded-md bg-slate-900/95 dark:bg-black/95 text-purple-200 text-[9px] font-semibold tracking-wide shadow-lg border border-purple-500/30 whitespace-nowrap pointer-events-none z-50">
+                Open SpectraLens AI
+              </div>
+            )}
+
+            {/* First-time Onboarding Hint for Chat */}
+            {showOnboarding && (
+              <div className="absolute -top-7 right-0 flex flex-col items-center pointer-events-none z-50">
+                <div className="px-2 py-0.5 rounded-md bg-purple-600 text-white text-[9px] font-bold shadow-md shadow-purple-900/40 whitespace-nowrap">
+                  Click to chat
+                </div>
+                <div className="w-1.5 h-1.5 bg-purple-600 rotate-45 -mt-0.5" />
+              </div>
+            )}
           </div>
         </div>
 

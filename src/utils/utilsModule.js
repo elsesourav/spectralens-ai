@@ -14,6 +14,7 @@ const KEYS = {
    ALWAYS_ACTIVE_HOSTS: "alwaysActiveHosts",
    ENABLE_COPY_HOSTS: "enableCopyHosts",
    MENU_HOSTS: "menuHosts",
+   WIDGET_HINT_SEEN: "spectralens_widget_hint_seen",
 };
 
 /* ----------- Developer Mode (Error Suppression) ----------- */
