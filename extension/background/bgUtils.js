@@ -5,8 +5,8 @@ async function ensureOffscreen() {
          console.log("[Background] Creating offscreen document for OCR worker...");
          await chrome.offscreen.createDocument({
             url: chrome.runtime.getURL("offscreen/offscreen.html"),
-            reasons: ["BLOBS"],
-            justification: "Need hidden DOM/canvas for OCR processing",
+            reasons: ["BLOBS", "DOM_PARSER", "IFRAME_SCRIPTING"],
+            justification: "Need hidden DOM/canvas for OCR and background processing",
          });
          console.log("[Background] Offscreen document created successfully.");
       }
