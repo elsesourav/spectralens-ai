@@ -26,9 +26,12 @@ export default function Controls() {
 
   const [aiList, setAiList] = useState(DEFAULT_AI_OPTIONS);
   const [toastMessage, setToastMessage] = useState("");
+  const [toastType, setToastType] = useState("info");
   const [isToastVisible, setIsToastVisible] = useState(false);
+  const [confirmSwitchData, setConfirmSwitchData] = useState(null);
 
-  const showToast = (msg) => {
+  const showToast = (msg, type = "info") => {
+    setToastType(type);
     setToastMessage(msg);
     setIsToastVisible(true);
   };
@@ -235,55 +238,69 @@ export default function Controls() {
     ],
   );
 
-  // Toggle Provider: if 3 already active and turning on 4th, turn off 3rd and move new one to 3rd position
+  // Toggle Provider: if 3 already active and turning on 4th, open theme-aware confirmation modal
   const handleToggleProvider = (providerId) => {
-    setAiList((prevList) => {
-      const target = prevList.find((p) => p.id === providerId);
-      if (!target) return prevList;
+    const target = aiList.find((p) => p.id === providerId);
+    if (!target) return;
 
-      const willEnable = !target.enabled;
-
-      if (!willEnable) {
-        // Disabling provider
+    if (target.enabled) {
+      // Disabling provider is always direct
+      setAiList((prevList) => {
         const updated = prevList.map((p) =>
           p.id === providerId ? { ...p, enabled: false } : p,
         );
         saveControlsSettings(updated);
         return updated;
-      }
+      });
+      return;
+    }
 
-      // User is enabling a model:
-      const activeList = prevList.filter((p) => p.enabled);
+    // Enabling a model:
+    const activeList = aiList.filter((p) => p.enabled);
+    if (activeList.length >= 3) {
+      // Open confirmation switcher modal so user selects which active model to replace
+      setConfirmSwitchData({
+        targetProvider: target,
+        activeProviders: activeList,
+        selectedReplaceId: activeList[2]?.id || activeList[0]?.id,
+      });
+      return;
+    }
 
-      if (activeList.length >= 3) {
-        // Turn OFF the 3rd active model and activate the new model
-        const thirdActive = activeList[2];
-
-        const updated = prevList.map((p) => {
-          if (p.id === providerId) return { ...p, enabled: true };
-          if (p.id === thirdActive.id) return { ...p, enabled: false };
-          return p;
-        });
-
-        // Ensure newly enabled model is placed in active slot 3
-        const newActive = updated.filter((p) => p.enabled);
-        const newInactive = updated.filter((p) => !p.enabled);
-        const ordered = [...newActive, ...newInactive];
-
-        saveControlsSettings(ordered);
-        showToast(
-          `Switched "${thirdActive.name}" to "${target.name}" (Max 3 active)`,
-        );
-        return ordered;
-      }
-
-      // Less than 3 active models
+    // Less than 3 active models: direct enable
+    setAiList((prevList) => {
       const updated = prevList.map((p) =>
         p.id === providerId ? { ...p, enabled: true } : p,
       );
       saveControlsSettings(updated);
+      showToast(`Activated ${target.name}`, "success");
       return updated;
     });
+  };
+
+  // Confirm replacement of an active model with target model
+  const executeProviderSwitch = (replaceId, targetProvider) => {
+    const replaced = aiList.find((p) => p.id === replaceId);
+    setAiList((prevList) => {
+      const updated = prevList.map((p) => {
+        if (p.id === targetProvider.id) return { ...p, enabled: true };
+        if (p.id === replaceId) return { ...p, enabled: false };
+        return p;
+      });
+
+      const newActive = updated.filter((p) => p.enabled);
+      const newInactive = updated.filter((p) => !p.enabled);
+      const ordered = [...newActive, ...newInactive];
+
+      saveControlsSettings(ordered);
+      return ordered;
+    });
+
+    setConfirmSwitchData(null);
+    showToast(
+      `Switched "${replaced?.name || "model"}" to "${targetProvider.name}" (Max 3 active)`,
+      "success",
+    );
   };
 
   // Move Priority Up / Down (Only active among enabled models)
@@ -779,11 +796,119 @@ export default function Controls() {
         </section>
       </div>
 
+      {/* Confirmation Modal for >3 Providers */}
+      {confirmSwitchData && (
+        <div
+          className="fixed inset-0 z-50 bg-black/50 dark:bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
+          onClick={() => setConfirmSwitchData(null)}
+        >
+          <div
+            className={`w-full max-w-[320px] rounded-2xl border shadow-2xl p-4.5 space-y-4 animate-scale-up ${
+              contrastMode === "solid"
+                ? "bg-white dark:bg-[#191c25] border-slate-200/90 dark:border-white/10"
+                : "bg-white/95 dark:bg-[#191c25]/95 backdrop-blur-md border-slate-200/80 dark:border-white/10"
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                <ProviderIcon
+                  id={confirmSwitchData.targetProvider.id}
+                  className="w-5 h-5"
+                  size={20}
+                />
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
+                  Switch Active AI Model
+                </h4>
+                <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-snug">
+                  Max 3 models can run in parallel. Select which model to replace with{" "}
+                  <strong className="text-blue-600 dark:text-blue-400 font-bold">
+                    {confirmSwitchData.targetProvider.name}
+                  </strong>:
+                </p>
+              </div>
+            </div>
+
+            {/* Active Models Radio Selection */}
+            <div className="space-y-1.5 pt-1">
+              {confirmSwitchData.activeProviders.map((activeModel) => {
+                const isSelected =
+                  confirmSwitchData.selectedReplaceId === activeModel.id;
+                return (
+                  <button
+                    key={activeModel.id}
+                    type="button"
+                    onClick={() =>
+                      setConfirmSwitchData((prev) => ({
+                        ...prev,
+                        selectedReplaceId: activeModel.id,
+                      }))
+                    }
+                    className={`w-full flex items-center justify-between p-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                      isSelected
+                        ? "bg-blue-600/10 border-blue-500 text-blue-600 dark:text-blue-400 shadow-xs"
+                        : "bg-slate-100/80 dark:bg-white/[0.04] border-slate-200/70 dark:border-white/[0.06] text-slate-700 dark:text-slate-300 hover:bg-slate-200/80 dark:hover:bg-white/10"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <ProviderIcon
+                        id={activeModel.id}
+                        className="w-4 h-4 shrink-0"
+                        size={16}
+                      />
+                      <span>{activeModel.name}</span>
+                    </div>
+                    <div
+                      className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                        isSelected
+                          ? "border-blue-600 bg-blue-600 text-white"
+                          : "border-slate-400 dark:border-slate-500"
+                      }`}
+                    >
+                      {isSelected && (
+                        <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-white/[0.06]">
+              <button
+                type="button"
+                onClick={() => setConfirmSwitchData(null)}
+                className="px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10 transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  executeProviderSwitch(
+                    confirmSwitchData.selectedReplaceId,
+                    confirmSwitchData.targetProvider,
+                  )
+                }
+                className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-xs hover:scale-[1.02] active:scale-95 transition-all cursor-pointer"
+              >
+                Switch Model
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Toast Notification */}
       <Toast
         message={toastMessage}
         isVisible={isToastVisible}
         onClose={() => setIsToastVisible(false)}
+        type={toastType}
       />
     </div>
   );

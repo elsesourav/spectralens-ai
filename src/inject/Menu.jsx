@@ -114,7 +114,6 @@ export default function Menu() {
     const unsubs = [
       ES.pageOnMessage("C_IF_OPEN_CHAT", () => {
         setIsChatOpen(true);
-        setActiveTab("chat");
         setMenuOpacity("1");
       }),
       ES.pageOnMessage("C_IF_SET_INPUTS", (data) => {
@@ -428,77 +427,82 @@ export default function Menu() {
         {/* ======================================================== */}
         {/* Minimized Pill Mode (Pixel-perfect matching user image)  */}
         {/* ======================================================== */}
-        {!isChatOpen ? (
-          <div className="relative w-full h-full px-2 py-1 flex items-center justify-between select-none overflow-hidden rounded-[24px]">
-            {/* Background ambient violet-blue gradient on the right section */}
-            <div className="absolute right-0 top-0 bottom-0 w-2/3 bg-gradient-to-r from-transparent via-[#8b5cf6]/15 dark:via-[#8b5cf6]/20 to-[#3b82f6]/20 dark:to-[#3b82f6]/25 rounded-r-[24px] pointer-events-none" />
+        <div
+          className={`relative w-full h-full px-2 py-1 items-center justify-between select-none overflow-hidden rounded-[24px] ${
+            isChatOpen ? "hidden" : "flex"
+          }`}
+        >
+          {/* Background ambient violet-blue gradient on the right section */}
+          <div className="absolute right-0 top-0 bottom-0 w-2/3 bg-gradient-to-r from-transparent via-[#8b5cf6]/15 dark:via-[#8b5cf6]/20 to-[#3b82f6]/20 dark:to-[#3b82f6]/25 rounded-r-[24px] pointer-events-none" />
 
-            {/* Left section: App Logo & 6-Dots Drag Handle (Covered by __menuWindowBack: 0px to 84px) */}
-            <div
-              ref={dragRef}
-              className="flex items-center gap-3 pl-1 z-10 shrink-0 cursor-grab active:cursor-grabbing select-none"
-              title="Drag to reposition widget"
+          {/* Left section: App Logo & 6-Dots Drag Handle (Covered by __menuWindowBack: 0px to 84px) */}
+          <div
+            ref={dragRef}
+            className="flex items-center gap-3 pl-1 z-10 shrink-0 cursor-grab active:cursor-grabbing select-none"
+            title="Drag to reposition widget"
+          >
+            <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-blue-500/20 via-indigo-500/20 to-purple-500/20 ring-2 ring-blue-400/50 dark:ring-blue-400/40 flex items-center justify-center shadow-xs shrink-0 pointer-events-none">
+              {appIconUrl ? (
+                <img
+                  src={appIconUrl}
+                  alt="SpectraLens AI"
+                  className="w-4.5 h-4.5 rounded-md object-contain pointer-events-none"
+                />
+              ) : (
+                <div className="w-3.5 h-3.5 rounded-full bg-blue-600" />
+              )}
+            </div>
+            <DragHandleIcon
+              className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
+              size={16}
+            />
+          </div>
+
+          {/* Right section: 2 Action Buttons (Scan & Chat) (84px to 164px) */}
+          <div className="flex items-center gap-2 pr-1 z-10 shrink-0">
+            {/* Button 1: Scan Element Selector */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleSelectElement();
+              }}
+              className="w-7 h-7 rounded-full flex items-center justify-center text-slate-700 dark:text-white hover:bg-slate-200/60 dark:hover:bg-white/15 hover:text-blue-600 dark:hover:text-blue-400 active:scale-95 transition-all focus:outline-none cursor-pointer"
+              title="Select Page Element / Area"
             >
-              <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-blue-500/20 via-indigo-500/20 to-purple-500/20 ring-2 ring-blue-400/50 dark:ring-blue-400/40 flex items-center justify-center shadow-xs shrink-0 pointer-events-none">
-                {appIconUrl ? (
-                  <img
-                    src={appIconUrl}
-                    alt="SpectraLens AI"
-                    className="w-4.5 h-4.5 rounded-md object-contain pointer-events-none"
-                  />
-                ) : (
-                  <div className="w-3.5 h-3.5 rounded-full bg-blue-600" />
-                )}
-              </div>
-              <DragHandleIcon
-                className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
+              <ElementSelectorIcon
+                className="w-4.5 h-4.5 text-slate-700 dark:text-white"
+                size={19}
+              />
+            </button>
+
+            {/* Button 2: Chat Button */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleChat();
+              }}
+              className="w-7 h-7 rounded-full flex items-center justify-center p-1 border border-slate-300/80 dark:border-white/25 bg-white/40 dark:bg-white/10 hover:bg-white/80 dark:hover:bg-white/20 hover:border-blue-400/70 dark:hover:border-blue-400/60 text-slate-800 dark:text-white shadow-2xs hover:scale-105 active:scale-95 transition-all focus:outline-none cursor-pointer"
+              title="Open Chat Window"
+            >
+              <ChatIcon
+                className="w-4 h-4 text-slate-800 dark:text-white"
                 size={16}
               />
-            </div>
-
-            {/* Right section: 2 Action Buttons (Scan & Chat) (84px to 164px) */}
-            <div className="flex items-center gap-2 pr-1 z-10 shrink-0">
-              {/* Button 1: Scan Element Selector */}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleSelectElement();
-                }}
-                className="w-7 h-7 rounded-full flex items-center justify-center text-slate-700 dark:text-white hover:bg-slate-200/60 dark:hover:bg-white/15 hover:text-blue-600 dark:hover:text-blue-400 active:scale-95 transition-all focus:outline-none cursor-pointer"
-                title="Select Page Element / Area"
-              >
-                <ElementSelectorIcon
-                  className="w-4.5 h-4.5 text-slate-700 dark:text-white"
-                  size={19}
-                />
-              </button>
-
-              {/* Button 2: Chat Button */}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleChat();
-                }}
-                className="w-7 h-7 rounded-full flex items-center justify-center p-1 border border-slate-300/80 dark:border-white/25 bg-white/40 dark:bg-white/10 hover:bg-white/80 dark:hover:bg-white/20 hover:border-blue-400/70 dark:hover:border-blue-400/60 text-slate-800 dark:text-white shadow-2xs hover:scale-105 active:scale-95 transition-all focus:outline-none cursor-pointer"
-                title="Open Chat Window"
-              >
-                <ChatIcon
-                  className="w-4 h-4 text-slate-800 dark:text-white"
-                  size={16}
-                />
-              </button>
-            </div>
+            </button>
           </div>
-        ) : (
-          /* ======================================================== */
-          /* Expanded Multi-AI Window Mode                           */
-          /* ======================================================== */
-          <div
-            ref={windowContainerRef}
-            className="relative w-full h-full flex flex-col overflow-hidden"
-          >
+        </div>
+
+        {/* ======================================================== */}
+        {/* Expanded Multi-AI Window Mode                           */}
+        {/* ======================================================== */}
+        <div
+          ref={windowContainerRef}
+          className={`relative w-full h-full flex-col overflow-hidden ${
+            isChatOpen ? "flex" : "hidden"
+          }`}
+        >
             {/* Ambient background glow header aura */}
             <div className="absolute top-0 left-0 right-0 h-28 bg-gradient-to-b from-blue-600/10 via-purple-600/5 to-transparent pointer-events-none z-0" />
 
@@ -589,8 +593,7 @@ export default function Menu() {
               </div>
             </div>
           </div>
-        )}
-      </main>
-    </div>
-  );
-}
+        </main>
+      </div>
+    );
+  }
