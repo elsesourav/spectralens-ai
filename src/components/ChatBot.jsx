@@ -85,7 +85,17 @@ export default function ChatBot({
     (e) => {
       e?.stopPropagation();
       if (!selectedAnswerContent) return;
-      const cleanMarkdown = UTILS.htmlToMarkdown(selectedAnswerContent);
+      
+      let cleanText = selectedAnswerContent;
+      if (typeof selectedAnswerContent === "string" && /<[a-z][\s\S]*>/i.test(selectedAnswerContent)) {
+        try {
+          const tempEl = document.createElement("div");
+          tempEl.innerHTML = selectedAnswerContent;
+          cleanText = (tempEl.innerText || tempEl.textContent || "").trim();
+        } catch {
+          cleanText = selectedAnswerContent;
+        }
+      }
 
       const fallbackCopy = (text) => {
         try {
@@ -113,16 +123,16 @@ export default function ChatBot({
         typeof navigator.clipboard.writeText === "function"
       ) {
         navigator.clipboard
-          .writeText(cleanMarkdown)
+          .writeText(cleanText)
           .then(() => {
             setCopiedProviderId(selectedProvider);
             setTimeout(() => setCopiedProviderId(null), 2000);
           })
           .catch(() => {
-            fallbackCopy(cleanMarkdown);
+            fallbackCopy(cleanText);
           });
       } else {
-        fallbackCopy(cleanMarkdown);
+        fallbackCopy(cleanText);
       }
     },
     [selectedAnswerContent, selectedProvider],

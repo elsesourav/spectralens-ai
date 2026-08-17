@@ -525,49 +525,11 @@
       return `<div class="spectralens-isolated-response select-text" style="font-family: var(--sl-font-family, 'Google Sans', Roboto, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif); font-size: 13px; line-height: 1.55; max-width: 100%; box-sizing: border-box; overflow-wrap: break-word; color: var(--sl-text-primary, #0f172a); user-select: text !important;">${innerContent.trim()}</div>`;
     }
 
-    /** Provider-specific post-processing hook for extracted Markdown */
-    postProcessResponse(md) {
-      if (!md || typeof md !== "string") return "";
-      let cleaned = md;
-      if (typeof stripAiUiBoilerplate === "function") {
-        cleaned = stripAiUiBoilerplate(cleaned);
-      }
-      return cleaned.trim();
-    }
-
-    /** Extract cleaned, structured Semantic Markdown directly from the response container */
+    /** Extract theme-aware styled HTML directly from the response container */
     async getCurrentResponse() {
       const container = this.findResponseContainer();
       if (!container) return "";
-
-      // 1. Clone container to safely clean DOM elements before serialization
-      let targetNode = container;
-      if (typeof container.cloneNode === "function") {
-        const clone = container.cloneNode(true);
-        if (clone && clone.querySelectorAll) {
-          this.cleanCloneNode(clone);
-          targetNode = clone;
-        }
-      }
-
-      // 2. Standard AST DOM to Markdown conversion
-      let md = "";
-      if (typeof domToMarkdown === "function") {
-        md = domToMarkdown(targetNode);
-      } else if (typeof htmlToMarkdown === "function") {
-        md = htmlToMarkdown(targetNode.innerHTML || targetNode.textContent);
-      } else if (typeof getProcessedHTML === "function") {
-        md = await getProcessedHTML(targetNode, this.id);
-      } else {
-        md = targetNode.innerText || targetNode.textContent;
-      }
-
-      // 3. Provider-specific post-processing rules
-      if (md) {
-        md = this.postProcessResponse(md);
-      }
-
-      return (md || "").trim();
+      return this.extractStyledHtml(container);
     }
 
     /** Observe response streaming until completion */
@@ -699,12 +661,6 @@
       ];
     }
 
-    postProcessResponse(md) {
-      let cleaned = super.postProcessResponse(md);
-      cleaned = cleaned.replace(/ChatGPT can make mistakes\. Check important info\./gi, "");
-      return cleaned.trim();
-    }
-
     isStreaming() {
       return Boolean(
         document.querySelector(
@@ -792,11 +748,6 @@
       ];
     }
 
-    postProcessResponse(md) {
-      let cleaned = super.postProcessResponse(md);
-      return cleaned.trim();
-    }
-
     isStreaming() {
       const streamingEl = document.querySelector('div[data-is-streaming="true"], button[aria-label*="Stop"]');
       return Boolean(streamingEl);
@@ -870,12 +821,6 @@
         'button[aria-label*="Show drafts"]',
         'button[aria-label*="drafts"]',
       ];
-    }
-
-    postProcessResponse(md) {
-      let cleaned = super.postProcessResponse(md);
-      cleaned = cleaned.replace(/Gemini may display inaccurate info.*responses\./gi, "");
-      return cleaned.trim();
     }
 
     isStreaming() {
@@ -1044,13 +989,6 @@
       ];
     }
 
-    postProcessResponse(md) {
-      let cleaned = super.postProcessResponse(md);
-      // Remove inline standalone citation badges like [1], [2] if needed
-      cleaned = cleaned.replace(/\[\d+\]/g, "");
-      return cleaned.trim();
-    }
-
     isStreaming() {
       const submitBtn = this.findSendButton();
       return Boolean(submitBtn && (submitBtn.disabled || submitBtn.getAttribute("aria-disabled") === "true"));
@@ -1105,12 +1043,6 @@
         "cib-feedback",
         ".attribution-item",
       ];
-    }
-
-    postProcessResponse(md) {
-      let cleaned = super.postProcessResponse(md);
-      cleaned = cleaned.replace(/Learn more:[\s\S]*$/i, "");
-      return cleaned.trim();
     }
   }
 
@@ -1336,23 +1268,6 @@
         'div.a14YJe',
         'span.NMq1me',
       ];
-    }
-
-    postProcessResponse(md) {
-      let cleaned = super.postProcessResponse(md);
-      // Google-specific rules
-      cleaned = cleaned
-        .replace(/Quick results from the web[\s\S]*?(?=\n\n|\*\*[A-Z]|Hello|Hi\b|I am|Sure|Here|Please|$)/i, "")
-        .replace(/#*\s*Share public link[\s\S]*$/i, "")
-        .replace(/This public link shares a thread[\s\S]*$/i, "");
-      return cleaned.trim();
-    }
-
-    /** Return exact raw HTML and CSS from Google AI with dynamic theme-aware color virtualization */
-    async getCurrentResponse() {
-      const container = this.findResponseContainer();
-      if (!container) return "";
-      return this.extractStyledHtml(container);
     }
 
     observeResponse(timeoutMs = 25000) {
