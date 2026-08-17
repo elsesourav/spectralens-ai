@@ -145,6 +145,7 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
           tabId,
           extractFn,
           (injectResult) => {
+            if (isResolved) return;
             console.log(
               `%c[SpectraLens:Pipeline] 📥 [STEP 4/5 COMPLETE] Received execution response from Tab #${tabId}:`,
               "color: #10b981;",
@@ -176,6 +177,7 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
       }
 
       function listener(updatedTabId, info) {
+        if (isResolved) return;
         if (updatedTabId === tabId && info.status === "complete") {
           console.log(
             `%c[SpectraLens:Pipeline] 🌐 [PAGE LOAD COMPLETE] Tab #${tabId} status is "complete". Running adapter injection...`,
