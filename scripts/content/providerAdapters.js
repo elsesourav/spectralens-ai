@@ -169,6 +169,15 @@
 
     // 3. Font Family Normalization
     if (prop === "font-family") {
+      if (
+        tag === "PRE" ||
+        tag === "CODE" ||
+        tag === "SAMP" ||
+        tag === "KBD" ||
+        tag === "VAR"
+      ) {
+        return "var(--sl-font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace)";
+      }
       return "var(--sl-font-family, 'Google Sans', Roboto, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif)";
     }
 
@@ -457,6 +466,10 @@
             "box-shadow",
             "fill",
             "stroke",
+            "overflow-x",
+            "overflow-y",
+            "white-space",
+            "word-break",
           ];
 
           const copyStylesRecursive = (live, cloned, isTop = true) => {
@@ -474,6 +487,14 @@
               if (styleStr) {
                 cloned.setAttribute("style", styleStr);
               }
+            }
+
+            // Ensure proper code block scrolling and formatting
+            if (cloned.tagName === "PRE") {
+              cloned.style.overflowX = "auto";
+              cloned.style.maxWidth = "100%";
+              cloned.style.whiteSpace = "pre";
+              cloned.style.display = "block";
             }
 
             // Ensure safe anchor attributes
