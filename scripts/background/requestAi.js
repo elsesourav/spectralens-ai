@@ -212,6 +212,19 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
             } else {
               // Reset isExecuting in case tab was navigating so next complete state can retry
               isExecuting = false;
+              // Check if the tab already finished loading the new destination page
+              if (chrome.tabs?.get) {
+                chrome.tabs.get(tabId, (currentTab) => {
+                  void chrome.runtime?.lastError;
+                  if (currentTab && currentTab.status === "complete" && !isResolved) {
+                    console.log(
+                      `%c[SpectraLens:Pipeline] 🔄 Tab #${tabId} finished navigation to "${currentTab.url}". Re-injecting adapter...`,
+                      "color: #3b82f6; font-weight: bold;",
+                    );
+                    runInjection();
+                  }
+                });
+              }
             }
           },
           extractArgs,
@@ -224,6 +237,8 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
             `%c[SpectraLens:Pipeline] 🌐 [PAGE LOAD COMPLETE] Tab #${tabId} status is "complete". Running adapter injection...`,
             "color: #3b82f6; font-weight: bold;",
           );
+          // Reset executing flag on new page load so navigation transitions can proceed
+          isExecuting = false;
           runInjection();
         }
       }
