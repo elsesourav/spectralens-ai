@@ -30,6 +30,7 @@
 | `scripting` | `background.js:135`, `bgUtils.js:31,71`, `requestAi.js:43` | `chrome.scripting.executeScript` | Injects selection overlays, floating window frames, and extracts clean answer HTML from search tabs. | No (MV3 standard for dynamic frames) | **NO** (Required for in-page UI) |
 | `offscreen` | `bgUtils.js:2-9`, `worker.js:1-119` | Sandboxed offscreen DOM / Canvas | Runs local Tesseract OCR in a separate background thread without blocking browser UI. | No (Standard MV3 API for canvas/worker) | **NO** (Required for offline OCR) |
 | `tabs` | `background.js:96,169,179`, `requestAi.js:28,35` | `chrome.tabs.create`, `chrome.tabs.remove` | Spawns background tabs to fetch search queries, checks active URL hostnames, and manages tab lifecycles. | No (Need tab lifecycle management) | **NO** (Required for query tabs) |
+| `tabGroups` | `requestAi.js:10-38` (`collapseIntoAiTabGroup`) | `chrome.tabGroups.update`, `chrome.tabs.group` | Automatically groups and collapses background AI scraping tabs into a compact group to prevent tab bar clutter. | No (Standard tab group API) | **NO** (Required for clean tab UX) |
 | `declarativeNetRequest` | `bgUtils.js:237-257` (`chromeTabMediaAccess`) | `chrome.declarativeNetRequest.updateSessionRules` | Temporarily blocks images/fonts/media on background scraping tabs to conserve user network bandwidth. | No (Session rules are already least-privilege) | **NO** (Required for bandwidth savings) |
 
 ### 2.1 Removed Unnecessary Permissions

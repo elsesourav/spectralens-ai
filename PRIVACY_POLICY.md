@@ -37,6 +37,7 @@ SpectraLens AI requests only the minimum permissions required for its functional
 - `activeTab` & `scripting`: Injects the lightweight floating menu and text selector on active pages when requested.
 - `offscreen`: Executes local OCR text extraction in a background sandboxed worker.
 - `tabs`: Opens and manages background query tabs to fetch answers from enabled AI providers.
+- `tabGroups`: Automatically groups and collapses background AI tabs into a compact group to keep the browser clean.
 - `declarativeNetRequest`: Optimizes background scraping by blocking heavy media/images on scraper tabs to conserve your bandwidth.
 
 ---
