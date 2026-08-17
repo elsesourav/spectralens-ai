@@ -830,7 +830,7 @@ export default function ChatBot({
               {/* Response Content Body */}
               {selectedAnswerContent ? (
                 <div
-                  className="ai-markdown text-slate-900 dark:text-slate-100 overflow-x-auto leading-relaxed font-normal select-text cursor-text"
+                  className="spectralens-response-wrapper text-slate-900 dark:text-slate-100 overflow-x-auto leading-relaxed font-normal select-text cursor-text"
                   dangerouslySetInnerHTML={{
                     __html: UTILS.sanitizeHtml(
                       typeof UTILS.markdownToHtml === "function"
