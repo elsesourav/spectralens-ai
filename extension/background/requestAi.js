@@ -58,11 +58,16 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
   return new Promise((resolve) => {
     const providerId = extractArgs?.[0] || "ai";
     console.log(
-      `[SpectraLens:Background] 🚀 fetchAiAnswer starting for url: ${url} (requestId: ${requestId})`,
+      `%c[SpectraLens:Pipeline] 🚀 [STEP 1/5] Initiating request for "${providerId}" (URL: ${url}, RequestID: ${requestId})`,
+      "color: #3b82f6; font-weight: bold;",
     );
 
     // If we have a new requestId, cancel all existing fetching tabs
     if (requestId && currentRequestId !== requestId) {
+      console.log(
+        `%c[SpectraLens:Pipeline] 🔄 New batch detected. Cancelling previous tabs...`,
+        "color: #f59e0b;",
+      );
       cancelAllAiRequests();
       currentRequestId = requestId;
     }
@@ -71,11 +76,16 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
     let timeoutId = null;
     let isExecuting = false;
 
+    console.log(
+      `%c[SpectraLens:Pipeline] 📑 [STEP 2/5] Creating background tab in current browser window (active: false)...`,
+      "color: #3b82f6;",
+    );
+
     chrome.tabs.create({ url, active: false }, (tab) => {
       if (!tab || !tab.id) {
         console.error(
-          "[SpectraLens:Background] ❌ Failed to create tab for:",
-          url,
+          `%c[SpectraLens:Pipeline] ❌ [STEP 2/5 FAILED] Failed to create background tab for ${url}`,
+          "color: #ef4444; font-weight: bold;",
         );
         resolve(formatProviderError(providerId, "Tab creation failed"));
         return;
@@ -84,7 +94,8 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
       const tabId = tab.id;
       activeAiTabs.push(tabId);
       console.log(
-        `[SpectraLens:Background] 📑 Tab #${tabId} created in background.`,
+        `%c[SpectraLens:Pipeline] 📑 [STEP 3/5] Background Tab #${tabId} created (active: false, title: "${tab.title || "Loading..."}"). Enabling media access & listening for load completion...`,
+        "color: #10b981; font-weight: bold;",
       );
       chromeTabMediaAccess(tabId, true);
 
@@ -93,6 +104,10 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
         chrome.tabs.onUpdated.removeListener(listener);
         chrome.tabs.onRemoved.removeListener(onRemoved);
         chromeTabMediaAccess(tabId, false);
+        console.log(
+          `%c[SpectraLens:Pipeline] 🧹 [CLEANUP] Closing background Tab #${tabId} to keep browser clean...`,
+          "color: #8b5cf6;",
+        );
         chrome.tabs.remove(tabId).catch(() => {});
         activeAiTabs = activeAiTabs.filter((id) => id !== tabId);
       }
@@ -102,7 +117,8 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
           isResolved = true;
           cleanup();
           console.log(
-            `[SpectraLens:Background] ✅ fetchAiAnswer resolved for Tab #${tabId}, result length: ${val?.length || 0}`,
+            `%c[SpectraLens:Pipeline] ✅ [STEP 5/5] fetchAiAnswer resolved for Tab #${tabId} (Content Length: ${val?.length || 0} chars)`,
+            "color: #10b981; font-weight: bold;",
           );
           resolve(val);
         }
@@ -111,7 +127,8 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
       // 25s timeout protection
       timeoutId = setTimeout(() => {
         console.warn(
-          `[SpectraLens:Background] ⏱️ Timeout reached for Tab #${tabId}`,
+          `%c[SpectraLens:Pipeline] ⏱️ [TIMEOUT] 25s timeout reached for Tab #${tabId}`,
+          "color: #ef4444; font-weight: bold;",
         );
         safeResolve(formatProviderError(providerId, "Request timed out"));
       }, 25000);
@@ -121,14 +138,16 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
         isExecuting = true;
 
         console.log(
-          `[SpectraLens:Background] 💉 Injecting adapter into Tab #${tabId}...`,
+          `%c[SpectraLens:Pipeline] 💉 [STEP 4/5] Injecting "${providerId}" adapter script into Tab #${tabId}...`,
+          "color: #f59e0b; font-weight: bold;",
         );
         executeScriptReturn(
           tabId,
           extractFn,
           (injectResult) => {
             console.log(
-              `[SpectraLens:Background] 📥 Received execution result from Tab #${tabId}:`,
+              `%c[SpectraLens:Pipeline] 📥 [STEP 4/5 COMPLETE] Received execution response from Tab #${tabId}:`,
+              "color: #10b981;",
               injectResult,
             );
             const cleanedHtml = injectResult?.[0]?.result;
@@ -145,7 +164,8 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
       function listener(updatedTabId, info) {
         if (updatedTabId === tabId && info.status === "complete") {
           console.log(
-            `[SpectraLens:Background] 🌐 Tab #${tabId} load status: COMPLETE. Running adapter...`,
+            `%c[SpectraLens:Pipeline] 🌐 [PAGE LOAD COMPLETE] Tab #${tabId} status is "complete". Running adapter injection...`,
+            "color: #3b82f6; font-weight: bold;",
           );
           runInjection();
         }
@@ -155,13 +175,20 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
 
       // If the tab was already complete when created, run immediately
       if (tab.status === "complete") {
+        console.log(
+          `%c[SpectraLens:Pipeline] ⚡ Tab #${tabId} already in "complete" state. Running adapter immediately...`,
+          "color: #3b82f6;",
+        );
         runInjection();
       }
 
       // Handle cases where the tab is closed before it finishes (e.g. by cancellation)
       function onRemoved(removedTabId) {
         if (removedTabId === tabId) {
-          console.log(`[SpectraLens:Background] 🚪 Tab #${tabId} was closed.`);
+          console.log(
+            `%c[SpectraLens:Pipeline] 🚪 Tab #${tabId} was closed externally by user or system.`,
+            "color: #ef4444;",
+          );
           safeResolve("");
         }
       }
@@ -186,7 +213,8 @@ function runTabAdapter(providerId, prompt) {
 
     try {
       console.log(
-        `[SpectraLens:Tab] 🚀 Running adapter for "${providerId}" with prompt: "${prompt.slice(0, 30)}..."`,
+        `%c[SpectraLens:Adapter] 🚀 [ADAPTER 1/4] Running adapter for "${providerId}" with prompt: "${prompt.slice(0, 35)}..."`,
+        "color: #3b82f6; font-weight: bold;",
       );
       const adapter =
         typeof ProviderAdapterRegistry !== "undefined"
@@ -196,29 +224,43 @@ function runTabAdapter(providerId, prompt) {
 
       if (!adapter) {
         console.error(
-          `[SpectraLens:Tab] ❌ Provider adapter not found for "${providerId}"`,
+          `%c[SpectraLens:Adapter] ❌ Provider adapter not found for "${providerId}"`,
+          "color: #ef4444; font-weight: bold;",
         );
         resolve(getShortError(providerId, "Adapter not found"));
         return;
       }
 
       // 1. FAST PATH: Check if response container is already loaded (e.g. from direct search URL)
-      console.log(`[SpectraLens:Tab] Checking if response container is already present on page...`);
+      console.log(
+        `%c[SpectraLens:Adapter] 🔍 Checking if response container is already rendered on page...`,
+        "color: #64748b;",
+      );
       const existingContainer = adapter.findResponseContainer();
       if (existingContainer && existingContainer.textContent.trim().length > 25) {
-        console.log(`[SpectraLens:Tab] 🎯 Response container already present on page. Observing response...`);
+        console.log(
+          `%c[SpectraLens:Adapter] 🎯 Response container already present on page. Observing stream...`,
+          "color: #10b981; font-weight: bold;",
+        );
         const answer = await adapter.observeResponse(15000);
         resolve(answer || getShortError(providerId, "Empty response"));
         return;
       }
 
       // 2. Otherwise: Locate input box (up to 12s)
+      console.log(
+        `%c[SpectraLens:Adapter] ✍️ [ADAPTER 2/4] Locating input editor for "${providerId}"...`,
+        "color: #f59e0b;",
+      );
       let input = adapter.findInput();
       let attempts = 0;
       while (!input && attempts < 25) {
         // Also check if response container appeared in the meantime
         if (adapter.findResponseContainer()?.textContent?.trim()?.length > 25) {
-          console.log(`[SpectraLens:Tab] 🎯 Response container appeared while waiting for input!`);
+          console.log(
+            `%c[SpectraLens:Adapter] 🎯 Response container appeared while waiting for input!`,
+            "color: #10b981;",
+          );
           const answer = await adapter.observeResponse(15000);
           resolve(answer || getShortError(providerId, "Empty response"));
           return;
@@ -237,21 +279,24 @@ function runTabAdapter(providerId, prompt) {
           return;
         }
         console.warn(
-          `[SpectraLens:Tab] ⚠️ Input box not found for "${providerId}" after 25 attempts.`,
+          `%c[SpectraLens:Adapter] ⚠️ Input box not found for "${providerId}" after 25 attempts.`,
+          "color: #ef4444; font-weight: bold;",
         );
         resolve(getShortError(providerId, "Input box not found or login required"));
         return;
       }
 
       console.log(
-        `[SpectraLens:Tab] ✍️ Input element located for "${providerId}". Inserting prompt...`,
+        `%c[SpectraLens:Adapter] ✍️ [ADAPTER 3/4] Input located. Inserting prompt into "${providerId}"...`,
+        "color: #10b981;",
       );
 
       // 3. Insert prompt
       const inserted = await adapter.insertPrompt(prompt);
       if (!inserted) {
         console.error(
-          `[SpectraLens:Tab] ❌ Failed to insert prompt into "${providerId}" editor.`,
+          `%c[SpectraLens:Adapter] ❌ Failed to insert prompt into "${providerId}" editor.`,
+          "color: #ef4444;",
         );
         resolve(getShortError(providerId, "Failed to insert prompt"));
         return;
@@ -260,20 +305,25 @@ function runTabAdapter(providerId, prompt) {
       await new Promise((r) => setTimeout(r, 300));
 
       // 4. Submit
-      console.log(`[SpectraLens:Tab] 🔘 Submitting prompt for "${providerId}"...`);
+      console.log(
+        `%c[SpectraLens:Adapter] 🔘 Submitting prompt for "${providerId}"...`,
+        "color: #3b82f6; font-weight: bold;",
+      );
       await adapter.submit();
 
       // 5. Observe and return streaming response
       console.log(
-        `[SpectraLens:Tab] ⏳ Observing response for "${providerId}"...`,
+        `%c[SpectraLens:Adapter] ⏳ [ADAPTER 4/4] Observing stream response for "${providerId}"...`,
+        "color: #f59e0b; font-weight: bold;",
       );
       const answer = await adapter.observeResponse(22000);
       console.log(
-        `[SpectraLens:Tab] ✅ Response received for "${providerId}", length: ${answer?.length || 0}`,
+        `%c[SpectraLens:Adapter] ✅ [ADAPTER COMPLETE] Response extracted for "${providerId}", length: ${answer?.length || 0} chars`,
+        "color: #10b981; font-weight: bold;",
       );
       resolve(answer || getShortError(providerId, "No response generated"));
     } catch (e) {
-      console.error(`[SpectraLens:Tab] ❌ Error running adapter:`, e);
+      console.error(`%c[SpectraLens:Adapter] ❌ Error running adapter:`, "color: #ef4444;", e);
       resolve(getShortError(providerId, e?.message || "Execution error"));
     }
   });
