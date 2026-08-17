@@ -387,9 +387,9 @@ function runTabAdapter(providerId, prompt) {
 }
 
 async function getGoogleAiAnswer(q, requestId) {
-  const url = `https://www.google.com/search?q=${encodeURIComponent(q)}&hl=en`;
+  const url = "https://www.google.com/?hl=en";
   console.log(
-    `[SpectraLens:Background] 🔍 getGoogleAiAnswer (direct search query) for: "${q}" (requestId: ${requestId})`,
+    `[SpectraLens:Background] 🔍 getGoogleAiAnswer (opening google.com -> AI Mode ON -> typing & sending prompt) for: "${q}" (requestId: ${requestId})`,
   );
 
   return fetchAiAnswer(url, runTabAdapter, ["google", q], requestId);
