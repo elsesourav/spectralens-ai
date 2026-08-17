@@ -1075,50 +1075,10 @@
       super("google", "Google AI Overview", /google\.com/);
     }
 
-    /** Find and click Google's exact "AI Mode" button or tab */
+    /** Find and click Google's in-page dynamic "Generate AI Overview" or AI pill button */
     async ensureAiMode() {
       try {
-        // 1. Check for the dedicated "AI Mode" tab at the top of Google Search (e.g. a.XVMlrc)
-        const aiModeTab = Array.from(
-          document.querySelectorAll('a.XVMlrc, a[role="tab"], button[role="tab"], a, button')
-        ).find((el) => {
-          const txt = (el.textContent || "").trim();
-          return /^AI Mode$/i.test(txt);
-        });
-
-        if (aiModeTab && aiModeTab.offsetParent !== null) {
-          tabLog("GoogleTab", "✨ Found 'AI Mode' tab (a.XVMlrc). Clicking to enter AI Mode...");
-          aiModeTab.click();
-          await new Promise((r) => setTimeout(r, 600));
-          return true;
-        }
-
-        // 2. Check for the homepage AI Mode pill button (button[jsname="B6rgad"])
-        const pillSelectors = [
-          'button[jsname="B6rgad"].Sw4CSc',
-          'button[jsname="B6rgad"]',
-          'button.plR5qb.Sw4CSc',
-          'button.plR5qb',
-          'div.u4Uk3c span.lTxWLe',
-        ];
-
-        for (const sel of pillSelectors) {
-          const el = document.querySelector(sel);
-          if (el) {
-            const btn =
-              el.tagName?.toLowerCase() === "button"
-                ? el
-                : el.closest("button") || el;
-            if (btn && btn.offsetParent !== null) {
-              tabLog("GoogleTab", `✨ Found 'AI Mode' pill button (${sel}). Activating...`);
-              btn.click();
-              await new Promise((r) => setTimeout(r, 400));
-              return true;
-            }
-          }
-        }
-
-        // 3. Search specifically for "Generate AI Overview"
+        // 1. Search specifically for in-page dynamic "Generate AI Overview" or "Show AI Overview" buttons
         const allInteractive = Array.from(
           document.querySelectorAll("button, [role='button']")
         );
@@ -1131,10 +1091,28 @@
           );
         });
         if (aiBtn && aiBtn.offsetParent !== null) {
-          tabLog("GoogleTab", "✨ Found AI Overview button. Clicking...");
+          tabLog("GoogleTab", "✨ Found AI Overview button. Clicking to generate overview...");
           aiBtn.click();
           await new Promise((r) => setTimeout(r, 400));
           return true;
+        }
+
+        // 2. Check for the homepage AI Mode pill button (button[jsname="B6rgad"])
+        const pillSelectors = [
+          'button[jsname="B6rgad"].Sw4CSc',
+          'button[jsname="B6rgad"]',
+          'button.plR5qb.Sw4CSc',
+          'button.plR5qb',
+        ];
+
+        for (const sel of pillSelectors) {
+          const el = document.querySelector(sel);
+          if (el && el.tagName?.toLowerCase() === "button" && el.offsetParent !== null) {
+            tabLog("GoogleTab", `✨ Found 'AI Mode' pill button (${sel}). Activating...`);
+            el.click();
+            await new Promise((r) => setTimeout(r, 400));
+            return true;
+          }
         }
       } catch (e) {
         tabLog("GoogleTab", "Error in ensureAiMode:", e?.message);
@@ -1246,6 +1224,7 @@
         'div[data-container-id="main-col"] div[data-attrid="wa:/description"]',
         'div[data-container-id="main-col"]',
         'div.mZJni.Dn7Fzd',
+        'div.mZJni',
         'div[data-attrid="wa:/description"]',
         'div.ULSXZd',
         'div.IZ6rdc',
@@ -1253,6 +1232,9 @@
         'div.wDYxhc',
         'div.xpdopen',
         'div.kp-blk',
+        'div.V3FYCf',
+        'div.MjjYud',
+        '#rso .g',
       ];
       for (const sel of selectors) {
         const el = document.querySelector(sel);
