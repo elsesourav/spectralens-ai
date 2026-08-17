@@ -70,22 +70,30 @@ function updateProgress() {
 }
 
 function processOCR(imageData, rectInfo) {
-   const { devicePixelRatio, width, height, left, top } = rectInfo;
-   const box = {
-      width: width * devicePixelRatio,
-      height: height * devicePixelRatio,
-      left: left * devicePixelRatio,
-      top: top * devicePixelRatio,
-   };
+   let box = null;
+   if (rectInfo && typeof rectInfo === "object" && rectInfo.width && rectInfo.height) {
+      const dpr = rectInfo.devicePixelRatio || 1;
+      box = {
+         width: (rectInfo.width || 0) * dpr,
+         height: (rectInfo.height || 0) * dpr,
+         left: (rectInfo.left || 0) * dpr,
+         top: (rectInfo.top || 0) * dpr,
+      };
+   }
+
    return new Promise(async (resolve) => {
       try {
-         const promises = [cropImage(imageData, box), readyWorker()];
-         Promise.all(promises).then(async ([croppedImage]) => {
-            const result = await worker.recognize(croppedImage);
-            resolve({
-               text: result.data.text,
-               image: croppedImage,
-            });
+         const imageToProcess = box ? await cropImage(imageData, box) : imageData;
+         await readyWorker();
+         if (!worker) {
+            console.error("Tesseract worker not initialized");
+            resolve(null);
+            return;
+         }
+         const result = await worker.recognize(imageToProcess);
+         resolve({
+            text: result?.data?.text || "",
+            image: imageToProcess,
          });
       } catch (error) {
          console.error("Error processing OCR:", error);

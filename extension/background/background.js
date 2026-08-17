@@ -416,39 +416,84 @@ runtimeOnMessage("IF_B_STOP_FETCH", (_, __, sendResponse) => {
   sendResponse({ status: "cancelled" });
 });
 
+runtimeOnMessage("IF_B_CAPTURE_SCREEN", (payload, sender, sendResponse) => {
+  const windowId = sender?.tab?.windowId;
+  const captureOptions = { format: "png" };
+
+  const handleCapture = (img) => {
+    if (img) {
+      sendResponse({ success: true, image: img });
+    } else {
+      sendResponse({ success: false, error: "Failed to capture screen" });
+    }
+  };
+
+  if (typeof windowId === "number") {
+    chrome.tabs.captureVisibleTab(windowId, captureOptions, (img) => {
+      if (chrome.runtime.lastError || !img) {
+        chrome.tabs.captureVisibleTab(captureOptions, (fallbackImg) => {
+          handleCapture(fallbackImg);
+        });
+        return;
+      }
+      handleCapture(img);
+    });
+  } else {
+    chrome.tabs.captureVisibleTab(captureOptions, (img) => {
+      handleCapture(img);
+    });
+  }
+  return true; // Keep channel open for async response
+});
+
 runtimeOnMessage("IF_B_GET_ANSWER", async (payload, sender, sendResponse) => {
   const data = payload?.data || payload || {};
   const provider = data.provider || "google";
   const requestId = data.requestId;
   const question = data.question || "";
-  console.log(`[SpectraLens:Background] 📨 Received IF_B_GET_ANSWER for provider: "${provider}", question: "${question.slice(0, 30)}..." (requestId: ${requestId})`);
+  const image = data.image || null;
+  console.log(`[SpectraLens:Background] 📨 Received IF_B_GET_ANSWER for provider: "${provider}", question: "${question.slice(0, 30)}..."${image ? " (with screen image attachment)" : ""} (requestId: ${requestId})`);
+
+  let questionWithContext = question;
+  if (image && typeof __OCR__ === "function") {
+    try {
+      const ocrData = await __OCR__(image);
+      if (ocrData?.success && ocrData?.result?.text?.trim()) {
+        const ocrText = ocrData.result.text.trim().slice(0, 3000);
+        questionWithContext = `${question}\n\n[Attached Screen Content]:\n"""\n${ocrText}\n"""`;
+        console.log(`[SpectraLens:Background] 📸 Extracted OCR text from attached screen image (${ocrText.length} chars)`);
+      }
+    } catch (e) {
+      console.warn("[SpectraLens:Background] OCR extraction note:", e?.message);
+    }
+  }
 
   let answer = "";
   try {
     switch (provider) {
       case "google":
-        answer = await getGoogleAiAnswer(question, requestId);
+        answer = await getGoogleAiAnswer(questionWithContext, requestId);
         break;
       case "bing":
-        answer = await getBingAiAnswer(question, requestId);
+        answer = await getBingAiAnswer(questionWithContext, requestId);
         break;
       case "perplexity":
-        answer = await getPerplexityAnswer(question, requestId);
+        answer = await getPerplexityAnswer(questionWithContext, requestId);
         break;
       case "grok":
-        answer = await getGrokAnswer(question, requestId);
+        answer = await getGrokAnswer(questionWithContext, requestId);
         break;
       case "gemini":
-        answer = await getGeminiAnswer(question, requestId);
+        answer = await getGeminiAnswer(questionWithContext, requestId);
         break;
       case "chatgpt":
-        answer = await getChatGptAnswer(question, requestId);
+        answer = await getChatGptAnswer(questionWithContext, requestId);
         break;
       case "claude":
-        answer = await getClaudeAnswer(question, requestId);
+        answer = await getClaudeAnswer(questionWithContext, requestId);
         break;
       default:
-        answer = await getGoogleAiAnswer(question, requestId);
+        answer = await getGoogleAiAnswer(questionWithContext, requestId);
     }
   } catch (err) {
     console.error(`[SpectraLens:Background] ❌ Error in IF_B_GET_ANSWER for ${provider}:`, err);

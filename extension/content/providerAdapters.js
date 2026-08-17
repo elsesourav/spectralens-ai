@@ -267,6 +267,56 @@
       return Boolean(this.findSendButton() || this.findInput());
     }
 
+    /** Attach an image (Base64 dataUrl) to the provider editor or file input */
+    async attachImage(imageDataUrl) {
+      if (!imageDataUrl) return false;
+      tabLog(this.id, "🖼️ Attaching image file to provider input/form...");
+
+      try {
+        const res = await fetch(imageDataUrl);
+        const blob = await res.blob();
+        const file = new File([blob], "screenshot.png", { type: "image/png" });
+
+        // 1. Look for existing file inputs (<input type="file">)
+        const fileInputs = Array.from(document.querySelectorAll('input[type="file"]'));
+        for (const fileInput of fileInputs) {
+          try {
+            const dt = new DataTransfer();
+            dt.items.add(file);
+            fileInput.files = dt.files;
+            fileInput.dispatchEvent(new Event("change", { bubbles: true }));
+            fileInput.dispatchEvent(new Event("input", { bubbles: true }));
+            tabLog(this.id, "📁 Attached image file to input[type='file'] directly!");
+            await new Promise((r) => setTimeout(r, 600));
+            return true;
+          } catch (e) {
+            tabLog(this.id, "File input notice:", e?.message);
+          }
+        }
+
+        // 2. Synthetic ClipboardEvent paste onto input editor
+        const input = this.findInput();
+        if (input) {
+          this.focusInput();
+          const dt = new DataTransfer();
+          dt.items.add(file);
+
+          const pasteEv = new ClipboardEvent("paste", {
+            bubbles: true,
+            cancelable: true,
+            clipboardData: dt,
+          });
+          input.dispatchEvent(pasteEv);
+          tabLog(this.id, "📋 Dispatched synthetic ClipboardEvent paste to input element");
+          await new Promise((r) => setTimeout(r, 600));
+          return true;
+        }
+      } catch (err) {
+        tabLog(this.id, "❌ attachImage error:", err?.message);
+      }
+      return false;
+    }
+
     /** Trigger submission via button click or Enter keydown */
     async submit() {
       const sendBtn = this.findSendButton();

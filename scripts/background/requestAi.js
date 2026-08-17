@@ -314,12 +314,24 @@ function runTabAdapter(providerId, prompt) {
         return;
       }
 
+      // 3. Attach image file if present
+      if (image) {
+        console.log(
+          `%c[SpectraLens:Adapter] 🖼️ Attaching image file to "${providerId}" editor...`,
+          "color: #3b82f6; font-weight: bold;",
+        );
+        if (typeof adapter.attachImage === "function") {
+          await adapter.attachImage(image);
+          await new Promise((r) => setTimeout(r, 400));
+        }
+      }
+
       console.log(
         `%c[SpectraLens:Adapter] ✍️ [ADAPTER 3/4] Input located. Inserting prompt into "${providerId}"...`,
         "color: #10b981;",
       );
 
-      // 3. Insert prompt
+      // 4. Insert prompt
       const inserted = await adapter.insertPrompt(prompt);
       if (!inserted) {
         console.error(
@@ -332,14 +344,14 @@ function runTabAdapter(providerId, prompt) {
 
       await new Promise((r) => setTimeout(r, 300));
 
-      // 4. Submit
+      // 5. Submit
       console.log(
         `%c[SpectraLens:Adapter] 🔘 Submitting prompt for "${providerId}"...`,
         "color: #3b82f6; font-weight: bold;",
       );
       await adapter.submit();
 
-      // 5. Observe and return streaming response
+      // 6. Observe and return streaming response
       console.log(
         `%c[SpectraLens:Adapter] ⏳ [ADAPTER 4/4] Observing stream response for "${providerId}"...`,
         "color: #f59e0b; font-weight: bold;",
@@ -357,50 +369,50 @@ function runTabAdapter(providerId, prompt) {
   });
 }
 
-async function getGoogleAiAnswer(q, requestId) {
+async function getGoogleAiAnswer(q, requestId, image = null) {
   const url = "https://www.google.com/?hl=en";
   console.log(
-    `[SpectraLens:Background] 🔍 getGoogleAiAnswer (opening google.com -> AI Mode ON -> typing & sending prompt) for: "${q}" (requestId: ${requestId})`,
+    `[SpectraLens:Background] 🔍 getGoogleAiAnswer (opening google.com -> AI Mode ON -> typing & sending prompt) for: "${q.slice(0, 30)}..."${image ? " (with image)" : ""} (requestId: ${requestId})`,
   );
 
-  return fetchAiAnswer(url, runTabAdapter, ["google", q], requestId);
+  return fetchAiAnswer(url, runTabAdapter, ["google", q, image], requestId);
 }
 
-async function getBingAiAnswer(q, requestId) {
+async function getBingAiAnswer(q, requestId, image = null) {
   const url = `https://www.bing.com/search?q=${encodeURIComponent(q)}`;
   console.log(
-    `[SpectraLens:Background] 🔍 getBingAiAnswer (direct search query) for: "${q}" (requestId: ${requestId})`,
+    `[SpectraLens:Background] 🔍 getBingAiAnswer (direct search query) for: "${q.slice(0, 30)}..."${image ? " (with image)" : ""} (requestId: ${requestId})`,
   );
 
-  return fetchAiAnswer(url, runTabAdapter, ["bing", q], requestId);
+  return fetchAiAnswer(url, runTabAdapter, ["bing", q, image], requestId);
 }
 
-async function getGrokAnswer(q, requestId) {
+async function getGrokAnswer(q, requestId, image = null) {
   const url = `https://grok.com/?q=${encodeURIComponent(q)}`;
 
-  return fetchAiAnswer(url, runTabAdapter, ["grok", q], requestId);
+  return fetchAiAnswer(url, runTabAdapter, ["grok", q, image], requestId);
 }
 
-async function getPerplexityAnswer(q, requestId) {
+async function getPerplexityAnswer(q, requestId, image = null) {
   const url = `https://www.perplexity.ai/search?q=${encodeURIComponent(q)}`;
 
-  return fetchAiAnswer(url, runTabAdapter, ["perplexity", q], requestId);
+  return fetchAiAnswer(url, runTabAdapter, ["perplexity", q, image], requestId);
 }
 
-async function getGeminiAnswer(q, requestId) {
+async function getGeminiAnswer(q, requestId, image = null) {
   const url = "https://gemini.google.com/app?hl=en";
 
-  return fetchAiAnswer(url, runTabAdapter, ["gemini", q], requestId);
+  return fetchAiAnswer(url, runTabAdapter, ["gemini", q, image], requestId);
 }
 
-async function getChatGptAnswer(q, requestId) {
+async function getChatGptAnswer(q, requestId, image = null) {
   const url = `https://chatgpt.com/?q=${encodeURIComponent(q)}`;
 
-  return fetchAiAnswer(url, runTabAdapter, ["chatgpt", q], requestId);
+  return fetchAiAnswer(url, runTabAdapter, ["chatgpt", q, image], requestId);
 }
 
-async function getClaudeAnswer(q, requestId) {
+async function getClaudeAnswer(q, requestId, image = null) {
   const url = "https://claude.ai/new";
 
-  return fetchAiAnswer(url, runTabAdapter, ["claude", q], requestId);
+  return fetchAiAnswer(url, runTabAdapter, ["claude", q, image], requestId);
 }

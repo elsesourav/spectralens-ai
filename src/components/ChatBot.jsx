@@ -16,6 +16,33 @@ import {
   ThreeDotsIcon,
 } from "./Icons.jsx";
 
+const MENTION_OPTIONS = [
+  {
+    id: "screen",
+    cmd: "@screen",
+    label: "Screen",
+    badge: "Screenshot",
+    desc: "Capture visible screen",
+    icon: "📸",
+  },
+  {
+    id: "page",
+    cmd: "@page",
+    label: "Page",
+    badge: "Page Text",
+    desc: "Attach page readable text",
+    icon: "📄",
+  },
+  {
+    id: "area",
+    cmd: "@area",
+    label: "Area",
+    badge: "Crop Area",
+    desc: "Select on-screen area",
+    icon: "✂️",
+  },
+];
+
 export default function ChatBot({
   isOpen,
   initialHistoryItem = null,
@@ -42,6 +69,17 @@ export default function ChatBot({
   const [copiedProviderId, setCopiedProviderId] = useState(null);
   const currentRequestIdRef = useRef(null);
   const lastQuestionRef = useRef("");
+
+  // Screen/Context attachment state
+  const [attachedImage, setAttachedImage] = useState(null);
+  const [attachedContextType, setAttachedContextType] = useState(null);
+  const [lastQuestionImage, setLastQuestionImage] = useState(null);
+
+  // '@' mention autocomplete state
+  const [showMentionMenu, setShowMentionMenu] = useState(false);
+  const [mentionSelectedIndex, setMentionSelectedIndex] = useState(0);
+  const [mentionQuery, setMentionQuery] = useState("");
+  const mentionMenuRef = useRef(null);
 
   const [aiProviders, setAiProviders] = useState([]);
   const [maxConcurrentRequest, setMaxConcurrentRequest] = useState(3);
@@ -196,15 +234,74 @@ export default function ChatBot({
     setViewedProviders((prev) => new Set([...prev, providerId]));
   }, []);
 
-  // Close more menu when clicking outside
+  // Filter mention options based on query
+  const filteredMentionOptions = useMemo(() => {
+    if (!mentionQuery) return MENTION_OPTIONS;
+    return MENTION_OPTIONS.filter(
+      (opt) =>
+        opt.cmd.toLowerCase().includes(mentionQuery) ||
+        opt.label.toLowerCase().includes(mentionQuery) ||
+        opt.id.toLowerCase().includes(mentionQuery),
+    );
+  }, [mentionQuery]);
+
+  // Handle selecting a mention option (@screen, @page, @area)
+  const handleSelectMention = useCallback(
+    (option) => {
+      setShowMentionMenu(false);
+      setMentionQuery("");
+
+      const currentInput = input;
+      const cursor = textareaRef.current?.selectionStart || currentInput.length;
+      const textBeforeCursor = currentInput.slice(0, cursor);
+      const textAfterCursor = currentInput.slice(cursor);
+      const cleanedBefore = textBeforeCursor.replace(/(?:^|\s)@[a-zA-Z0-9_-]*$/, "");
+      const newInput = (cleanedBefore + (cleanedBefore && !cleanedBefore.endsWith(" ") ? " " : "") + textAfterCursor).trimStart();
+      setInput(newInput);
+
+      if (option.id === "screen") {
+        console.log("[SpectraLens:ChatBot] 📸 Requesting silent screen capture via IF_B_CAPTURE_SCREEN...");
+        UTILS.pagePostMessage("IF_B_CAPTURE_SCREEN", {}, window.parent);
+        setAttachedContextType("screen");
+      } else if (option.id === "page") {
+        console.log("[SpectraLens:ChatBot] 📄 Requesting page text context...");
+        setAttachedContextType("page");
+      } else if (option.id === "area") {
+        if (onOpenSelector) {
+          onOpenSelector();
+        }
+      }
+
+      setTimeout(() => {
+        textareaRef.current?.focus();
+      }, 50);
+    },
+    [input, onOpenSelector],
+  );
+
+  // Close menus when clicking outside
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (moreMenuRef.current && !moreMenuRef.current.contains(e.target)) {
         setIsMoreMenuOpen(false);
       }
+      if (mentionMenuRef.current && !mentionMenuRef.current.contains(e.target)) {
+        setShowMentionMenu(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Listen for IF_B_CAPTURE_SCREEN response
+  useEffect(() => {
+    UTILS.pageOnMessage("IF_B_CAPTURE_SCREEN", (data) => {
+      if (data?.image) {
+        console.log("[SpectraLens:ChatBot] 📸 Screen image attached to chat successfully!");
+        setAttachedImage(data.image);
+        setAttachedContextType("screen");
+      }
+    });
   }, []);
 
   // Format current time
@@ -219,6 +316,7 @@ export default function ChatBot({
       setInput("");
       setLastQuestion(initialHistoryItem.question || "");
       lastQuestionRef.current = initialHistoryItem.question || "";
+      setLastQuestionImage(initialHistoryItem.image || null);
       setAnswers(initialHistoryItem.answers || {});
       setViewedProviders(
         new Set(Object.keys(initialHistoryItem.answers || {})),
@@ -260,6 +358,10 @@ export default function ChatBot({
     setInput("");
     setAnswers({});
     setLastQuestion("");
+    setAttachedImage(null);
+    setAttachedContextType(null);
+    setLastQuestionImage(null);
+    setShowMentionMenu(false);
     setSelectedProvider(null);
     setViewedProviders(new Set());
     setIsLoading(false);
@@ -317,23 +419,24 @@ export default function ChatBot({
     question,
     provider = "google",
     requestId,
+    image = null,
   ) => {
-    console.log(`[SpectraLens:ChatBot] 🚀 Posting IF_B_GET_ANSWER for provider: "${provider}", query: "${question.slice(0, 30)}..." (requestId: ${requestId})`);
+    console.log(`[SpectraLens:ChatBot] 🚀 Posting IF_B_GET_ANSWER for provider: "${provider}", query: "${question.slice(0, 30)}..."${image ? " (with screen image attachment)" : ""} (requestId: ${requestId})`);
     UTILS.pagePostMessage(
       "IF_B_GET_ANSWER",
-      { question, provider, requestId },
+      { question, provider, requestId, image },
       window.parent,
     );
   };
 
   // Concurrent provider loading
   const loadProvidersWithConcurrency = useCallback(
-    async (question, requestId) => {
+    async (question, requestId, image = null) => {
       const providersToProcess = [...aiProviders];
       const activeRequests = new Map();
 
       const startProviderRequest = (provider) => {
-        getAnswerFromBackground(question, provider.id, requestId);
+        getAnswerFromBackground(question, provider.id, requestId, image);
 
         const promise = new Promise((resolve) => {
           const checkAnswer = () => {
@@ -414,7 +517,7 @@ export default function ChatBot({
   const handleSendMessage = useCallback(
     async (messageInput = null) => {
       const actualInput = messageInput !== null ? messageInput : input;
-      if (actualInput?.trim() === "") return;
+      if (actualInput?.trim() === "" && !attachedImage) return;
 
       const requestId = Date.now().toString();
       currentRequestIdRef.current = requestId;
@@ -428,10 +531,17 @@ export default function ChatBot({
       setSelectedProvider(targetProvider);
       setViewedProviders(new Set([targetProvider]));
 
-      setLastQuestion(actualInput);
-      lastQuestionRef.current = actualInput;
+      const sentQuestion = actualInput || (attachedImage ? "Explain what is on this screen" : "");
+      setLastQuestion(sentQuestion);
+      lastQuestionRef.current = sentQuestion;
+      setLastQuestionImage(attachedImage);
+      const currentImage = attachedImage;
+
       setMessageTime(getFormattedTime());
       setInput("");
+      setAttachedImage(null);
+      setAttachedContextType(null);
+      setShowMentionMenu(false);
       setIsMultiLineInput(false);
       if (textareaRef.current) {
         textareaRef.current.style.height = "24px";
@@ -444,10 +554,11 @@ export default function ChatBot({
       setTimeout(() => scrollToBottom(true), 50);
       setTimeout(() => scrollToBottom(true), 200);
 
-      loadProvidersWithConcurrency(actualInput, requestId);
+      loadProvidersWithConcurrency(sentQuestion, requestId, currentImage);
     },
     [
       input,
+      attachedImage,
       loadProvidersWithConcurrency,
       selectedProvider,
       aiProviders,
@@ -455,6 +566,54 @@ export default function ChatBot({
       scrollToBottom,
     ],
   );
+
+  const handleInputChange = (e) => {
+    const val = e.target.value;
+    setInput(val);
+
+    const cursor = e.target.selectionStart || val.length;
+    const textBeforeCursor = val.slice(0, cursor);
+    const lastWordMatch = textBeforeCursor.match(/(?:^|\s)@([a-zA-Z0-9_-]*)$/);
+
+    if (lastWordMatch) {
+      setShowMentionMenu(true);
+      setMentionQuery(lastWordMatch[1].toLowerCase());
+      setMentionSelectedIndex(0);
+    } else {
+      setShowMentionMenu(false);
+      setMentionQuery("");
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (showMentionMenu && filteredMentionOptions.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setMentionSelectedIndex((prev) => (prev + 1) % filteredMentionOptions.length);
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setMentionSelectedIndex((prev) => (prev - 1 + filteredMentionOptions.length) % filteredMentionOptions.length);
+        return;
+      }
+      if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        handleSelectMention(filteredMentionOptions[mentionSelectedIndex]);
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setShowMentionMenu(false);
+        return;
+      }
+    }
+
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
 
   useEffect(() => {
     UTILS.pageOnMessage("IF_B_GET_ANSWER", (data) => {
@@ -555,13 +714,6 @@ export default function ChatBot({
       }, 100);
     }
   }, [isOpen]);
-
-  const handleKeyDown = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
 
   useEffect(() => {
     if (newChatTrigger > 0) {
@@ -761,6 +913,26 @@ export default function ChatBot({
         {lastQuestion && (
           <div className="flex flex-col items-end gap-1 animate-fade-in group">
             <div className="user-message-bubble relative max-w-[85%] px-3.5 py-2.5 rounded-2xl rounded-tr-xs bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs select-text">
+              {/* Attached Screen Preview Thumbnail inside Message Bubble */}
+              {lastQuestionImage && (
+                <div className="mb-2 rounded-xl overflow-hidden border border-white/20 shadow-xs max-h-36 bg-black/20">
+                  <img
+                    src={lastQuestionImage}
+                    alt="Attached screen context"
+                    className="w-full h-auto max-h-36 object-contain cursor-pointer hover:opacity-95 transition-opacity"
+                    onClick={() => {
+                      try {
+                        const win = window.open();
+                        win?.document.write(
+                          `<html style="background:#0b0d13;display:flex;align-items:center;justify-content:center;height:100%;"><body style="margin:0;"><img src="${lastQuestionImage}" style="max-width:95vw;max-height:95vh;border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,0.5);" /></body></html>`,
+                        );
+                      } catch {}
+                    }}
+                    title="Click to view full screenshot"
+                  />
+                </div>
+              )}
+
               <p
                 className="text-xs leading-relaxed font-normal whitespace-pre-wrap break-words max-h-[7.2em] overflow-y-auto custom-scrollbar pr-1 select-text cursor-text"
                 title={lastQuestion}
@@ -890,12 +1062,77 @@ export default function ChatBot({
 
       {/* Bottom Input Dock Bar */}
       <div
-        className={`p-2.5 border-t shrink-0 ${
+        className={`p-2.5 border-t shrink-0 relative ${
           contrastMode === "solid"
             ? "bg-slate-100 dark:bg-[#14161e] border-slate-200/90 dark:border-white/[0.08]"
             : "bg-transparent border-slate-200/50 dark:border-white/[0.06]"
         }`}
       >
+        {/* Floating '@' Mention Autocomplete Popover */}
+        {showMentionMenu && filteredMentionOptions.length > 0 && (
+          <div
+            ref={mentionMenuRef}
+            className="absolute bottom-full left-3 right-3 mb-2 bg-white/95 dark:bg-[#181b24]/95 backdrop-blur-xl border border-slate-200/90 dark:border-white/[0.12] rounded-2xl shadow-xl overflow-hidden z-50 p-1.5 animate-in slide-in-from-bottom-2 duration-150"
+          >
+            <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+              Attach Context
+            </div>
+            <div className="flex flex-col gap-0.5">
+              {filteredMentionOptions.map((opt, idx) => (
+                <button
+                  key={opt.id}
+                  onClick={() => handleSelectMention(opt)}
+                  className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-left transition-all cursor-pointer ${
+                    idx === mentionSelectedIndex
+                      ? "bg-blue-50 dark:bg-blue-500/15 text-blue-600 dark:text-blue-400 font-medium"
+                      : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.06]"
+                  }`}
+                >
+                  <span className="text-sm">{opt.icon}</span>
+                  <div className="flex flex-col flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-semibold">{opt.cmd}</span>
+                      <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-slate-200/60 dark:bg-white/10 text-slate-600 dark:text-slate-300 font-medium">
+                        {opt.badge}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
+                      {opt.desc}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Attached Screen Thumbnail Chip */}
+        {attachedImage && (
+          <div className="flex items-center gap-2 px-3 py-1.5 mb-2 bg-white dark:bg-[#191c25] border border-slate-200/90 dark:border-white/[0.1] rounded-xl shadow-xs animate-in fade-in duration-200">
+            <div className="relative w-8 h-6 rounded overflow-hidden border border-slate-300 dark:border-white/10 shrink-0 bg-slate-200 dark:bg-black/30">
+              <img src={attachedImage} alt="Screen attachment" className="w-full h-full object-cover" />
+            </div>
+            <div className="flex flex-col min-w-0 flex-1">
+              <span className="text-[11px] font-semibold text-slate-800 dark:text-slate-200 truncate">
+                Screen Attached
+              </span>
+              <span className="text-[9px] text-slate-400 dark:text-slate-500">
+                Visual context will be sent to AI
+              </span>
+            </div>
+            <button
+              onClick={() => {
+                setAttachedImage(null);
+                setAttachedContextType(null);
+              }}
+              className="w-5 h-5 rounded-full flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
+              title="Remove attachment"
+            >
+              <IoClose className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
         <div
           className={`relative flex ${
             isMultiLineInput ? "items-end py-2" : "items-center py-1.5"
@@ -911,9 +1148,9 @@ export default function ChatBot({
             ref={textareaRef}
             rows={1}
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={handleInputChange}
             onKeyDown={handleKeyDown}
-            placeholder="Ask anything..."
+            placeholder="Ask anything... (type @ for screen)"
             className="flex-1 bg-transparent text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 border-0 outline-none pr-1 resize-none custom-scrollbar leading-[20px] py-0 my-auto"
             style={{ minHeight: "20px", maxHeight: "120px", height: "20px" }}
           />
@@ -957,10 +1194,10 @@ export default function ChatBot({
             ) : (
               <button
                 onClick={() => handleSendMessage()}
-                disabled={input.trim() === ""}
+                disabled={input.trim() === "" && !attachedImage}
                 title="Send Prompt"
                 className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all focus:outline-none ${
-                  input.trim() === ""
+                  input.trim() === "" && !attachedImage
                     ? "bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-slate-500 cursor-not-allowed"
                     : "bg-blue-600 hover:bg-blue-700 active:scale-95 text-white shadow-xs cursor-pointer"
                 }`}
