@@ -68,7 +68,6 @@ LIMITATIONS
 | `scripting` | Required to inject the in-page floating menu frame, area OCR selection overlay, and extract text from search tabs. |
 | `offscreen` | Required to run the local Tesseract.js WebAssembly OCR engine in a sandboxed background document without blocking the UI. |
 | `tabs` | Required to create background query tabs to fetch search answers and clean them up automatically when queries finish. |
-| `tabGroups` | Required to automatically group and collapse background query tabs into a compact group to prevent tab bar clutter. |
 | `declarativeNetRequest` | Required to temporarily block image and media loading on background scraping tabs to conserve user network bandwidth. |
 
 ## Host Permissions

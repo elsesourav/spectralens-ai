@@ -1,64 +1,12 @@
 /* --- Request Cancellation State --- */
 let currentRequestId = null;
 let activeAiTabs = [];
-let activeAiGroupId = null;
-
-/**
- * Automatically groups the given background tab into a collapsed, compact group
- * to prevent cluttering the user's tab strip.
- */
-async function collapseIntoAiTabGroup(tabId) {
-  if (
-    typeof chrome === "undefined" ||
-    !chrome.tabs?.group ||
-    !chrome.tabGroups?.update
-  ) {
-    return;
-  }
-
-  try {
-    // If active group exists, try adding to it; otherwise create a new group
-    if (activeAiGroupId !== null) {
-      try {
-        await chrome.tabs.group({ groupId: activeAiGroupId, tabIds: [tabId] });
-        await chrome.tabGroups.update(activeAiGroupId, {
-          title: "⚡ SpectraLens AI",
-          color: "blue",
-          collapsed: true,
-        });
-        console.log(
-          `%c[SpectraLens:TabGroup] 🗂️ Background Tab #${tabId} added to existing collapsed group #${activeAiGroupId}`,
-          "color: #8b5cf6; font-weight: bold;",
-        );
-        return;
-      } catch {
-        // If group was closed or invalidated, reset and create anew
-        activeAiGroupId = null;
-      }
-    }
-
-    const groupId = await chrome.tabs.group({ tabIds: [tabId] });
-    activeAiGroupId = groupId;
-    await chrome.tabGroups.update(groupId, {
-      title: "⚡ SpectraLens AI",
-      color: "blue",
-      collapsed: true,
-    });
-    console.log(
-      `%c[SpectraLens:TabGroup] 🗂️ Background Tab #${tabId} grouped into new collapsed group #${groupId}`,
-      "color: #8b5cf6; font-weight: bold;",
-    );
-  } catch (e) {
-    console.warn("[SpectraLens:TabGroup] Notice:", e?.message);
-  }
-}
 
 /** Immediately cancel all ongoing AI scraper requests and close all active scraper tabs */
 function cancelAllAiRequests() {
   currentRequestId = "cancelled_" + Date.now();
   const tabsToClose = [...activeAiTabs];
   activeAiTabs = [];
-  activeAiGroupId = null;
   tabsToClose.forEach((id) => {
     chromeTabMediaAccess(id, false);
     chrome.tabs.remove(id).catch(() => {});
@@ -146,11 +94,10 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
       const tabId = tab.id;
       activeAiTabs.push(tabId);
       console.log(
-        `%c[SpectraLens:Pipeline] 📑 [STEP 3/5] Background Tab #${tabId} created (active: false, title: "${tab.title || "Loading..."}"). Grouping into collapsed group & enabling media access...`,
+        `%c[SpectraLens:Pipeline] 📑 [STEP 3/5] Background Tab #${tabId} created (active: false, title: "${tab.title || "Loading..."}"). Enabling media access & listening for load completion...`,
         "color: #10b981; font-weight: bold;",
       );
       chromeTabMediaAccess(tabId, true);
-      collapseIntoAiTabGroup(tabId);
 
       function cleanup() {
         if (timeoutId) clearTimeout(timeoutId);
@@ -163,9 +110,6 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
         );
         chrome.tabs.remove(tabId).catch(() => {});
         activeAiTabs = activeAiTabs.filter((id) => id !== tabId);
-        if (activeAiTabs.length === 0) {
-          activeAiGroupId = null;
-        }
       }
 
       function safeResolve(val) {

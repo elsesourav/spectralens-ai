@@ -37,7 +37,7 @@
 | **BUILD PIPELINE** | Vite 6 + React 19 + TailwindCSS (Production Minified) |
 | **ZIP ARCHIVE** | `spectralens-ai-extension.zip` |
 | **ZIP SIZE** | ~21.48 MB (Includes local offline Tesseract.js WASM + traineddata) |
-| **PERMISSIONS** | `["scripting", "storage", "activeTab", "tabs", "tabGroups", "declarativeNetRequest", "offscreen"]` |
+| **PERMISSIONS** | `["scripting", "storage", "activeTab", "tabs", "declarativeNetRequest", "offscreen"]` |
 | **OPTIONAL PERMISSIONS** | `["clipboardWrite"]` |
 | **HOST PERMISSIONS** | `["http://*/*", "https://*/*"]` |
 | **EXTERNAL SERVICES** | Google AI, Bing Copilot, Perplexity, Gemini, Grok (Direct user-initiated queries) |
