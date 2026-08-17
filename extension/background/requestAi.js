@@ -117,7 +117,8 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
       }, 25000);
 
       function runInjection() {
-        if (isResolved) return;
+        if (isResolved || isExecuting) return;
+        isExecuting = true;
 
         console.log(
           `[SpectraLens:Background] 💉 Injecting adapter into Tab #${tabId}...`,
@@ -130,15 +131,11 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
               `[SpectraLens:Background] 📥 Received execution result from Tab #${tabId}:`,
               injectResult,
             );
-            const cleanedHtml = injectResult?.[0]?.result || "";
-            // If result is valid non-empty markdown response, resolve
-            if (
-              cleanedHtml &&
-              !cleanedHtml.includes("No response generated") &&
-              !cleanedHtml.includes("Empty response") &&
-              !cleanedHtml.includes("Please log in to")
-            ) {
+            const cleanedHtml = injectResult?.[0]?.result;
+            if (cleanedHtml) {
               safeResolve(cleanedHtml);
+            } else {
+              safeResolve(formatProviderError(providerId, "No response generated"));
             }
           },
           extractArgs,
@@ -155,6 +152,11 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
       }
 
       chrome.tabs.onUpdated.addListener(listener);
+
+      // If the tab was already complete when created, run immediately
+      if (tab.status === "complete") {
+        runInjection();
+      }
 
       // Handle cases where the tab is closed before it finishes (e.g. by cancellation)
       function onRemoved(removedTabId) {
