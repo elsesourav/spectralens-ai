@@ -582,7 +582,10 @@ export default function Menu() {
                 {/* History View */}
                 {activeTab === "history" && (
                   <div className="w-full h-full animate-fade-in">
-                    <HistoryView onLoadQuery={handleLoadQuery} />
+                    <HistoryView
+                      onLoadQuery={handleLoadQuery}
+                      isMenuOpen={isChatOpen}
+                    />
                   </div>
                 )}
 

@@ -1,11 +1,16 @@
 import { useState, useEffect } from "react";
 import PropTypes from "prop-types";
 import { HistoryIcon } from "./Icons.jsx";
-import { IoTrashOutline, IoTimeOutline, IoChevronForward, IoAlertCircleOutline } from "react-icons/io5";
+import {
+  IoTrashOutline,
+  IoTimeOutline,
+  IoChevronForward,
+  IoAlertCircleOutline,
+} from "react-icons/io5";
 import UTILS from "../utils/utilsModule.js";
 import { useTheme } from "../hooks/useThemeHook.jsx";
 
-export default function HistoryView({ onLoadQuery }) {
+export default function HistoryView({ onLoadQuery, isMenuOpen = true }) {
   const { contrastMode } = useTheme();
   const [history, setHistory] = useState([]);
   const [showConfirmClear, setShowConfirmClear] = useState(false);
@@ -18,6 +23,20 @@ export default function HistoryView({ onLoadQuery }) {
     });
   }, []);
 
+  // Auto-close confirmation dialog if menu window is minimized or closed
+  useEffect(() => {
+    if (!isMenuOpen) {
+      setShowConfirmClear(false);
+    }
+  }, [isMenuOpen]);
+
+  // Clean up confirmation dialog on tab switch or component unmount
+  useEffect(() => {
+    return () => {
+      setShowConfirmClear(false);
+    };
+  }, []);
+
   const handleClearHistory = () => {
     setHistory([]);
     UTILS.chromeStorageSetLocal(UTILS.KEYS.HISTORY, []);
@@ -28,7 +47,10 @@ export default function HistoryView({ onLoadQuery }) {
     if (!timestamp) return "";
     try {
       const date = new Date(timestamp);
-      return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      return date.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
     } catch {
       return "";
     }
@@ -49,9 +71,12 @@ export default function HistoryView({ onLoadQuery }) {
             <HistoryIcon className="w-5 h-5" size={20} />
           </div>
           <div>
-            <h2 className="text-sm font-bold tracking-tight text-slate-900 dark:text-white">Chat History</h2>
+            <h2 className="text-sm font-bold tracking-tight text-slate-900 dark:text-white">
+              Chat History
+            </h2>
             <p className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
-              {history.length} {history.length === 1 ? "saved query" : "saved queries"}
+              {history.length}{" "}
+              {history.length === 1 ? "saved query" : "saved queries"}
             </p>
           </div>
         </div>
@@ -78,7 +103,8 @@ export default function HistoryView({ onLoadQuery }) {
               No History Yet
             </h3>
             <p className="text-xs font-medium text-slate-600 dark:text-slate-300 max-w-[220px]">
-              Ask your multi-AI assistants any questions and your queries will be saved here automatically.
+              Ask your multi-AI assistants any questions and your queries will
+              be saved here automatically.
             </p>
           </div>
         ) : (
@@ -111,25 +137,45 @@ export default function HistoryView({ onLoadQuery }) {
 
       {/* Confirmation Dialog Modal */}
       {showConfirmClear && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fade-in">
-          <div className="w-full max-w-[280px] bg-white dark:bg-[#191c25] rounded-2xl p-4 border border-slate-200 dark:border-white/10 shadow-2xl space-y-3">
-            <div className="flex items-center gap-2.5 text-rose-500">
-              <IoAlertCircleOutline className="w-5 h-5" />
-              <h4 className="text-sm font-semibold">Clear Chat History?</h4>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 dark:bg-black/75 backdrop-blur-xs p-4 animate-fade-in"
+          onClick={() => setShowConfirmClear(false)}
+        >
+          <div
+            className={`w-full max-w-[290px] rounded-2xl p-4.5 border shadow-2xl space-y-3.5 animate-scale-up ${
+              contrastMode === "solid"
+                ? "bg-white dark:bg-[#191c25] border-slate-200/90 dark:border-white/10"
+                : "bg-white/95 dark:bg-[#191c25]/95 backdrop-blur-md border-slate-200/80 dark:border-white/10"
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-3 text-rose-500">
+              <div className="p-2 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 shrink-0">
+                <IoAlertCircleOutline className="w-5 h-5" />
+              </div>
+              <div className="space-y-0.5">
+                <h4 className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
+                  Clear Chat History?
+                </h4>
+                <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-snug">
+                  This will permanently remove all {history.length} saved query{" "}
+                  {history.length === 1 ? "session" : "sessions"}.
+                </p>
+              </div>
             </div>
-            <p className="text-xs text-slate-600 dark:text-slate-300">
-              This will remove all {history.length} saved query sessions permanently.
-            </p>
-            <div className="flex items-center justify-end gap-2 pt-1">
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-white/[0.06]">
               <button
+                type="button"
                 onClick={() => setShowConfirmClear(false)}
-                className="px-3 py-1.5 text-xs font-medium rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-all cursor-pointer"
+                className="px-3 py-1.5 text-xs font-semibold rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10 transition-all cursor-pointer"
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={handleClearHistory}
-                className="px-3 py-1.5 text-xs font-medium rounded-lg bg-rose-600 hover:bg-rose-700 text-white transition-all shadow-xs cursor-pointer"
+                className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white transition-all shadow-xs hover:scale-[1.02] active:scale-95 cursor-pointer"
               >
                 Delete All
               </button>
@@ -143,4 +189,5 @@ export default function HistoryView({ onLoadQuery }) {
 
 HistoryView.propTypes = {
   onLoadQuery: PropTypes.func,
+  isMenuOpen: PropTypes.bool,
 };
