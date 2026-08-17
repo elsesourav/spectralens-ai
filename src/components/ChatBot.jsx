@@ -308,13 +308,21 @@ export default function ChatBot({
     });
 
     UTILS.pageOnMessage("IF_B_CAPTURE_PAGE", (data) => {
-      if (data?.success && data?.text) {
-        console.log(`[SpectraLens:ChatBot] 📄 Page attached: "${data.title}" (${data.wordCount} words)`);
+      if (data?.success && (data?.text || data?.title)) {
+        console.log(
+          `[SpectraLens:ChatBot] 📄 Page attached: "${data.title}" (${data.wordCount} words, screenshot: ${Boolean(data.image)})`,
+        );
         setAttachedPage({
           title: data.title || "Page Context",
           url: data.url || "",
-          text: data.text,
+          hostname: data.hostname || "",
+          description: data.description || "",
+          keywords: data.keywords || "",
+          author: data.author || "",
+          favicon: data.favicon || "",
+          text: data.text || "",
           wordCount: data.wordCount || 0,
+          image: data.image || null,
         });
         setAttachedImage(null);
         setAttachedContextType("page");
@@ -552,8 +560,23 @@ export default function ChatBot({
       setViewedProviders(new Set([targetProvider]));
 
       let sentQuestion = actualInput;
+      let currentImage = attachedImage;
+
       if (attachedPage) {
-        sentQuestion = `${actualInput || "Explain the content of this page"}\n\n[Attached Page Context: "${attachedPage.title}" (${attachedPage.url})]\n"""\n${attachedPage.text.slice(0, 15000)}\n"""`;
+        if (attachedPage.image) {
+          currentImage = attachedPage.image;
+        }
+
+        const metaLines = [];
+        if (attachedPage.title) metaLines.push(`Page Title: ${attachedPage.title}`);
+        if (attachedPage.url) metaLines.push(`Page Link: ${attachedPage.url}`);
+        if (attachedPage.description) metaLines.push(`Description: ${attachedPage.description}`);
+        if (attachedPage.author) metaLines.push(`Author: ${attachedPage.author}`);
+        if (attachedPage.keywords) metaLines.push(`Keywords: ${attachedPage.keywords}`);
+
+        const metadataBlock = metaLines.join("\n");
+        const userPrompt = actualInput || "Analyze and summarize this page based on the attached top-section screenshot and page metadata.";
+        sentQuestion = `${userPrompt}\n\n[Web Page Metadata]\n${metadataBlock}`;
       } else if (!actualInput && attachedImage) {
         sentQuestion = "Explain what is on this screen";
       }
@@ -561,15 +584,14 @@ export default function ChatBot({
       setLastQuestion(
         actualInput ||
           (attachedPage
-            ? `📄 Attached Page: ${attachedPage.title}`
+            ? "Summarize and explain this page"
             : attachedImage
-              ? "📸 Attached Screen Screenshot"
+              ? "Explain what is on this screen"
               : ""),
       );
       lastQuestionRef.current = sentQuestion;
-      setLastQuestionImage(attachedImage);
+      setLastQuestionImage(currentImage);
       setLastQuestionPage(attachedPage);
-      const currentImage = attachedImage;
 
       setMessageTime(getFormattedTime());
       setInput("");
@@ -949,12 +971,12 @@ export default function ChatBot({
         {lastQuestion && (
           <div className="flex flex-col items-end gap-1 animate-fade-in group">
             <div className="user-message-bubble relative max-w-[85%] px-3.5 py-2.5 rounded-2xl rounded-tr-xs bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs select-text">
-              {/* Attached Screen Preview Thumbnail inside Message Bubble */}
+              {/* Attached Screen / Top Section Preview Thumbnail inside Message Bubble */}
               {lastQuestionImage && (
                 <div className="mb-2 rounded-xl overflow-hidden border border-white/20 shadow-xs max-h-36 bg-black/20">
                   <img
                     src={lastQuestionImage}
-                    alt="Attached screen context"
+                    alt="Attached page preview"
                     className="w-full h-auto max-h-36 object-contain cursor-pointer hover:opacity-95 transition-opacity"
                     onClick={() => {
                       try {
@@ -969,17 +991,34 @@ export default function ChatBot({
                 </div>
               )}
 
-              {/* Attached Page Context Badge inside Message Bubble */}
+              {/* Sleek Attached Page Context Card inside Message Bubble */}
               {lastQuestionPage && (
-                <div className="flex items-center gap-2 mb-2 px-2.5 py-1.5 rounded-xl bg-white/15 border border-white/20 text-white select-none">
-                  <span className="text-sm">📄</span>
+                <div className="flex items-center gap-2.5 mb-2 px-3 py-1.5 rounded-xl bg-white/15 border border-white/20 text-white select-none backdrop-blur-xs">
+                  {lastQuestionPage.favicon ? (
+                    <img
+                      src={lastQuestionPage.favicon}
+                      alt=""
+                      className="w-4 h-4 rounded-xs shrink-0 object-contain bg-white/20 p-0.5"
+                      onError={(e) => {
+                        e.target.style.display = "none";
+                      }}
+                    />
+                  ) : (
+                    <span className="text-sm shrink-0">📄</span>
+                  )}
                   <div className="flex flex-col min-w-0 flex-1">
-                    <span className="text-[11px] font-semibold truncate">
-                      {lastQuestionPage.title}
+                    <span className="text-[11px] font-semibold truncate leading-tight">
+                      {lastQuestionPage.title || "Web Page"}
                     </span>
-                    <span className="text-[9px] text-blue-100 truncate">
-                      {lastQuestionPage.wordCount} words text context attached
-                    </span>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="text-[9px] text-blue-100/90 font-medium truncate">
+                        {lastQuestionPage.hostname || "Page Link"}
+                      </span>
+                      <span className="text-[9px] text-blue-200/50">•</span>
+                      <span className="text-[9px] text-blue-200/80">
+                        {lastQuestionPage.wordCount || 0} words
+                      </span>
+                    </div>
                   </div>
                 </div>
               )}
@@ -1184,12 +1223,20 @@ export default function ChatBot({
           </div>
         )}
 
-        {/* Attached Page Text Context Chip */}
+        {/* Attached Page Text & Screenshot Context Chip */}
         {attachedPage && (
-          <div className="flex items-center gap-2 px-3 py-1.5 mb-2 bg-white dark:bg-[#191c25] border border-blue-500/30 dark:border-blue-500/25 rounded-xl shadow-xs animate-in fade-in duration-200">
-            <div className="w-8 h-7 rounded-lg bg-blue-50 dark:bg-blue-500/15 border border-blue-500/20 flex items-center justify-center shrink-0 text-sm">
-              📄
-            </div>
+          <div className="flex items-center gap-2.5 px-3 py-1.5 mb-2 bg-white dark:bg-[#191c25] border border-blue-500/30 dark:border-blue-500/25 rounded-xl shadow-xs animate-in fade-in duration-200">
+            {attachedPage.image ? (
+              <div className="relative w-10 h-7 rounded overflow-hidden border border-slate-300 dark:border-white/10 shrink-0 bg-slate-200 dark:bg-black/30">
+                <img src={attachedPage.image} alt="Page screenshot" className="w-full h-full object-cover" />
+              </div>
+            ) : attachedPage.favicon ? (
+              <img src={attachedPage.favicon} alt="" className="w-5 h-5 rounded-xs shrink-0 object-contain" />
+            ) : (
+              <div className="w-8 h-7 rounded-lg bg-blue-50 dark:bg-blue-500/15 border border-blue-500/20 flex items-center justify-center shrink-0 text-sm">
+                📄
+              </div>
+            )}
             <div className="flex flex-col min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
                 <span className="text-[11px] font-semibold text-slate-800 dark:text-slate-200 truncate">
@@ -1200,7 +1247,7 @@ export default function ChatBot({
                 </span>
               </div>
               <span className="text-[9px] text-slate-400 dark:text-slate-500 truncate">
-                Page text context attached
+                {attachedPage.hostname || "Page link & screenshot attached"}
               </span>
             </div>
             <button

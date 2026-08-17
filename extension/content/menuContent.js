@@ -442,11 +442,23 @@ window.addEventListener("message", async (event) => {
   }
 
   if (msgType === "IF_B_CAPTURE_PAGE") {
-    console.log(`[SpectraLens:ContentBridge] 📄 Extracting active page text and title...`);
+    console.log(`[SpectraLens:ContentBridge] 📄 Extracting active page metadata, text, and top-section screenshot...`);
     const iframe = document.getElementById("__menuWindowIframe");
+
     try {
       const title = document.title || "Web Page";
       const url = window.location.href;
+      const hostname = window.location.hostname || "";
+      const description =
+        document.querySelector('meta[name="description"]')?.getAttribute("content") ||
+        document.querySelector('meta[property="og:description"]')?.getAttribute("content") ||
+        "";
+      const keywords = document.querySelector('meta[name="keywords"]')?.getAttribute("content") || "";
+      const author = document.querySelector('meta[name="author"]')?.getAttribute("content") || "";
+      const favicon =
+        document.querySelector('link[rel~="icon"]')?.href ||
+        document.querySelector('link[rel="shortcut icon"]')?.href ||
+        `https://www.google.com/s2/favicons?domain=${hostname}&sz=32`;
 
       // Extract clean readable text by cloning and stripping script/style/iframe tags
       const clone = document.body.cloneNode(true);
@@ -460,25 +472,70 @@ window.addEventListener("message", async (event) => {
       const text = rawText.replace(/\n\s*\n\s*\n/g, "\n\n").trim();
       const wordCount = text.split(/\s+/).filter(Boolean).length;
 
-      console.log(`[SpectraLens:ContentBridge] 📄 Page text extracted (${wordCount} words, ${text.length} chars)`);
-      pagePostMessage(
-        msgType,
-        {
-          success: true,
-          title,
-          url,
-          text,
-          wordCount,
-        },
-        iframe?.contentWindow,
+      // Save current scroll position to restore after capturing top of page
+      const originalScrollX = window.scrollX || window.pageXOffset || 0;
+      const originalScrollY = window.scrollY || window.pageYOffset || 0;
+
+      // Scroll to very top of page for hero/top-section screenshot
+      window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+
+      // Temporarily hide frames to capture clean top-section screenshot
+      const framesToHide = Array.from(
+        document.querySelectorAll("#__menuWindowIframe, #screenSelectorIframe, iframe[id*='menuWindow']"),
       );
+      const savedStyles = framesToHide.map((f) => ({
+        frame: f,
+        visibility: f.style.visibility,
+        opacity: f.style.opacity,
+      }));
+
+      framesToHide.forEach((f) => {
+        f.style.visibility = "hidden";
+        f.style.opacity = "0";
+      });
+
+      setTimeout(() => {
+        runtimeSendMessage("IF_B_CAPTURE_SCREEN", {}, (captureRes) => {
+          // Restore original scroll position immediately
+          window.scrollTo({ top: originalScrollY, left: originalScrollX, behavior: "instant" });
+
+          // Restore frames immediately
+          savedStyles.forEach(({ frame, visibility, opacity }) => {
+            if (frame) {
+              frame.style.visibility = visibility;
+              frame.style.opacity = opacity;
+            }
+          });
+
+          const image = captureRes?.image || null;
+          console.log(`[SpectraLens:ContentBridge] 📄 Top section page screenshot captured successfully: "${title}" (screenshot: ${Boolean(image)})`);
+
+          pagePostMessage(
+            msgType,
+            {
+              success: true,
+              title,
+              url,
+              hostname,
+              description,
+              keywords,
+              author,
+              favicon,
+              text,
+              wordCount,
+              image,
+            },
+            iframe?.contentWindow,
+          );
+        });
+      }, 60);
     } catch (e) {
-      console.error(`[SpectraLens:ContentBridge] ❌ Error extracting page text:`, e);
+      console.error(`[SpectraLens:ContentBridge] ❌ Error extracting page context:`, e);
       pagePostMessage(
         msgType,
         {
           success: false,
-          error: e?.message || "Failed to extract page text",
+          error: e?.message || "Failed to extract page context",
         },
         iframe?.contentWindow,
       );
