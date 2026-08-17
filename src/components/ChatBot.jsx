@@ -72,8 +72,10 @@ export default function ChatBot({
 
   // Screen/Context attachment state
   const [attachedImage, setAttachedImage] = useState(null);
+  const [attachedPage, setAttachedPage] = useState(null);
   const [attachedContextType, setAttachedContextType] = useState(null);
   const [lastQuestionImage, setLastQuestionImage] = useState(null);
+  const [lastQuestionPage, setLastQuestionPage] = useState(null);
 
   // '@' mention autocomplete state
   const [showMentionMenu, setShowMentionMenu] = useState(false);
@@ -264,7 +266,8 @@ export default function ChatBot({
         UTILS.pagePostMessage("IF_B_CAPTURE_SCREEN", {}, window.parent);
         setAttachedContextType("screen");
       } else if (option.id === "page") {
-        console.log("[SpectraLens:ChatBot] 📄 Requesting page text context...");
+        console.log("[SpectraLens:ChatBot] 📄 Requesting page text context via IF_B_CAPTURE_PAGE...");
+        UTILS.pagePostMessage("IF_B_CAPTURE_PAGE", {}, window.parent);
         setAttachedContextType("page");
       } else if (option.id === "area") {
         if (onOpenSelector) {
@@ -293,13 +296,28 @@ export default function ChatBot({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Listen for IF_B_CAPTURE_SCREEN response
+  // Listen for IF_B_CAPTURE_SCREEN & IF_B_CAPTURE_PAGE response
   useEffect(() => {
     UTILS.pageOnMessage("IF_B_CAPTURE_SCREEN", (data) => {
       if (data?.image) {
         console.log("[SpectraLens:ChatBot] 📸 Screen image attached to chat successfully!");
         setAttachedImage(data.image);
+        setAttachedPage(null);
         setAttachedContextType("screen");
+      }
+    });
+
+    UTILS.pageOnMessage("IF_B_CAPTURE_PAGE", (data) => {
+      if (data?.success && data?.text) {
+        console.log(`[SpectraLens:ChatBot] 📄 Page attached: "${data.title}" (${data.wordCount} words)`);
+        setAttachedPage({
+          title: data.title || "Page Context",
+          url: data.url || "",
+          text: data.text,
+          wordCount: data.wordCount || 0,
+        });
+        setAttachedImage(null);
+        setAttachedContextType("page");
       }
     });
   }, []);
@@ -359,8 +377,10 @@ export default function ChatBot({
     setAnswers({});
     setLastQuestion("");
     setAttachedImage(null);
+    setAttachedPage(null);
     setAttachedContextType(null);
     setLastQuestionImage(null);
+    setLastQuestionPage(null);
     setShowMentionMenu(false);
     setSelectedProvider(null);
     setViewedProviders(new Set());
@@ -517,7 +537,7 @@ export default function ChatBot({
   const handleSendMessage = useCallback(
     async (messageInput = null) => {
       const actualInput = messageInput !== null ? messageInput : input;
-      if (actualInput?.trim() === "" && !attachedImage) return;
+      if (actualInput?.trim() === "" && !attachedImage && !attachedPage) return;
 
       const requestId = Date.now().toString();
       currentRequestIdRef.current = requestId;
@@ -531,15 +551,30 @@ export default function ChatBot({
       setSelectedProvider(targetProvider);
       setViewedProviders(new Set([targetProvider]));
 
-      const sentQuestion = actualInput || (attachedImage ? "Explain what is on this screen" : "");
-      setLastQuestion(sentQuestion);
+      let sentQuestion = actualInput;
+      if (attachedPage) {
+        sentQuestion = `${actualInput || "Explain the content of this page"}\n\n[Attached Page Context: "${attachedPage.title}" (${attachedPage.url})]\n"""\n${attachedPage.text.slice(0, 15000)}\n"""`;
+      } else if (!actualInput && attachedImage) {
+        sentQuestion = "Explain what is on this screen";
+      }
+
+      setLastQuestion(
+        actualInput ||
+          (attachedPage
+            ? `📄 Attached Page: ${attachedPage.title}`
+            : attachedImage
+              ? "📸 Attached Screen Screenshot"
+              : ""),
+      );
       lastQuestionRef.current = sentQuestion;
       setLastQuestionImage(attachedImage);
+      setLastQuestionPage(attachedPage);
       const currentImage = attachedImage;
 
       setMessageTime(getFormattedTime());
       setInput("");
       setAttachedImage(null);
+      setAttachedPage(null);
       setAttachedContextType(null);
       setShowMentionMenu(false);
       setIsMultiLineInput(false);
@@ -559,6 +594,7 @@ export default function ChatBot({
     [
       input,
       attachedImage,
+      attachedPage,
       loadProvidersWithConcurrency,
       selectedProvider,
       aiProviders,
@@ -933,6 +969,21 @@ export default function ChatBot({
                 </div>
               )}
 
+              {/* Attached Page Context Badge inside Message Bubble */}
+              {lastQuestionPage && (
+                <div className="flex items-center gap-2 mb-2 px-2.5 py-1.5 rounded-xl bg-white/15 border border-white/20 text-white select-none">
+                  <span className="text-sm">📄</span>
+                  <div className="flex flex-col min-w-0 flex-1">
+                    <span className="text-[11px] font-semibold truncate">
+                      {lastQuestionPage.title}
+                    </span>
+                    <span className="text-[9px] text-blue-100 truncate">
+                      {lastQuestionPage.wordCount} words text context attached
+                    </span>
+                  </div>
+                </div>
+              )}
+
               <p
                 className="text-xs leading-relaxed font-normal whitespace-pre-wrap break-words max-h-[7.2em] overflow-y-auto custom-scrollbar pr-1 select-text cursor-text"
                 title={lastQuestion}
@@ -1108,7 +1159,7 @@ export default function ChatBot({
 
         {/* Attached Screen Thumbnail Chip */}
         {attachedImage && (
-          <div className="flex items-center gap-2 px-3 py-1.5 mb-2 bg-white dark:bg-[#191c25] border border-slate-200/90 dark:border-white/[0.1] rounded-xl shadow-xs animate-in fade-in duration-200">
+          <div className="flex items-center gap-2 px-3 py-1.5 mb-2 bg-white dark:bg-[#191c25] border border-blue-500/30 dark:border-blue-500/25 rounded-xl shadow-xs animate-in fade-in duration-200">
             <div className="relative w-8 h-6 rounded overflow-hidden border border-slate-300 dark:border-white/10 shrink-0 bg-slate-200 dark:bg-black/30">
               <img src={attachedImage} alt="Screen attachment" className="w-full h-full object-cover" />
             </div>
@@ -1117,7 +1168,7 @@ export default function ChatBot({
                 Screen Attached
               </span>
               <span className="text-[9px] text-slate-400 dark:text-slate-500">
-                Visual context will be sent to AI
+                Visual image will be sent to AI
               </span>
             </div>
             <button
@@ -1127,6 +1178,38 @@ export default function ChatBot({
               }}
               className="w-5 h-5 rounded-full flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
               title="Remove attachment"
+            >
+              <IoClose className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
+        {/* Attached Page Text Context Chip */}
+        {attachedPage && (
+          <div className="flex items-center gap-2 px-3 py-1.5 mb-2 bg-white dark:bg-[#191c25] border border-blue-500/30 dark:border-blue-500/25 rounded-xl shadow-xs animate-in fade-in duration-200">
+            <div className="w-8 h-7 rounded-lg bg-blue-50 dark:bg-blue-500/15 border border-blue-500/20 flex items-center justify-center shrink-0 text-sm">
+              📄
+            </div>
+            <div className="flex flex-col min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] font-semibold text-slate-800 dark:text-slate-200 truncate">
+                  {attachedPage.title}
+                </span>
+                <span className="text-[9px] px-1.5 py-0.2 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold shrink-0">
+                  {attachedPage.wordCount} words
+                </span>
+              </div>
+              <span className="text-[9px] text-slate-400 dark:text-slate-500 truncate">
+                Page text context attached
+              </span>
+            </div>
+            <button
+              onClick={() => {
+                setAttachedPage(null);
+                setAttachedContextType(null);
+              }}
+              className="w-5 h-5 rounded-full flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
+              title="Remove page context"
             >
               <IoClose className="w-3.5 h-3.5" />
             </button>

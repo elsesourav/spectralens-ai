@@ -404,6 +404,88 @@ window.addEventListener("message", async (event) => {
   const msgType = typeof event?.data?.type === "string" ? event.data.type : "";
   if (!msgType) return;
 
+  if (msgType === "IF_B_CAPTURE_SCREEN") {
+    console.log(`[SpectraLens:ContentBridge] 📸 Hiding extension UI for clean screen capture...`);
+    const framesToHide = Array.from(
+      document.querySelectorAll("#__menuWindowIframe, #screenSelectorIframe, iframe[id*='menuWindow']"),
+    );
+    const savedStyles = framesToHide.map((f) => ({
+      frame: f,
+      visibility: f.style.visibility,
+      opacity: f.style.opacity,
+    }));
+
+    framesToHide.forEach((f) => {
+      f.style.visibility = "hidden";
+      f.style.opacity = "0";
+    });
+
+    // Allow 1 render frame (40ms) for browser to paint the clean web page underneath
+    setTimeout(() => {
+      runtimeSendMessage(msgType, { ...event.data }, (res) => {
+        // Restore frames immediately
+        savedStyles.forEach(({ frame, visibility, opacity }) => {
+          if (frame) {
+            frame.style.visibility = visibility;
+            frame.style.opacity = opacity;
+          }
+        });
+
+        console.log(`[SpectraLens:ContentBridge] 📥 Received clean capture response from background:`, res);
+        const iframe = document.getElementById("__menuWindowIframe");
+        if (res) {
+          pagePostMessage(msgType, res, iframe?.contentWindow);
+        }
+      });
+    }, 45);
+    return;
+  }
+
+  if (msgType === "IF_B_CAPTURE_PAGE") {
+    console.log(`[SpectraLens:ContentBridge] 📄 Extracting active page text and title...`);
+    const iframe = document.getElementById("__menuWindowIframe");
+    try {
+      const title = document.title || "Web Page";
+      const url = window.location.href;
+
+      // Extract clean readable text by cloning and stripping script/style/iframe tags
+      const clone = document.body.cloneNode(true);
+      clone
+        .querySelectorAll(
+          "script, style, noscript, iframe, svg, #__menuWindowIframe, #screenSelectorIframe, [aria-hidden='true']",
+        )
+        .forEach((el) => el.remove());
+
+      const rawText = clone.innerText || clone.textContent || "";
+      const text = rawText.replace(/\n\s*\n\s*\n/g, "\n\n").trim();
+      const wordCount = text.split(/\s+/).filter(Boolean).length;
+
+      console.log(`[SpectraLens:ContentBridge] 📄 Page text extracted (${wordCount} words, ${text.length} chars)`);
+      pagePostMessage(
+        msgType,
+        {
+          success: true,
+          title,
+          url,
+          text,
+          wordCount,
+        },
+        iframe?.contentWindow,
+      );
+    } catch (e) {
+      console.error(`[SpectraLens:ContentBridge] ❌ Error extracting page text:`, e);
+      pagePostMessage(
+        msgType,
+        {
+          success: false,
+          error: e?.message || "Failed to extract page text",
+        },
+        iframe?.contentWindow,
+      );
+    }
+    return;
+  }
+
   if (msgType.includes("IF_B_")) {
     console.log(`[SpectraLens:ContentBridge] 🌉 Forwarding "${msgType}" from iframe to background:`, event.data);
 
