@@ -1,11 +1,13 @@
 {
   "name": "spectralens-ai",
   "private": true,
-  "version": "2.7.0",
+  "version": "2.8.5",
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "node scripts/update-version.js",
     "build": "vite build && npm run zip",
+    "version:bump": "node scripts/update-version.js",
     "lint": "eslint .",
     "test": "node tests/test-extension.js",
     "preview": "vite preview",

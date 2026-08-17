@@ -75,16 +75,19 @@ async function zipExtension() {
    // Pipe archive data to the file
    archive.pipe(output);
 
-   // Remove the zip script from the extension folder if it was copied there
-   const zipScriptPath = path.join(extensionDir, "zip-extension.js");
-   if (existsSync(zipScriptPath)) {
-      unlinkSync(zipScriptPath);
-   }
+   // Remove build scripts from the extension folder if they were copied there
+   const buildScripts = ["zip-extension.js", "update-version.js"];
+   buildScripts.forEach((script) => {
+      const scriptPath = path.join(extensionDir, script);
+      if (existsSync(scriptPath)) {
+         unlinkSync(scriptPath);
+      }
+   });
 
    // Add extension files while ignoring .DS_Store and development artifacts
    archive.glob("**/*", {
       cwd: extensionDir,
-      ignore: ["**/.DS_Store", "**/zip-extension.js", "**/test-extension.js"],
+      ignore: ["**/.DS_Store", "**/zip-extension.js", "**/test-extension.js", "**/update-version.js"],
    });
 
    // Create a simple text readme for the zip

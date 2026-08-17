@@ -92,8 +92,14 @@ requiredFiles.forEach((file) => {
   assert(fs.existsSync(filePath), `Required build file exists: ${file}`);
 });
 
+// Verify manifest version matches package.json version
+const pkg = JSON.parse(fs.readFileSync(path.join(rootDir, "package.json"), "utf-8"));
+assert(manifest.version === pkg.version, `Manifest version (${manifest.version}) matches package.json version (${pkg.version})`);
+
 // Verify no test or dev scripts leaked into extension/
 assert(!fs.existsSync(path.join(extensionDir, "test-extension.js")), "No test scripts leaked into extension output");
+assert(!fs.existsSync(path.join(extensionDir, "update-version.js")), "No update-version script leaked into extension output");
+assert(!fs.existsSync(path.join(extensionDir, "zip-extension.js")), "No zip-extension script leaked into extension output");
 
 // --- TEST SUITE 3: HTML Sanitization Security Verification ---
 console.log("\n3. HTML Sanitization Security Verification:");
@@ -142,11 +148,53 @@ const bgCode = fs.readFileSync(bgPath, "utf-8");
 assert(bgCode.includes("IF_B_STOP_FETCH"), "background.js handles IF_B_STOP_FETCH cancellation");
 assert(!bgCode.includes("settings.enable"), "background.js uses safe optional chaining for settings");
 
-// --- SUMMARY ---
-console.log(`\n========================================`);
-console.log(`Test Results: ${passed} Passed, ${failed} Failed`);
-console.log(`========================================\n`);
+// --- TEST SUITE 6: Auto-Versioning 9.99.999 Schema & Rollover ---
+console.log("\n6. Auto-Versioning 9.99.999 Schema & Rollover:");
+import("../scripts/update-version.js").then(({ calculateNextVersion, normalizeVersion }) => {
+  // Test incremental per-build increment (+1 one by one)
+  const v1 = calculateNextVersion("2.8.0");
+  assert(v1 === "2.8.1", `Build bump 2.8.0 -> 2.8.1 (got ${v1})`);
 
-if (failed > 0) {
-  process.exit(1);
-}
+  const v1b = calculateNextVersion("2.8.1");
+  assert(v1b === "2.8.2", `Build bump 2.8.1 -> 2.8.2 (got ${v1b})`);
+
+  // Test 3-digit patch rollover to minor (e.g. 2.8.999 -> 2.9.0)
+  const v2 = calculateNextVersion("2.8.999");
+  assert(v2 === "2.9.0", `Patch rollover 2.8.999 -> 2.9.0 (got ${v2})`);
+
+  // Test 2-digit minor rollover to major (e.g. 2.99.999 -> 3.0.0)
+  const v3 = calculateNextVersion("2.99.999");
+  assert(v3 === "3.0.0", `Minor/Patch rollover 2.99.999 -> 3.0.0 (got ${v3})`);
+
+  // Test max boundary limit 9.99.999
+  const v4 = calculateNextVersion("9.99.999");
+  assert(v4 === "9.99.999", `Max boundary limit 9.99.999 (got ${v4})`);
+
+  // --- TEST SUITE 7: Theme-Aware Isolated Response & Dynamic CSS Engine ---
+  console.log("\n7. Theme-Aware Isolated Response & Dynamic CSS Engine:");
+  const popupCss = fs.readFileSync(path.join(rootDir, "src", "popup", "index.css"), "utf-8");
+  const menuCss = fs.readFileSync(path.join(rootDir, "src", "inject", "menuWindow.css"), "utf-8");
+  const adaptersJs = fs.readFileSync(path.join(rootDir, "scripts", "content", "providerAdapters.js"), "utf-8");
+
+  assert(popupCss.includes("--sl-text-primary:"), "popup/index.css defines --sl-text-primary theme token");
+  assert(popupCss.includes("--sl-bg-surface:"), "popup/index.css defines --sl-bg-surface theme token");
+  assert(popupCss.includes("--sl-border-subtle:"), "popup/index.css defines --sl-border-subtle theme token");
+  assert(popupCss.includes(".dark .spectralens-isolated-response"), "popup/index.css defines dark mode theme token overrides");
+  assert(menuCss.includes("--sl-text-primary:"), "inject/menuWindow.css defines --sl-text-primary theme token");
+  assert(menuCss.includes(".dark .spectralens-isolated-response"), "inject/menuWindow.css defines dark mode theme token overrides");
+
+  assert(adaptersJs.includes("virtualizeComputedStyle"), "providerAdapters.js defines virtualizeComputedStyle color virtualizer");
+  assert(adaptersJs.includes("extractStyledHtml"), "providerAdapters.js defines extractStyledHtml method on BaseProviderAdapter");
+  assert(adaptersJs.includes("var(--sl-text-primary"), "providerAdapters.js virtualizes text color to var(--sl-text-primary)");
+  assert(adaptersJs.includes("var(--sl-border-subtle"), "providerAdapters.js virtualizes border color to var(--sl-border-subtle)");
+  assert(adaptersJs.includes("var(--sl-bg-surface"), "providerAdapters.js virtualizes background color to var(--sl-bg-surface)");
+
+  // --- SUMMARY ---
+  console.log(`\n========================================`);
+  console.log(`Test Results: ${passed} Passed, ${failed} Failed`);
+  console.log(`========================================\n`);
+
+  if (failed > 0) {
+    process.exit(1);
+  }
+});

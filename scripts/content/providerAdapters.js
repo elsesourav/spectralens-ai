@@ -29,6 +29,188 @@
   }
 
   /**
+   * Parse RGB, RGBA, Hex (#rgb, #rrggbb), and CSS Color Level 4 (rgb(r g b / a), color(srgb))
+   */
+  function parseRgbColor(colorStr) {
+    if (!colorStr || typeof colorStr !== "string") return null;
+    const str = colorStr.trim();
+
+    // 1. Standard rgb(r, g, b) or rgba(r, g, b, a) or space-separated rgb(r g b)
+    const rgbMatch = str.match(/rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:[,\s/]+([\d.]+))?\s*\)/i);
+    if (rgbMatch) {
+      return {
+        r: Math.round(parseFloat(rgbMatch[1])),
+        g: Math.round(parseFloat(rgbMatch[2])),
+        b: Math.round(parseFloat(rgbMatch[3])),
+        a: rgbMatch[4] !== undefined ? parseFloat(rgbMatch[4]) : 1,
+      };
+    }
+
+    // 2. Hex #rrggbb, #rgba, #rgb
+    if (str.startsWith("#")) {
+      const hex = str.slice(1);
+      if (hex.length === 3 || hex.length === 4) {
+        return {
+          r: parseInt(hex[0] + hex[0], 16),
+          g: parseInt(hex[1] + hex[1], 16),
+          b: parseInt(hex[2] + hex[2], 16),
+          a: hex[3] ? parseInt(hex[3] + hex[3], 16) / 255 : 1,
+        };
+      }
+      if (hex.length === 6 || hex.length === 8) {
+        return {
+          r: parseInt(hex.slice(0, 2), 16),
+          g: parseInt(hex.slice(2, 4), 16),
+          b: parseInt(hex.slice(4, 6), 16),
+          a: hex.length === 8 ? parseInt(hex.slice(6, 8), 16) / 255 : 1,
+        };
+      }
+    }
+
+    // 3. color(srgb r g b)
+    const srgbMatch = str.match(/color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+))?\)/i);
+    if (srgbMatch) {
+      return {
+        r: Math.round(parseFloat(srgbMatch[1]) * 255),
+        g: Math.round(parseFloat(srgbMatch[2]) * 255),
+        b: Math.round(parseFloat(srgbMatch[3]) * 255),
+        a: srgbMatch[4] !== undefined ? parseFloat(srgbMatch[4]) : 1,
+      };
+    }
+
+    return null;
+  }
+
+  /**
+   * Deep Theme-Aware Color Virtualizer
+   * Replaces static hardcoded computed colors with dynamic SpectraLens CSS variables
+   * so the entire response automatically adapts to Light, Dark, High-Contrast & Custom themes.
+   */
+  function virtualizeComputedStyle(prop, val, tagName = "", isTopContainer = false) {
+    if (!val || val === "normal" || val === "none" || val === "auto" || val === "0px") return "";
+    if (val === "rgba(0, 0, 0, 0)" || val === "transparent") {
+      return prop.includes("background") ? "transparent" : "";
+    }
+
+    const tag = (tagName || "").toUpperCase();
+
+    // 1. Color / Background / Border / Fill / Stroke Virtualization
+    if (
+      prop === "color" ||
+      prop === "background-color" ||
+      (prop.includes("border") && prop.includes("color")) ||
+      prop === "fill" ||
+      prop === "stroke"
+    ) {
+      const rgb = parseRgbColor(val);
+      if (!rgb) {
+        if (prop === "color") return "var(--sl-text-primary, #0f172a)";
+        return val;
+      }
+      const { r, g, b, a } = rgb;
+      if (a < 0.05) return prop.includes("background") ? "transparent" : "";
+
+      const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+      const isBlue = b > r + 30 && b > g;
+      const isRed = r > g + 40 && r > b + 40;
+      const isGreen = g > r + 30 && g > b + 30;
+
+      // Text Colors
+      if (prop === "color") {
+        if (tag === "A" || isBlue) return "var(--sl-text-link, #2563eb)";
+        if (isRed) return "var(--sl-text-danger, #ef4444)";
+        if (isGreen) return "var(--sl-text-success, #10b981)";
+        if (lum < 80 || lum > 210) return "var(--sl-text-primary, #0f172a)";
+        if (lum >= 80 && lum < 140) return "var(--sl-text-secondary, #334155)";
+        return "var(--sl-text-muted, #64748b)";
+      }
+
+      // Background Colors
+      if (prop === "background-color") {
+        if (tag === "PRE" || tag === "CODE") return "var(--sl-bg-code, #f1f5f9)";
+        if (isBlue && (a < 0.3 || lum > 190)) return "var(--sl-accent-bg, rgba(59, 130, 246, 0.08))";
+        // Near-white / very light surfaces
+        if (r >= 235 && g >= 235 && b >= 235) {
+          if (isTopContainer || tag === "SECTION" || tag === "MAIN" || (tag === "DIV" && !tag.includes("BUTTON"))) {
+            return "transparent";
+          }
+          return "var(--sl-bg-surface-elevated, #ffffff)";
+        }
+        // Subtle pills / chips
+        if (lum >= 190) {
+          return "var(--sl-bg-surface-subtle, #f1f5f9)";
+        }
+        // Dark host mode backgrounds
+        if (lum < 70) {
+          if (isTopContainer) return "transparent";
+          return "var(--sl-bg-surface, rgba(30, 41, 59, 0.7))";
+        }
+        return "var(--sl-bg-surface-subtle, #f1f5f9)";
+      }
+
+      // Border Colors
+      if (prop.includes("border") && prop.includes("color")) {
+        if (isBlue) return "var(--sl-accent, #3b82f6)";
+        if (lum > 175) return "var(--sl-border-subtle, #e2e8f0)";
+        return "var(--sl-border-strong, #cbd5e1)";
+      }
+
+      // SVG Fill & Stroke
+      if (prop === "fill" || prop === "stroke") {
+        if (isBlue) return "var(--sl-text-link, #2563eb)";
+        return "currentColor";
+      }
+    }
+
+    // 2. Box Shadow Virtualization
+    if (prop === "box-shadow" && val && val !== "none") {
+      return "var(--sl-shadow, 0 1px 3px rgba(0, 0, 0, 0.06))";
+    }
+
+    // 3. Font Family Normalization
+    if (prop === "font-family") {
+      return "var(--sl-font-family, 'Google Sans', Roboto, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif)";
+    }
+
+    // 4. Compact Font-Size & Line-Height Scaling (Fit cleanly in chatbot popup/menu)
+    if (prop === "font-size") {
+      const match = String(val).match(/([\d.]+)px/i);
+      if (match) {
+        const px = parseFloat(match[1]);
+        if (px >= 24) return "15px";
+        if (px >= 20) return "14px";
+        if (px >= 16) return "12.5px";
+        if (px >= 14) return "12px";
+        if (px >= 12) return "11px";
+        return `${Math.max(10, Math.round(px * 0.82))}px`;
+      }
+    }
+
+    if (prop === "line-height") {
+      const match = String(val).match(/([\d.]+)px/i);
+      if (match) {
+        const px = parseFloat(match[1]);
+        if (px >= 28) return "20px";
+        if (px >= 22) return "18px";
+        if (px >= 18) return "16px";
+        return `${Math.max(14, Math.round(px * 0.82))}px`;
+      }
+    }
+
+    // 5. Margin & Padding Compact Scaling for small chatbot view
+    if (prop.startsWith("margin-") || prop.startsWith("padding-")) {
+      const match = String(val).match(/([\d.]+)px/i);
+      if (match) {
+        const px = parseFloat(match[1]);
+        if (px > 14) return "8px";
+        if (px > 10) return "6px";
+      }
+    }
+
+    return val;
+  }
+
+  /**
    * Abstract Base Provider Adapter
    */
   class BaseProviderAdapter {
@@ -160,7 +342,7 @@
       ];
     }
 
-    /** Clean cloned DOM before converting to Markdown */
+    /** Clean cloned DOM before converting or styling */
     cleanCloneNode(clone) {
       if (!clone || !clone.querySelectorAll) return;
       const selectors = this.getJunkSelectors();
@@ -169,6 +351,178 @@
           clone.querySelectorAll(sel).forEach((el) => el.remove());
         } catch {}
       }
+
+      // Unhide Google AI and provider streaming/animation accessibility nodes (e.g. data-sae with opacity:0)
+      try {
+        clone.querySelectorAll("[data-sae], [data-subtree], [style*='opacity'], [style*='pointer-events']").forEach((el) => {
+          el.removeAttribute("data-sae");
+          if (el.style.opacity === "0" || el.style.opacity === "0.0") {
+            el.style.opacity = "1";
+          }
+          if (el.style.pointerEvents === "none") {
+            el.style.pointerEvents = "auto";
+          }
+          if (el.style.visibility === "hidden") {
+            el.style.visibility = "visible";
+          }
+        });
+      } catch {}
+
+      // Prune empty container elements (e.g. empty div, span, p, section) that have no text and no children
+      // preserving void/standalone elements like hr, br, img, svg, video, audio, canvas
+      try {
+        const preservedTags = new Set([
+          "HR",
+          "BR",
+          "IMG",
+          "SVG",
+          "VIDEO",
+          "AUDIO",
+          "CANVAS",
+          "IFRAME",
+          "INPUT",
+          "TEXTAREA",
+        ]);
+
+        let removedAny = true;
+        let passes = 0;
+        while (removedAny && passes < 4) {
+          removedAny = false;
+          passes++;
+          const allEls = clone.querySelectorAll(
+            "div, span, p, section, article, ul, ol, li, h1, h2, h3, h4, h5, h6, b, strong, em, i"
+          );
+          for (const el of allEls) {
+            if (preservedTags.has(el.tagName)) continue;
+            // If element contains any preserved elements inside, don't remove
+            if (el.querySelector("hr, br, img, svg, video, audio, canvas, iframe, input, textarea")) continue;
+
+            const text = (el.textContent || "").trim();
+            if (text === "" && el.children.length === 0) {
+              el.remove();
+              removedAny = true;
+            }
+          }
+        }
+      } catch {}
+    }
+
+    /**
+     * Extracts exact styled HTML from the live DOM container,
+     * converting all visual styles to responsive theme-aware CSS variables.
+     */
+    extractStyledHtml(container) {
+      if (!container) return "";
+      let targetNode = container;
+
+      if (typeof container.cloneNode === "function") {
+        const clone = container.cloneNode(true);
+
+        // 1. Recursive Theme-Aware Computed Style Snapshotting
+        try {
+          const props = [
+            "color",
+            "background-color",
+            "border-color",
+            "border-top-color",
+            "border-bottom-color",
+            "border-left-color",
+            "border-right-color",
+            "border-width",
+            "border-style",
+            "border-radius",
+            "font-family",
+            "font-size",
+            "font-weight",
+            "font-style",
+            "line-height",
+            "letter-spacing",
+            "text-align",
+            "display",
+            "flex-direction",
+            "flex-wrap",
+            "align-items",
+            "justify-content",
+            "gap",
+            "margin-top",
+            "margin-bottom",
+            "margin-left",
+            "margin-right",
+            "padding-top",
+            "padding-bottom",
+            "padding-left",
+            "padding-right",
+            "list-style-type",
+            "list-style-position",
+            "box-shadow",
+            "fill",
+            "stroke",
+          ];
+
+          const copyStylesRecursive = (live, cloned, isTop = true) => {
+            if (!live || !cloned || live.nodeType !== 1 || cloned.nodeType !== 1) return;
+            const comp = window.getComputedStyle(live);
+            if (comp) {
+              let styleStr = cloned.getAttribute("style") || "";
+              for (const p of props) {
+                const rawVal = comp.getPropertyValue(p);
+                const themeVal = virtualizeComputedStyle(p, rawVal, live.tagName, isTop);
+                if (themeVal) {
+                  styleStr += `;${p}:${themeVal}`;
+                }
+              }
+              if (styleStr) {
+                cloned.setAttribute("style", styleStr);
+              }
+            }
+
+            // Ensure safe anchor attributes
+            if (cloned.tagName === "A") {
+              cloned.setAttribute("target", "_blank");
+              cloned.setAttribute("rel", "noopener noreferrer");
+            }
+
+            const liveChildren = Array.from(live.children || []);
+            const cloneChildren = Array.from(cloned.children || []);
+            const count = Math.min(liveChildren.length, cloneChildren.length);
+            for (let i = 0; i < count; i++) {
+              copyStylesRecursive(liveChildren[i], cloneChildren[i], false);
+            }
+          };
+
+          copyStylesRecursive(container, clone, true);
+        } catch (e) {
+          tabLog("ProviderAdapter", `Style virtualization note: ${e.message}`);
+        }
+
+        // 2. Clean out junk action toolbars from cloned tree
+        if (clone && clone.querySelectorAll) {
+          this.cleanCloneNode(clone);
+        }
+
+        targetNode = clone;
+      }
+
+      // Return exact theme-aware HTML wrapped in isolated container with text-selection enabled
+      let innerContent = (targetNode.innerHTML || targetNode.textContent || "").trim();
+
+      // Clean hidden opacity/pointer-events artifacts left from provider streaming
+      innerContent = innerContent
+        .replace(/opacity:\s*0(?:\.0+)?\s*;?/gi, "opacity: 1;")
+        .replace(/pointer-events:\s*none\s*;?/gi, "pointer-events: auto;")
+        .replace(/visibility:\s*hidden\s*;?/gi, "visibility: visible;")
+        .replace(/<!--TgQPHd[^>]*-->/gi, "");
+
+      // Remove empty container tags like <div></div>, <span></span>, <p></p> (preserving <hr>, <br>, <img>, <svg>)
+      let prevContent = "";
+      let iterations = 0;
+      while (prevContent !== innerContent && iterations < 3) {
+        prevContent = innerContent;
+        iterations++;
+        innerContent = innerContent.replace(/<(div|span|p|section|article|b|strong|em|i|li|ul|ol)\b[^>]*>\s*<\/\1>/gi, "");
+      }
+
+      return `<div class="spectralens-isolated-response select-text" style="font-family: var(--sl-font-family, 'Google Sans', Roboto, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif); font-size: 13px; line-height: 1.55; max-width: 100%; box-sizing: border-box; overflow-wrap: break-word; color: var(--sl-text-primary, #0f172a); user-select: text !important;">${innerContent.trim()}</div>`;
     }
 
     /** Provider-specific post-processing hook for extracted Markdown */
@@ -992,6 +1346,13 @@
         .replace(/#*\s*Share public link[\s\S]*$/i, "")
         .replace(/This public link shares a thread[\s\S]*$/i, "");
       return cleaned.trim();
+    }
+
+    /** Return exact raw HTML and CSS from Google AI with dynamic theme-aware color virtualization */
+    async getCurrentResponse() {
+      const container = this.findResponseContainer();
+      if (!container) return "";
+      return this.extractStyledHtml(container);
     }
 
     observeResponse(timeoutMs = 25000) {

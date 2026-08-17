@@ -591,7 +591,7 @@ export default function ChatBot({
   return (
     <div
       ref={rootRef}
-      className="flex flex-col h-full w-full overflow-hidden text-slate-800 dark:text-slate-200 select-none"
+      className="flex flex-col h-full w-full overflow-hidden text-slate-800 dark:text-slate-200"
     >
       {/* Provider Pill Bar */}
       <div className="flex items-center justify-between gap-1.5 px-3.5 py-2 border-b border-slate-200/50 dark:border-white/[0.06] bg-slate-50/50 dark:bg-black/10 shrink-0">
@@ -750,14 +750,14 @@ export default function ChatBot({
         {/* User Message Bubble */}
         {lastQuestion && (
           <div className="flex flex-col items-end gap-1 animate-fade-in group">
-            <div className="relative max-w-[85%] px-3.5 py-2.5 rounded-2xl rounded-tr-xs bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs">
+            <div className="user-message-bubble relative max-w-[85%] px-3.5 py-2.5 rounded-2xl rounded-tr-xs bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs select-text">
               <p
-                className="text-xs leading-relaxed font-normal whitespace-pre-wrap break-words max-h-[7.2em] overflow-y-auto custom-scrollbar pr-1 select-text"
+                className="text-xs leading-relaxed font-normal whitespace-pre-wrap break-words max-h-[7.2em] overflow-y-auto custom-scrollbar pr-1 select-text cursor-text"
                 title={lastQuestion}
               >
                 {lastQuestion}
               </p>
-              <div className="flex items-center justify-between gap-4 mt-2 pt-1.5 border-t border-white/15 text-[10px] text-blue-100 font-medium">
+              <div className="flex items-center justify-between gap-4 mt-2 pt-1.5 border-t border-white/15 text-[10px] text-blue-100 font-medium select-none">
                 {/* Copy User Question Button */}
                 <button
                   type="button"
@@ -811,7 +811,7 @@ export default function ChatBot({
                 <div className="flex items-center gap-2">
                   {isLoading && !selectedAnswerContent && (
                     <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold animate-pulse">
-                      Streaming response...
+                      Generating answer...
                     </span>
                   )}
                 </div>
@@ -820,7 +820,7 @@ export default function ChatBot({
               {/* Response Content Body */}
               {selectedAnswerContent ? (
                 <div
-                  className="ai-markdown text-slate-900 dark:text-slate-100 overflow-x-auto leading-relaxed font-normal"
+                  className="ai-markdown text-slate-900 dark:text-slate-100 overflow-x-auto leading-relaxed font-normal select-text cursor-text"
                   dangerouslySetInnerHTML={{
                     __html: UTILS.sanitizeHtml(
                       typeof UTILS.markdownToHtml === "function"

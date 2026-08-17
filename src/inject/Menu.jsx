@@ -387,10 +387,7 @@ export default function Menu() {
 
   const toggleChat = useCallback(() => {
     setIsChatOpen((prev) => !prev);
-    if (!isChatOpen) {
-      setActiveTab("chat");
-    }
-  }, [isChatOpen]);
+  }, []);
 
   const handleSelectElement = useCallback(() => {
     setActiveTab("chat");

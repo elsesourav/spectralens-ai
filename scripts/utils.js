@@ -329,6 +329,52 @@ function isInternalPage(tab) {
 }
 
 /**
+ * Safely sanitizes an HTML string using DOMParser to ensure no script execution,
+ * inline handlers, javascript: URLs, or dangerous elements are rendered.
+ */
+function sanitizeHtml(htmlString) {
+   if (typeof htmlString !== "string") return "";
+   if (!htmlString.trim()) return "";
+
+   try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(htmlString, "text/html");
+
+      const disallowedTags = [
+         "SCRIPT", "IFRAME", "OBJECT", "EMBED", "FORM", "INPUT", "BUTTON",
+         "SELECT", "TEXTAREA", "NOSCRIPT", "STYLE", "LINK", "META", "BASE"
+      ];
+
+      // Remove forbidden tags
+      const elements = doc.querySelectorAll("*");
+      elements.forEach((el) => {
+         if (disallowedTags.includes(el.tagName)) {
+            el.remove();
+            return;
+         }
+
+         // Remove all event handlers (onclick, onload, etc.) and dangerous attributes
+         Array.from(el.attributes).forEach((attr) => {
+            const attrName = attr.name.toLowerCase();
+            const attrVal = attr.value.toLowerCase().trim();
+
+            if (
+               attrName.startsWith("on") ||
+               attrVal.startsWith("javascript:") ||
+               attrVal.startsWith("data:text/html")
+            ) {
+               el.removeAttribute(attr.name);
+            }
+         });
+      });
+
+      return doc.body.innerHTML;
+   } catch {
+      return "";
+   }
+}
+
+/**
  * Converts a DOM element or HTML string into clean, beautiful GitHub Flavored Markdown (GFM).
  * Handles code blocks with languages, tables, nested lists, KaTeX math, blockquotes,
  * headings, task list checkboxes, strikethrough, and inline formatting.

@@ -1,6 +1,6 @@
 {
   "name": "SpectraLens AI",
-  "version": "2.7.0",
+  "version": "2.8.5",
   "description": "Fast multi-engine AI search aggregation, in-page text selection, and on-device Optical Character Recognition (OCR).",
   "manifest_version": 3,
   "permissions": [
@@ -11,7 +11,9 @@
     "declarativeNetRequest",
     "offscreen"
   ],
-  "optional_permissions": ["clipboardWrite"],
+  "optional_permissions": [
+    "clipboardWrite"
+  ],
   "host_permissions": [
     "<all_urls>",
     "http://*/*",
@@ -26,8 +28,13 @@
   },
   "content_scripts": [
     {
-      "matches": ["http://*/*", "https://*/*"],
-      "exclude_globs": ["chrome://*"],
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "exclude_globs": [
+        "chrome://*"
+      ],
       "run_at": "document_start",
       "js": [
         "./utils.js",
@@ -53,15 +60,18 @@
         "utils.js",
         "content/providerAdapters.js"
       ],
-      "matches": ["http://*/*", "https://*/*"]
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ]
     }
   ],
   "action": {
     "default_icon": {
       "16": "assets/icons/16.png",
       "24": "assets/icons/24.png",
-      "48": "assets/icons/48.png",
       "32": "assets/icons/32.png",
+      "48": "assets/icons/48.png",
       "128": "assets/icons/128.png"
     },
     "default_title": "SpectraLens AI",
@@ -74,8 +84,8 @@
   "icons": {
     "16": "assets/icons/16.png",
     "24": "assets/icons/24.png",
-    "48": "assets/icons/48.png",
     "32": "assets/icons/32.png",
+    "48": "assets/icons/48.png",
     "128": "assets/icons/128.png"
   }
 }
