@@ -43,14 +43,26 @@ export default function HistoryView({ onLoadQuery, isMenuOpen = true }) {
     setShowConfirmClear(false);
   };
 
-  const formatTime = (timestamp) => {
+  const formatDateTime = (timestamp) => {
     if (!timestamp) return "";
     try {
       const date = new Date(timestamp);
-      return date.toLocaleTimeString([], {
-        hour: "2-digit",
+      if (isNaN(date.getTime())) return "";
+
+      const timeStr = date.toLocaleTimeString([], {
+        hour: "numeric",
         minute: "2-digit",
       });
+
+      const day = date.getDate();
+      const monthStr = date.toLocaleString("en-US", { month: "short" });
+      const year = date.getFullYear();
+      const currentYear = new Date().getFullYear();
+
+      if (year === currentYear) {
+        return `${timeStr} • ${day} ${monthStr}`;
+      }
+      return `${timeStr} • ${day} ${monthStr} ${year}`;
     } catch {
       return "";
     }
@@ -125,8 +137,8 @@ export default function HistoryView({ onLoadQuery, isMenuOpen = true }) {
                   {item.question}
                 </span>
                 <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1">
-                  <IoTimeOutline className="w-3 h-3" />
-                  {formatTime(item.timestamp || item.date)}
+                  <IoTimeOutline className="w-3 h-3 shrink-0" />
+                  <span>{formatDateTime(item.timestamp || item.date)}</span>
                 </span>
               </div>
               <IoChevronForward className="w-4 h-4 text-slate-500 group-hover:text-blue-500 group-hover:translate-x-0.5 transition-all shrink-0" />

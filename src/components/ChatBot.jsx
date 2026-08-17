@@ -330,11 +330,33 @@ export default function ChatBot({
     });
   }, []);
 
-  // Format current time
-  const getFormattedTime = () => {
-    const d = new Date();
-    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  // Format date & time (e.g. 4:15 PM • 18 Aug)
+  const formatDateTime = (timestamp) => {
+    if (!timestamp) return "";
+    try {
+      const date = new Date(timestamp);
+      if (isNaN(date.getTime())) return "";
+
+      const timeStr = date.toLocaleTimeString([], {
+        hour: "numeric",
+        minute: "2-digit",
+      });
+
+      const day = date.getDate();
+      const monthStr = date.toLocaleString("en-US", { month: "short" });
+      const year = date.getFullYear();
+      const currentYear = new Date().getFullYear();
+
+      if (year === currentYear) {
+        return `${timeStr} • ${day} ${monthStr}`;
+      }
+      return `${timeStr} • ${day} ${monthStr} ${year}`;
+    } catch {
+      return "";
+    }
   };
+
+  const getFormattedTime = () => formatDateTime(new Date());
 
   // Load history item if requested from outside
   useEffect(() => {
@@ -348,14 +370,7 @@ export default function ChatBot({
         new Set(Object.keys(initialHistoryItem.answers || {})),
       );
       if (initialHistoryItem.timestamp) {
-        try {
-          const d = new Date(initialHistoryItem.timestamp);
-          setMessageTime(
-            d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          );
-        } catch {
-          setMessageTime(getFormattedTime());
-        }
+        setMessageTime(formatDateTime(initialHistoryItem.timestamp));
       }
       const availableProviders = Object.keys(initialHistoryItem.answers || {});
       if (availableProviders.length > 0) {

@@ -2,7 +2,7 @@ if (window !== window.top) {
   // Floating menu only operates on top-level browsing context
   // Subframes (like analytics, ads, style_engines) must not mount duplicate menu listeners
 } else {
-const __iframeSize = { width: "164px", height: "46px" };
+const __iframeSize = { width: "126px", height: "46px" };
 let __spacing = 0;
 let __isDragging = false;
 const __pointerOffset = { x: 0, y: 0 };
@@ -14,7 +14,7 @@ const __lastLocation = { x: 0, y: 0 };
 
 // Collision detection function to keep back within viewport bounds
 const __applyCollisionDetection__ = (left, top) => {
-  const menuWidth = parseInt(__iframeSize.width) || 164;
+  const menuWidth = parseInt(__iframeSize.width) || 126;
   const menuHeight = parseInt(__iframeSize.height) || 46;
   const margin = 12;
 
@@ -230,7 +230,7 @@ pageOnMessage("IF_C_MENU_WINDOW_RESIZE", async (data) => {
 
   const w = parseInt(width) || 440;
   __spacing = 0;
-  const newBackWidth = isOpen ? w - 44 : 84;
+  const newBackWidth = isOpen ? w - 44 : 74;
   const newBackHeight = isOpen ? 44 : 46;
   if (__menu_back__) {
     __menu_back__.style.width = `${newBackWidth}px`;

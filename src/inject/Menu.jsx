@@ -18,7 +18,7 @@ export default function Menu() {
 
   const SIZES = useMemo(
     () => ({
-      min: { w: "164px", h: "46px" },
+      min: { w: "126px", h: "46px" },
       max: { w: "440px", h: "600px" },
     }),
     [],
@@ -456,25 +456,8 @@ export default function Menu() {
             />
           </div>
 
-          {/* Right section: 2 Action Buttons (Scan & Chat) (84px to 164px) */}
-          <div className="flex items-center gap-2 pr-1 z-10 shrink-0">
-            {/* Button 1: Scan Element Selector */}
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleSelectElement();
-              }}
-              className="w-7 h-7 rounded-full flex items-center justify-center text-slate-700 dark:text-white hover:bg-slate-200/60 dark:hover:bg-white/15 hover:text-blue-600 dark:hover:text-blue-400 active:scale-95 transition-all focus:outline-none cursor-pointer"
-              title="Select Page Element / Area"
-            >
-              <ElementSelectorIcon
-                className="w-4.5 h-4.5 text-slate-700 dark:text-white"
-                size={19}
-              />
-            </button>
-
-            {/* Button 2: Chat Button */}
+          {/* Right section: Chat Button */}
+          <div className="flex items-center pr-1 z-10 shrink-0">
             <button
               type="button"
               onClick={(e) => {
