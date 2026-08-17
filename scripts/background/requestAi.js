@@ -1,9 +1,8 @@
 /* --- Request Cancellation State --- */
 let currentRequestId = null;
 let activeAiTabs = [];
-let activeAiWindows = [];
 
-/** Immediately cancel all ongoing AI scraper requests and close all active scraper tabs & windows */
+/** Immediately cancel all ongoing AI scraper requests and close all active scraper tabs */
 function cancelAllAiRequests() {
   currentRequestId = "cancelled_" + Date.now();
   const tabsToClose = [...activeAiTabs];
@@ -11,12 +10,6 @@ function cancelAllAiRequests() {
   tabsToClose.forEach((id) => {
     chromeTabMediaAccess(id, false);
     chrome.tabs.remove(id).catch(() => {});
-  });
-
-  const windowsToClose = [...activeAiWindows];
-  activeAiWindows = [];
-  windowsToClose.forEach((winId) => {
-    chrome.windows.remove(winId).catch(() => {});
   });
 }
 
@@ -52,71 +45,7 @@ function formatProviderError(providerId, shortReason) {
 /* --- Shared Helper --- */
 
 /**
- * Creates an AI target container (Attempts a detached offscreen popup window first;
- * falls back seamlessly to a background tab without removing any existing logic).
- */
-function createAiTarget(url, cb) {
-  if (
-    typeof chrome !== "undefined" &&
-    chrome.windows &&
-    typeof chrome.windows.create === "function"
-  ) {
-    try {
-      chrome.windows.create(
-        {
-          url,
-          focused: false,
-          state: "minimized",
-          type: "popup",
-          left: -10000,
-          top: -10000,
-          width: 100,
-          height: 100,
-        },
-        (win) => {
-          if (chrome.runtime?.lastError || !win || !win.id) {
-            console.warn(
-              "[SpectraLens:Background] ℹ️ Window create fallback to tab:",
-              chrome.runtime?.lastError?.message || "unknown",
-            );
-            chrome.tabs.create({ url, active: false }, (fallbackTab) =>
-              cb(fallbackTab, null),
-            );
-          } else {
-            const tab = win.tabs?.[0];
-            if (tab && tab.id) {
-              activeAiWindows.push(win.id);
-              cb(tab, win.id);
-            } else {
-              chrome.tabs.query({ windowId: win.id }, (tabs) => {
-                if (tabs && tabs[0]) {
-                  activeAiWindows.push(win.id);
-                  cb(tabs[0], win.id);
-                } else {
-                  chrome.tabs.create({ url, active: false }, (fallbackTab) =>
-                    cb(fallbackTab, null),
-                  );
-                }
-              });
-            }
-          }
-        },
-      );
-      return;
-    } catch (e) {
-      console.warn(
-        "[SpectraLens:Background] Window create error, using background tab:",
-        e,
-      );
-    }
-  }
-
-  // Baseline standard background tab logic
-  chrome.tabs.create({ url, active: false }, (tab) => cb(tab, null));
-}
-
-/**
- * Opens a background tab / detached window, waits for it to load, executes a content
+ * Opens a background tab, waits for it to load, executes a content
  * extraction function, and returns the cleaned HTML.
  *
  * @param {string} url - The URL to open
@@ -132,7 +61,7 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
       `[SpectraLens:Background] 🚀 fetchAiAnswer starting for url: ${url} (requestId: ${requestId})`,
     );
 
-    // If we have a new requestId, cancel all existing fetching tabs & windows
+    // If we have a new requestId, cancel all existing fetching tabs
     if (requestId && currentRequestId !== requestId) {
       cancelAllAiRequests();
       currentRequestId = requestId;
@@ -142,20 +71,20 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
     let timeoutId = null;
     let isExecuting = false;
 
-    createAiTarget(url, (tab, windowId) => {
+    chrome.tabs.create({ url, active: false }, (tab) => {
       if (!tab || !tab.id) {
         console.error(
-          "[SpectraLens:Background] ❌ Failed to create target for:",
+          "[SpectraLens:Background] ❌ Failed to create tab for:",
           url,
         );
-        resolve(formatProviderError(providerId, "Target creation failed"));
+        resolve(formatProviderError(providerId, "Tab creation failed"));
         return;
       }
 
       const tabId = tab.id;
       activeAiTabs.push(tabId);
       console.log(
-        `[SpectraLens:Background] 📑 Tab #${tabId} created (windowId: ${windowId || "none"}).`,
+        `[SpectraLens:Background] 📑 Tab #${tabId} created in background.`,
       );
       chromeTabMediaAccess(tabId, true);
 
@@ -164,13 +93,7 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
         chrome.tabs.onUpdated.removeListener(listener);
         chrome.tabs.onRemoved.removeListener(onRemoved);
         chromeTabMediaAccess(tabId, false);
-
-        if (windowId) {
-          chrome.windows.remove(windowId).catch(() => {});
-          activeAiWindows = activeAiWindows.filter((id) => id !== windowId);
-        } else {
-          chrome.tabs.remove(tabId).catch(() => {});
-        }
+        chrome.tabs.remove(tabId).catch(() => {});
         activeAiTabs = activeAiTabs.filter((id) => id !== tabId);
       }
 
