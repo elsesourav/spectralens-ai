@@ -452,48 +452,34 @@ runtimeOnMessage("IF_B_GET_ANSWER", async (payload, sender, sendResponse) => {
   const requestId = data.requestId;
   const question = data.question || "";
   const image = data.image || null;
-  console.log(`[SpectraLens:Background] 📨 Received IF_B_GET_ANSWER for provider: "${provider}", question: "${question.slice(0, 30)}..."${image ? " (with screen image attachment)" : ""} (requestId: ${requestId})`);
-
-  let questionWithContext = question;
-  if (image && typeof __OCR__ === "function") {
-    try {
-      const ocrData = await __OCR__(image);
-      if (ocrData?.success && ocrData?.result?.text?.trim()) {
-        const ocrText = ocrData.result.text.trim().slice(0, 3000);
-        questionWithContext = `${question}\n\n[Attached Screen Content]:\n"""\n${ocrText}\n"""`;
-        console.log(`[SpectraLens:Background] 📸 Extracted OCR text from attached screen image (${ocrText.length} chars)`);
-      }
-    } catch (e) {
-      console.warn("[SpectraLens:Background] OCR extraction note:", e?.message);
-    }
-  }
+  console.log(`[SpectraLens:Background] 📨 Received IF_B_GET_ANSWER for provider: "${provider}", question: "${question.slice(0, 30)}..."${image ? " (with direct Base64 image)" : ""} (requestId: ${requestId})`);
 
   let answer = "";
   try {
     switch (provider) {
       case "google":
-        answer = await getGoogleAiAnswer(questionWithContext, requestId);
+        answer = await getGoogleAiAnswer(question, requestId, image);
         break;
       case "bing":
-        answer = await getBingAiAnswer(questionWithContext, requestId);
+        answer = await getBingAiAnswer(question, requestId, image);
         break;
       case "perplexity":
-        answer = await getPerplexityAnswer(questionWithContext, requestId);
+        answer = await getPerplexityAnswer(question, requestId, image);
         break;
       case "grok":
-        answer = await getGrokAnswer(questionWithContext, requestId);
+        answer = await getGrokAnswer(question, requestId, image);
         break;
       case "gemini":
-        answer = await getGeminiAnswer(questionWithContext, requestId);
+        answer = await getGeminiAnswer(question, requestId, image);
         break;
       case "chatgpt":
-        answer = await getChatGptAnswer(questionWithContext, requestId);
+        answer = await getChatGptAnswer(question, requestId, image);
         break;
       case "claude":
-        answer = await getClaudeAnswer(questionWithContext, requestId);
+        answer = await getClaudeAnswer(question, requestId, image);
         break;
       default:
-        answer = await getGoogleAiAnswer(questionWithContext, requestId);
+        answer = await getGoogleAiAnswer(question, requestId, image);
     }
   } catch (err) {
     console.error(`[SpectraLens:Background] ❌ Error in IF_B_GET_ANSWER for ${provider}:`, err);

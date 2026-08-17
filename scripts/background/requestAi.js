@@ -220,7 +220,7 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
 /**
  * Generic adapter runner executed inside the target provider tab
  */
-function runTabAdapter(providerId, prompt) {
+function runTabAdapter(providerId, prompt, image = null) {
   return new Promise(async (resolve) => {
     function getShortError(pid, reason) {
       if (typeof formatProviderError === "function") {

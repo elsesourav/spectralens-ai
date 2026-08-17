@@ -1152,6 +1152,104 @@
       return false;
     }
 
+    /** Attach an image to Google search / Google Lens directly */
+    async attachImage(imageDataUrl) {
+      if (!imageDataUrl) return false;
+      tabLog("GoogleTab", "🖼️ Processing direct image upload for Google AI / Lens...");
+
+      try {
+        const arr = imageDataUrl.split(",");
+        const mime = arr[0].match(/:(.*?);/)?.[1] || "image/png";
+        const bstr = atob(arr[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+          u8arr[n] = bstr.charCodeAt(n);
+        }
+        const file = new File([u8arr], "screenshot.png", { type: mime, lastModified: Date.now() });
+
+        // 1. Try finding and clicking the Google Lens button on homepage
+        const lensSelectors = [
+          'div[aria-label="Search by image"]',
+          'div.nDcEnd',
+          'div[role="button"][aria-label*="image" i]',
+          'div[role="button"][aria-label*="Search by image" i]',
+          'div[jscontroller="e2B3Fd"]',
+          'div[jsname="R5L9he"]',
+          'div[jsname="enfct"]',
+        ];
+
+        let lensBtn = null;
+        for (const sel of lensSelectors) {
+          const el = document.querySelector(sel);
+          if (el && el.offsetParent !== null) {
+            lensBtn = el;
+            break;
+          }
+        }
+
+        if (lensBtn) {
+          tabLog("GoogleTab", "🔍 Found Google Lens icon. Clicking to open image dropzone...");
+          lensBtn.click();
+          await new Promise((r) => setTimeout(r, 600));
+        }
+
+        // 2. Look for Google file input (<input type="file">)
+        const fileInputs = Array.from(
+          document.querySelectorAll('input[type="file"], input[name="encoded_image"], input.FVO9Bd'),
+        );
+        for (const fileInput of fileInputs) {
+          try {
+            const dt = new DataTransfer();
+            dt.items.add(file);
+            fileInput.files = dt.files;
+            fileInput.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
+            fileInput.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+            tabLog("GoogleTab", "📁 Dispatched image file to Google's input[type='file']!");
+            await new Promise((r) => setTimeout(r, 800));
+            return true;
+          } catch (e) {
+            tabLog("GoogleTab", "File input dispatch notice:", e?.message);
+          }
+        }
+
+        // 3. Try Drag & Drop on Google drop zone
+        const dropZones = Array.from(
+          document.querySelectorAll("div.Gdd5U, div.a9gg0e, div.m37tJe, textarea[name='q'], form[role='search']"),
+        );
+        for (const dropZone of dropZones) {
+          try {
+            const dt = new DataTransfer();
+            dt.items.add(file);
+            dropZone.dispatchEvent(new DragEvent("dragenter", { bubbles: true, cancelable: true, dataTransfer: dt }));
+            dropZone.dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, dataTransfer: dt }));
+            dropZone.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: dt }));
+            tabLog("GoogleTab", "📦 Dispatched DragEvent 'drop' to Google dropzone!");
+            await new Promise((r) => setTimeout(r, 800));
+            return true;
+          } catch (e) {
+            tabLog("GoogleTab", "Drop zone dispatch notice:", e?.message);
+          }
+        }
+
+        // 4. Fallback: Synthetic ClipboardEvent paste onto input
+        const input = this.findInput();
+        if (input) {
+          this.focusInput();
+          const dt = new DataTransfer();
+          dt.items.add(file);
+          const pasteEv = new ClipboardEvent("paste", { bubbles: true, cancelable: true, clipboardData: dt });
+          input.dispatchEvent(pasteEv);
+          tabLog("GoogleTab", "📋 Dispatched synthetic ClipboardEvent paste to search input");
+          await new Promise((r) => setTimeout(r, 600));
+          return true;
+        }
+      } catch (err) {
+        tabLog("GoogleTab", "❌ Error in attachImage:", err?.message);
+      }
+      return false;
+    }
+
     findInput() {
       return document.querySelector(
         'textarea[name="q"], input[name="q"], textarea[title="Search"], textarea[aria-label="Search"], [role="combobox"]',
