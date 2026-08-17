@@ -1,6 +1,6 @@
 import { IoSunny, IoMoon } from "react-icons/io5";
 import { useTheme } from "../hooks/useThemeHook.jsx";
-import appIconUrl from "../assets/icons/icon.png";
+import appIconUrl from "../assets/icons/128.png";
 
 export default function Header() {
    const { theme, setTheme } = useTheme();

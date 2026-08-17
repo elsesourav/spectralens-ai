@@ -140,7 +140,7 @@ export default function ChatBot({
 
   const appIconUrl =
     typeof chrome !== "undefined" && chrome.runtime?.getURL
-      ? chrome.runtime.getURL("assets/icons/48.png")
+      ? chrome.runtime.getURL("assets/icons/128.png")
       : "";
 
   const hasAnyActivity = Boolean(

@@ -1,5 +1,5 @@
-/* eslint-disable no-undef */
 import { useCallback, useEffect, useState } from "react";
+import PropTypes from "prop-types";
 import { BsWindowSidebar } from "react-icons/bs";
 import {
   IoDesktopOutline,
@@ -21,7 +21,7 @@ const DEFAULT_AI_OPTIONS = [
   { id: "grok", name: "Grok AI", enabled: false },
 ];
 
-export default function Controls() {
+export default function Controls({ isMenuOpen = true }) {
   const { theme, setTheme, contrastMode, setContrastMode } = useTheme();
 
   const [aiList, setAiList] = useState(DEFAULT_AI_OPTIONS);
@@ -29,6 +29,22 @@ export default function Controls() {
   const [toastType, setToastType] = useState("info");
   const [isToastVisible, setIsToastVisible] = useState(false);
   const [confirmSwitchData, setConfirmSwitchData] = useState(null);
+
+  // Auto-close confirmation dialog if menu window is minimized or closed
+  useEffect(() => {
+    if (!isMenuOpen) {
+      setConfirmSwitchData(null);
+      setIsToastVisible(false);
+    }
+  }, [isMenuOpen]);
+
+  // Auto-close confirmation dialog on tab change or component unmount
+  useEffect(() => {
+    return () => {
+      setConfirmSwitchData(null);
+      setIsToastVisible(false);
+    };
+  }, []);
 
   const showToast = (msg, type = "info") => {
     setToastType(type);
@@ -913,3 +929,7 @@ export default function Controls() {
     </div>
   );
 }
+
+Controls.propTypes = {
+  isMenuOpen: PropTypes.bool,
+};

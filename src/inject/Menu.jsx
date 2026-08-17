@@ -1,7 +1,6 @@
-/* eslint-disable no-undef */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FiX } from "react-icons/fi";
-import appIconUrl from "../assets/icons/icon.png";
+import appIconUrl from "../assets/icons/128.png";
 import ChatBot from "../components/ChatBot.jsx";
 import Controls from "../components/Controls.jsx";
 import HistoryView from "../components/HistoryView.jsx";
@@ -36,6 +35,7 @@ export default function Menu() {
 
   const menuRef = useRef(null);
   const dragRef = useRef(null);
+  const headerRef = useRef(null);
   const windowContainerRef = useRef(null);
   const [newChatKey, setNewChatKey] = useState(0);
   const [isAlwaysActive, setIsAlwaysActive] = useState(false);
@@ -301,20 +301,18 @@ export default function Menu() {
 
   // Drag logic:
   // - Minimized: Only left 6-dot drag handle (`dragRef`).
-  // - Expanded: Drag from anywhere across the window (except interactive buttons/inputs/text selection).
+  // - Expanded: Drag from ONLY the top header bar (`headerRef`). Left sidebar/panel and content are not draggable.
   useEffect(() => {
     const handlePointerDown = (e) => {
       if (e.button !== 0) return;
 
-      if (isChatOpen) {
-        const target = e.target;
-        if (
-          target.closest(
-            "button, input, textarea, a, select, [role='button'], .no-drag, pre, code, .custom-scrollbar",
-          )
-        ) {
-          return;
-        }
+      const target = e.target;
+      if (
+        target.closest(
+          "button, input, textarea, a, select, [role='button'], .no-drag",
+        )
+      ) {
+        return;
       }
 
       let lastX = e.clientX;
@@ -347,20 +345,20 @@ export default function Menu() {
     };
 
     const dragEl = dragRef.current;
-    const windowEl = windowContainerRef.current;
+    const headerEl = headerRef.current;
 
     if (!isChatOpen && dragEl) {
       dragEl.addEventListener("pointerdown", handlePointerDown);
-    } else if (isChatOpen && windowEl) {
-      windowEl.addEventListener("pointerdown", handlePointerDown);
+    } else if (isChatOpen && headerEl) {
+      headerEl.addEventListener("pointerdown", handlePointerDown);
     }
 
     return () => {
       if (dragEl) {
         dragEl.removeEventListener("pointerdown", handlePointerDown);
       }
-      if (windowEl) {
-        windowEl.removeEventListener("pointerdown", handlePointerDown);
+      if (headerEl) {
+        headerEl.removeEventListener("pointerdown", handlePointerDown);
       }
     };
   }, [isChatOpen]);
@@ -507,15 +505,19 @@ export default function Menu() {
             <div className="absolute top-0 left-0 right-0 h-28 bg-gradient-to-b from-blue-600/10 via-purple-600/5 to-transparent pointer-events-none z-0" />
 
             {/* Window Header */}
-            <header className="relative flex items-center justify-between px-3.5 py-2.5 border-b border-slate-200/50 dark:border-white/[0.06] shrink-0 z-10">
+            <header
+              ref={headerRef}
+              className="relative flex items-center justify-between px-3.5 py-2.5 border-b border-slate-200/50 dark:border-white/[0.06] shrink-0 z-10 select-none cursor-grab active:cursor-grabbing"
+              title="Drag to reposition window"
+            >
               {/* Left Brand Badge */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 pointer-events-none">
                 <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-blue-600/20 to-purple-600/20 border border-blue-500/30 flex items-center justify-center shadow-xs relative">
                   {appIconUrl ? (
                     <img
                       src={appIconUrl}
                       alt="Logo"
-                      className="size-5 object-contain"
+                      className="size-5 object-contain pointer-events-none"
                     />
                   ) : (
                     <div className="w-3.5 h-3.5 rounded-full bg-blue-600" />
@@ -587,7 +589,7 @@ export default function Menu() {
                 {/* Menu Settings View (Full Settings inside the in-page menu) */}
                 {activeTab === "settings" && (
                   <div className="w-full h-full overflow-y-auto custom-scrollbar animate-fade-in">
-                    <Controls />
+                    <Controls isMenuOpen={isChatOpen} />
                   </div>
                 )}
               </div>
