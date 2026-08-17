@@ -1075,10 +1075,10 @@
       super("google", "Google AI Overview", /google\.com/);
     }
 
-    /** Find and click Google's in-page dynamic "Generate AI Overview" or AI pill button */
+    /** Find and click Google's in-page dynamic "Generate AI Overview" or "Show AI Overview" button */
     async ensureAiMode() {
       try {
-        // 1. Search specifically for in-page dynamic "Generate AI Overview" or "Show AI Overview" buttons
+        // Search specifically for in-page dynamic "Generate AI Overview" or "Show AI Overview" buttons
         const allInteractive = Array.from(
           document.querySelectorAll("button, [role='button']")
         );
@@ -1095,24 +1095,6 @@
           aiBtn.click();
           await new Promise((r) => setTimeout(r, 400));
           return true;
-        }
-
-        // 2. Check for the homepage AI Mode pill button (button[jsname="B6rgad"])
-        const pillSelectors = [
-          'button[jsname="B6rgad"].Sw4CSc',
-          'button[jsname="B6rgad"]',
-          'button.plR5qb.Sw4CSc',
-          'button.plR5qb',
-        ];
-
-        for (const sel of pillSelectors) {
-          const el = document.querySelector(sel);
-          if (el && el.tagName?.toLowerCase() === "button" && el.offsetParent !== null) {
-            tabLog("GoogleTab", `✨ Found 'AI Mode' pill button (${sel}). Activating...`);
-            el.click();
-            await new Promise((r) => setTimeout(r, 400));
-            return true;
-          }
         }
       } catch (e) {
         tabLog("GoogleTab", "Error in ensureAiMode:", e?.message);
@@ -1154,8 +1136,9 @@
 
       input.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
       input.dispatchEvent(new Event("change", { bubbles: true }));
+      input.dispatchEvent(new KeyboardEvent("input", { bubbles: true }));
       tabLog("GoogleTab", `✍️ Prompt inserted into search box: "${text.slice(0, 30)}..."`);
-      await new Promise((r) => setTimeout(r, 200));
+      await new Promise((r) => setTimeout(r, 250));
       return true;
     }
 
@@ -1189,15 +1172,35 @@
 
       await new Promise((r) => setTimeout(r, 200));
 
+      const input = this.findInput();
+      const form = input ? input.closest("form") : document.querySelector('form[role="search"], form[action="/search"]');
+
       const btn = this.findSendButton();
       if (btn) {
         tabLog("GoogleTab", "🔘 Clicking AI Send button (jsname='B6rgad' / plR5qb)...");
-        btn.click();
+        try {
+          btn.click();
+          btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
+        } catch {}
         await new Promise((r) => setTimeout(r, 300));
-        return true;
       }
 
-      const input = this.findInput();
+      // Native browser form submission (guaranteed to submit in background tab without human focus)
+      if (form) {
+        tabLog("GoogleTab", "🚀 Executing native form requestSubmit (no human interaction needed)...");
+        try {
+          if (typeof form.requestSubmit === "function") {
+            form.requestSubmit();
+          } else {
+            form.submit();
+          }
+          return true;
+        } catch {
+          form.submit();
+          return true;
+        }
+      }
+
       if (input) {
         tabLog("GoogleTab", "↵ Dispatching Enter key to search box...");
         input.dispatchEvent(
@@ -1234,11 +1237,11 @@
         'div.kp-blk',
         'div.V3FYCf',
         'div.MjjYud',
-        '#rso .g',
+        '#rso',
       ];
       for (const sel of selectors) {
         const el = document.querySelector(sel);
-        if (el && el.textContent.trim().length > 25) {
+        if (el && (el.textContent || "").trim().length > 25) {
           return el;
         }
       }
@@ -1283,13 +1286,16 @@
         await this.ensureAiMode();
 
         const checkInterval = setInterval(async () => {
+          // Continuously check for dynamic in-page AI generation button
+          this.ensureAiMode();
+
           const container = this.findResponseContainer();
           if (container) {
             const currentLength = (container.textContent || "").trim().length;
-            if (currentLength > 20) {
+            if (currentLength > 25) {
               if (currentLength === lastTextLength) {
                 idleCount++;
-                if (idleCount >= 2) {
+                if (idleCount >= 3) {
                   clearInterval(checkInterval);
                   const md = await this.getCurrentResponse();
                   tabLog("GoogleTab", `✅ AI Overview extracted, length: ${md?.length || 0}`);

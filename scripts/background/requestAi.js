@@ -303,7 +303,17 @@ function runTabAdapter(providerId, prompt) {
         return;
       }
 
-      // 1. FAST PATH: Check if response container is already loaded (e.g. from direct search URL)
+      // 1. FAST PATH: Check if already on search results page or response container is already rendered
+      if (window.location.pathname.startsWith("/search")) {
+        console.log(
+          `%c[SpectraLens:Adapter] 🎯 Search results page loaded. Observing AI response stream...`,
+          "color: #10b981; font-weight: bold;",
+        );
+        const answer = await adapter.observeResponse(20000);
+        resolve(answer || getShortError(providerId, "No response generated"));
+        return;
+      }
+
       console.log(
         `%c[SpectraLens:Adapter] 🔍 Checking if response container is already rendered on page...`,
         "color: #64748b;",
