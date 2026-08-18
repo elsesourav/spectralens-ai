@@ -311,13 +311,24 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
             "color: #10b981;",
             injectResult,
           );
-          const cleanedHtml = injectResult?.[0]?.result;
-          if (cleanedHtml && cleanedHtml.length > 20) {
-            safeResolve(cleanedHtml);
+          const resultVal = injectResult?.[0]?.result;
+          if (resultVal === "__NAVIGATING__") {
+            isExecuting = false;
+            if (chrome.tabs?.get) {
+              chrome.tabs.get(tabId, (currentTab) => {
+                void chrome.runtime?.lastError;
+                if (currentTab && currentTab.status === "complete" && !isResolved && !isExecuting) {
+                  runInjection();
+                }
+              });
+            }
+            return;
+          }
+
+          if (resultVal && resultVal.length > 20) {
+            safeResolve(resultVal);
           } else {
             isExecuting = false;
-            // If the script returned undefined because the form submitted and navigated to search results,
-            // check if the tab is already complete and run the adapter to observe the generated response!
             if (chrome.tabs?.get) {
               chrome.tabs.get(tabId, (currentTab) => {
                 void chrome.runtime?.lastError;
@@ -337,13 +348,12 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
     }
 
     function listener(updatedTabId, info) {
-      if (isResolved) return;
+      if (isResolved || isExecuting) return;
       if (updatedTabId === tabId && info.status === "complete") {
         console.log(
           `%c[SpectraLens:Pipeline] 🌐 [PAGE LOAD COMPLETE] Tab #${tabId} status is "complete". Running adapter injection...`,
           "color: #3b82f6; font-weight: bold;",
         );
-        isExecuting = false;
         runInjection();
       }
     }
@@ -407,19 +417,29 @@ function runTabAdapter(providerId, prompt, image = null) {
         return;
       }
 
-      // 1. If AI response is already rendering/active on page, observe stream directly!
+      // Record any pre-existing response content before sending the new message
       const existingContainer = adapter.findResponseContainer();
-      if (existingContainer && (existingContainer.textContent || "").trim().length > 25) {
-        console.log(
-          `%c[SpectraLens:Adapter] 🎯 AI Overview response already present on page. Observing stream...`,
-          "color: #10b981; font-weight: bold;",
-        );
-        const answer = await adapter.observeResponse(22000);
-        resolve(answer || getShortError(providerId, "No response generated"));
-        return;
+      const previousContent = existingContainer ? (existingContainer.textContent || "").trim() : "";
+
+      // 0. If already on search results page for THIS exact query (initial search), observe directly without re-typing
+      const isSearchPage = window.location.pathname.startsWith("/search");
+      if (isSearchPage) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlQuery = (urlParams.get("q") || "").trim().toLowerCase();
+        const promptQuery = (prompt || "").trim().toLowerCase();
+
+        if (urlQuery && (urlQuery === promptQuery || promptQuery.startsWith(urlQuery) || urlQuery.startsWith(promptQuery))) {
+          console.log(
+            `%c[SpectraLens:Adapter] 🎯 Search page already executing query ("${prompt.slice(0, 25)}..."). Observing AI stream directly...`,
+            "color: #10b981; font-weight: bold;",
+          );
+          const answer = await adapter.observeResponse(25000);
+          resolve(answer || getShortError(providerId, "No response generated"));
+          return;
+        }
       }
 
-      // 2. Otherwise locate input editor (up to 20 attempts)
+      // 1. Locate input editor (up to 20 attempts)
       console.log(
         `%c[SpectraLens:Adapter] ✍️ [ADAPTER 2/4] Locating input editor for "${providerId}"...`,
         "color: #f59e0b;",
@@ -427,20 +447,15 @@ function runTabAdapter(providerId, prompt, image = null) {
       let input = adapter.findInput();
       let attempts = 0;
       while (!input && attempts < 20) {
-        if (adapter.findResponseContainer() && (adapter.findResponseContainer().textContent || "").trim().length > 25) {
-          const answer = await adapter.observeResponse(15000);
-          resolve(answer || getShortError(providerId, "Empty response"));
-          return;
-        }
         await new Promise((r) => setTimeout(r, 350));
         input = adapter.findInput();
         attempts++;
       }
 
       if (!input) {
-        const finalCheck = adapter.findResponseContainer();
-        if (finalCheck && (finalCheck.textContent || "").trim().length > 25) {
-          const answer = await adapter.observeResponse(15000);
+        // If on search page and response already exists
+        if (existingContainer && previousContent.length > 25) {
+          const answer = await adapter.observeResponse(20000);
           resolve(answer || getShortError(providerId, "Empty response"));
           return;
         }
@@ -469,7 +484,7 @@ function runTabAdapter(providerId, prompt, image = null) {
         "color: #10b981;",
       );
 
-      // 4. Insert prompt
+      // 3. Insert prompt
       const inserted = await adapter.insertPrompt(prompt);
       if (!inserted) {
         console.error(
@@ -482,19 +497,29 @@ function runTabAdapter(providerId, prompt, image = null) {
 
       await new Promise((r) => setTimeout(r, 250));
 
-      // 5. Submit
+      // 4. Submit
       console.log(
         `%c[SpectraLens:Adapter] 🔘 Submitting prompt for "${providerId}"...`,
         "color: #3b82f6; font-weight: bold;",
       );
       await adapter.submit();
 
-      // 6. Observe and return streaming response
+      // If initial submission from Google homepage that navigates to /search results:
+      if (!isSearchPage && providerId === "google") {
+        console.log(
+          `%c[SpectraLens:Adapter] 🚀 Google homepage submitted. Awaiting search navigation to complete...`,
+          "color: #3b82f6; font-weight: bold;",
+        );
+        resolve("__NAVIGATING__");
+        return;
+      }
+
+      // 5. Observe and return streaming response (waiting for new content to generate)
       console.log(
         `%c[SpectraLens:Adapter] ⏳ [ADAPTER 4/4] Observing stream response for "${providerId}"...`,
         "color: #f59e0b; font-weight: bold;",
       );
-      const answer = await adapter.observeResponse(22000);
+      const answer = await adapter.observeResponse(25000, previousContent);
       console.log(
         `%c[SpectraLens:Adapter] ✅ [ADAPTER COMPLETE] Response extracted for "${providerId}", length: ${answer?.length || 0} chars`,
         "color: #10b981; font-weight: bold;",

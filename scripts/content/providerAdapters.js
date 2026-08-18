@@ -36,7 +36,9 @@
     const str = colorStr.trim();
 
     // 1. Standard rgb(r, g, b) or rgba(r, g, b, a) or space-separated rgb(r g b)
-    const rgbMatch = str.match(/rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:[,\s/]+([\d.]+))?\s*\)/i);
+    const rgbMatch = str.match(
+      /rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:[,\s/]+([\d.]+))?\s*\)/i,
+    );
     if (rgbMatch) {
       return {
         r: Math.round(parseFloat(rgbMatch[1])),
@@ -68,7 +70,9 @@
     }
 
     // 3. color(srgb r g b)
-    const srgbMatch = str.match(/color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+))?\)/i);
+    const srgbMatch = str.match(
+      /color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+))?\)/i,
+    );
     if (srgbMatch) {
       return {
         r: Math.round(parseFloat(srgbMatch[1]) * 255),
@@ -86,8 +90,20 @@
    * Replaces static hardcoded computed colors with dynamic SpectraLens CSS variables
    * so the entire response automatically adapts to Light, Dark, High-Contrast & Custom themes.
    */
-  function virtualizeComputedStyle(prop, val, tagName = "", isTopContainer = false) {
-    if (!val || val === "normal" || val === "none" || val === "auto" || val === "0px") return "";
+  function virtualizeComputedStyle(
+    prop,
+    val,
+    tagName = "",
+    isTopContainer = false,
+  ) {
+    if (
+      !val ||
+      val === "normal" ||
+      val === "none" ||
+      val === "auto" ||
+      val === "0px"
+    )
+      return "";
     if (val === "rgba(0, 0, 0, 0)" || val === "transparent") {
       return prop.includes("background") ? "transparent" : "";
     }
@@ -127,11 +143,18 @@
 
       // Background Colors
       if (prop === "background-color") {
-        if (tag === "PRE" || tag === "CODE") return "var(--sl-bg-code, #f1f5f9)";
-        if (isBlue && (a < 0.3 || lum > 190)) return "var(--sl-accent-bg, rgba(59, 130, 246, 0.08))";
+        if (tag === "PRE" || tag === "CODE")
+          return "var(--sl-bg-code, #f1f5f9)";
+        if (isBlue && (a < 0.3 || lum > 190))
+          return "var(--sl-accent-bg, rgba(59, 130, 246, 0.08))";
         // Near-white / very light surfaces
         if (r >= 235 && g >= 235 && b >= 235) {
-          if (isTopContainer || tag === "SECTION" || tag === "MAIN" || (tag === "DIV" && !tag.includes("BUTTON"))) {
+          if (
+            isTopContainer ||
+            tag === "SECTION" ||
+            tag === "MAIN" ||
+            (tag === "DIV" && !tag.includes("BUTTON"))
+          ) {
             return "transparent";
           }
           return "var(--sl-bg-surface-elevated, #ffffff)";
@@ -278,7 +301,9 @@
         const file = new File([blob], "screenshot.png", { type: "image/png" });
 
         // 1. Look for existing file inputs (<input type="file">)
-        const fileInputs = Array.from(document.querySelectorAll('input[type="file"]'));
+        const fileInputs = Array.from(
+          document.querySelectorAll('input[type="file"]'),
+        );
         for (const fileInput of fileInputs) {
           try {
             const dt = new DataTransfer();
@@ -286,7 +311,10 @@
             fileInput.files = dt.files;
             fileInput.dispatchEvent(new Event("change", { bubbles: true }));
             fileInput.dispatchEvent(new Event("input", { bubbles: true }));
-            tabLog(this.id, "📁 Attached image file to input[type='file'] directly!");
+            tabLog(
+              this.id,
+              "📁 Attached image file to input[type='file'] directly!",
+            );
             await new Promise((r) => setTimeout(r, 600));
             return true;
           } catch (e) {
@@ -307,7 +335,10 @@
             clipboardData: dt,
           });
           input.dispatchEvent(pasteEv);
-          tabLog(this.id, "📋 Dispatched synthetic ClipboardEvent paste to input element");
+          tabLog(
+            this.id,
+            "📋 Dispatched synthetic ClipboardEvent paste to input element",
+          );
           await new Promise((r) => setTimeout(r, 600));
           return true;
         }
@@ -320,7 +351,11 @@
     /** Trigger submission via button click or Enter keydown */
     async submit() {
       const sendBtn = this.findSendButton();
-      if (sendBtn && !sendBtn.disabled && sendBtn.getAttribute("aria-disabled") !== "true") {
+      if (
+        sendBtn &&
+        !sendBtn.disabled &&
+        sendBtn.getAttribute("aria-disabled") !== "true"
+      ) {
         sendBtn.click();
         return true;
       }
@@ -365,11 +400,13 @@
         'button[data-testid*="copy" i]',
         'button[title*="Copy" i]',
         'div[role="button"][aria-label*="Copy" i]',
-        'button.copy-btn',
-        'button.action-btn',
+        "button.copy-btn",
+        "button.action-btn",
       ];
       for (const sel of selectors) {
-        const btn = (container ? container.querySelector(sel) : null) || document.querySelector(sel);
+        const btn =
+          (container ? container.querySelector(sel) : null) ||
+          document.querySelector(sel);
         if (btn && btn.offsetParent !== null) {
           return btn;
         }
@@ -413,18 +450,22 @@
 
       // Unhide Google AI and provider streaming/animation accessibility nodes (e.g. data-sae with opacity:0)
       try {
-        clone.querySelectorAll("[data-sae], [data-subtree], [style*='opacity'], [style*='pointer-events']").forEach((el) => {
-          el.removeAttribute("data-sae");
-          if (el.style.opacity === "0" || el.style.opacity === "0.0") {
-            el.style.opacity = "1";
-          }
-          if (el.style.pointerEvents === "none") {
-            el.style.pointerEvents = "auto";
-          }
-          if (el.style.visibility === "hidden") {
-            el.style.visibility = "visible";
-          }
-        });
+        clone
+          .querySelectorAll(
+            "[data-sae], [data-subtree], [style*='opacity'], [style*='pointer-events']",
+          )
+          .forEach((el) => {
+            el.removeAttribute("data-sae");
+            if (el.style.opacity === "0" || el.style.opacity === "0.0") {
+              el.style.opacity = "1";
+            }
+            if (el.style.pointerEvents === "none") {
+              el.style.pointerEvents = "auto";
+            }
+            if (el.style.visibility === "hidden") {
+              el.style.visibility = "visible";
+            }
+          });
       } catch {}
 
       // Prune empty container elements (e.g. empty div, span, p, section) that have no text and no children
@@ -449,12 +490,17 @@
           removedAny = false;
           passes++;
           const allEls = clone.querySelectorAll(
-            "div, span, p, section, article, ul, ol, li, h1, h2, h3, h4, h5, h6, b, strong, em, i"
+            "div, span, p, section, article, ul, ol, li, h1, h2, h3, h4, h5, h6, b, strong, em, i",
           );
           for (const el of allEls) {
             if (preservedTags.has(el.tagName)) continue;
             // If element contains any preserved elements inside, don't remove
-            if (el.querySelector("hr, br, img, svg, video, audio, canvas, iframe, input, textarea")) continue;
+            if (
+              el.querySelector(
+                "hr, br, img, svg, video, audio, canvas, iframe, input, textarea",
+              )
+            )
+              continue;
 
             const text = (el.textContent || "").trim();
             if (text === "" && el.children.length === 0) {
@@ -523,13 +569,24 @@
           ];
 
           const copyStylesRecursive = (live, cloned, isTop = true) => {
-            if (!live || !cloned || live.nodeType !== 1 || cloned.nodeType !== 1) return;
+            if (
+              !live ||
+              !cloned ||
+              live.nodeType !== 1 ||
+              cloned.nodeType !== 1
+            )
+              return;
             const comp = window.getComputedStyle(live);
             if (comp) {
               let styleStr = cloned.getAttribute("style") || "";
               for (const p of props) {
                 const rawVal = comp.getPropertyValue(p);
-                const themeVal = virtualizeComputedStyle(p, rawVal, live.tagName, isTop);
+                const themeVal = virtualizeComputedStyle(
+                  p,
+                  rawVal,
+                  live.tagName,
+                  isTop,
+                );
                 if (themeVal) {
                   styleStr += `;${p}:${themeVal}`;
                 }
@@ -575,7 +632,11 @@
       }
 
       // Return exact theme-aware HTML wrapped in isolated container with text-selection enabled
-      let innerContent = (targetNode.innerHTML || targetNode.textContent || "").trim();
+      let innerContent = (
+        targetNode.innerHTML ||
+        targetNode.textContent ||
+        ""
+      ).trim();
 
       // Clean hidden opacity/pointer-events artifacts left from provider streaming
       innerContent = innerContent
@@ -590,7 +651,10 @@
       while (prevContent !== innerContent && iterations < 3) {
         prevContent = innerContent;
         iterations++;
-        innerContent = innerContent.replace(/<(div|span|p|section|article|b|strong|em|i|li|ul|ol)\b[^>]*>\s*<\/\1>/gi, "");
+        innerContent = innerContent.replace(
+          /<(div|span|p|section|article|b|strong|em|i|li|ul|ol)\b[^>]*>\s*<\/\1>/gi,
+          "",
+        );
       }
 
       return `<div class="spectralens-isolated-response select-text" style="font-family: var(--sl-font-family, 'Google Sans', Roboto, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif); font-size: 13px; line-height: 1.55; max-width: 100%; box-sizing: border-box; overflow-wrap: break-word; color: var(--sl-text-primary, #0f172a); user-select: text !important;">${innerContent.trim()}</div>`;
@@ -604,11 +668,12 @@
     }
 
     /** Observe response streaming until completion */
-    observeResponse(timeoutMs = 25000) {
+    observeResponse(timeoutMs = 25000, previousContent = "") {
       return new Promise(async (resolve) => {
         const startTime = Date.now();
         let lastTextLength = 0;
         let idleCount = 0;
+        let hasSeenChange = !previousContent;
 
         const checkInterval = setInterval(async () => {
           if (Date.now() - startTime > timeoutMs) {
@@ -621,7 +686,18 @@
           if (this.isComplete()) {
             const container = this.findResponseContainer();
             if (container) {
-              const currentLength = (container.textContent || "").length;
+              const currentContent = (container.textContent || "").trim();
+              const currentLength = currentContent.length;
+
+              if (previousContent && !hasSeenChange) {
+                if (currentContent !== previousContent && currentLength > 10) {
+                  hasSeenChange = true;
+                  lastTextLength = currentLength;
+                  idleCount = 0;
+                }
+                return;
+              }
+
               if (currentLength > 0 && currentLength === lastTextLength) {
                 idleCount++;
                 if (idleCount >= 3) {
@@ -717,9 +793,13 @@
       );
       if (messages.length > 0) {
         const lastMsg = messages[messages.length - 1];
-        return lastMsg.querySelector("div.markdown.prose, div.markdown") || lastMsg;
+        return (
+          lastMsg.querySelector("div.markdown.prose, div.markdown") || lastMsg
+        );
       }
-      return document.querySelector("article [data-message-author-role='assistant'] .markdown");
+      return document.querySelector(
+        "article [data-message-author-role='assistant'] .markdown",
+      );
     }
 
     getJunkSelectors() {
@@ -727,8 +807,8 @@
         ...super.getJunkSelectors(),
         'button[data-testid*="turn-action"]',
         'div[data-testid="fruitjuice-send-button"]',
-        '.text-xs.text-token-text-tertiary',
-        'div.text-center.text-xs',
+        ".text-xs.text-token-text-tertiary",
+        "div.text-center.text-xs",
       ];
     }
 
@@ -805,7 +885,11 @@
       );
       if (responses.length > 0) {
         const last = responses[responses.length - 1];
-        return last.querySelector("div.standard-markdown, p.font-claude-response-body") || last;
+        return (
+          last.querySelector(
+            "div.standard-markdown, p.font-claude-response-body",
+          ) || last
+        );
       }
       return document.querySelector("div.font-claude-response");
     }
@@ -813,14 +897,16 @@
     getJunkSelectors() {
       return [
         ...super.getJunkSelectors(),
-        '.font-claude-message-actions',
+        ".font-claude-message-actions",
         'button[data-testid="retry-button"]',
         'button[aria-label="Copy Content"]',
       ];
     }
 
     isStreaming() {
-      const streamingEl = document.querySelector('div[data-is-streaming="true"], button[aria-label*="Stop"]');
+      const streamingEl = document.querySelector(
+        'div[data-is-streaming="true"], button[aria-label*="Stop"]',
+      );
       return Boolean(streamingEl);
     }
 
@@ -898,13 +984,20 @@
       const container = this.findResponseContainer();
       return Boolean(
         container?.classList?.contains("processing-state-visible") ||
-        document.querySelector("div.response-container-header-processing-state"),
+        document.querySelector(
+          "div.response-container-header-processing-state",
+        ),
       );
     }
 
     isComplete() {
-      const hasCompletedFooter = Boolean(document.querySelector("div.response-footer.complete"));
-      return (hasCompletedFooter || !this.isStreaming()) && Boolean(this.findResponseContainer());
+      const hasCompletedFooter = Boolean(
+        document.querySelector("div.response-footer.complete"),
+      );
+      return (
+        (hasCompletedFooter || !this.isStreaming()) &&
+        Boolean(this.findResponseContainer())
+      );
     }
   }
 
@@ -970,11 +1063,17 @@
       if (messages.length > 0) {
         return messages[messages.length - 1];
       }
-      return document.querySelector("main #last-reply-container > div:nth-child(2) > div > [dir='auto']");
+      return document.querySelector(
+        "main #last-reply-container > div:nth-child(2) > div > [dir='auto']",
+      );
     }
 
     isStreaming() {
-      return Boolean(document.querySelector("main #last-reply-container .thinking-container"));
+      return Boolean(
+        document.querySelector(
+          "main #last-reply-container .thinking-container",
+        ),
+      );
     }
 
     isComplete() {
@@ -1054,15 +1153,19 @@
       return [
         ...super.getJunkSelectors(),
         'div[data-testid="sources-list"]',
-        'div.citation',
-        '.related-questions',
+        "div.citation",
+        ".related-questions",
         'div[class*="Sources"]',
       ];
     }
 
     isStreaming() {
       const submitBtn = this.findSendButton();
-      return Boolean(submitBtn && (submitBtn.disabled || submitBtn.getAttribute("aria-disabled") === "true"));
+      return Boolean(
+        submitBtn &&
+        (submitBtn.disabled ||
+          submitBtn.getAttribute("aria-disabled") === "true"),
+      );
     }
 
     isComplete() {
@@ -1097,12 +1200,16 @@
     }
 
     findSendButton() {
-      return document.querySelector('button[aria-label="Submit"], button.b_searchboxSubmit');
+      return document.querySelector(
+        'button[aria-label="Submit"], button.b_searchboxSubmit',
+      );
     }
 
     findResponseContainer() {
       return (
-        document.querySelector(".frame_cont iframe")?.contentDocument?.querySelector("#ca_main .gs_multianshead_main") ||
+        document
+          .querySelector(".frame_cont iframe")
+          ?.contentDocument?.querySelector("#ca_main .gs_multianshead_main") ||
         document.querySelector("#ca_main .gs_multianshead_main")
       );
     }
@@ -1127,35 +1234,69 @@
 
     /** Find and click Google's in-page dynamic "AI Mode" button on google.com homepage */
     async ensureAiMode() {
+      if (window.location.pathname.startsWith("/search")) {
+        return false;
+      }
       tabLog("GoogleTab", "🔍 Finding and activating Google AI Mode button...");
       try {
         // 1. Exact Google AI Mode button from DOM
         const exactAiBtn =
           document.querySelector('button[jsname="B6rgad"].plR5qb') ||
           document.querySelector('button[jsname="B6rgad"]') ||
-          document.querySelector('button.plR5qb') ||
+          document.querySelector("button.plR5qb") ||
           document.querySelector('button[jscontroller="jNZDL"]');
 
         if (exactAiBtn) {
-          tabLog("GoogleTab", "✨ Found exact Google AI Mode button (button[jsname='B6rgad'].plR5qb). Clicking to activate AI Mode...");
+          tabLog(
+            "GoogleTab",
+            "✨ Found exact Google AI Mode button (button[jsname='B6rgad'].plR5qb). Clicking to activate AI Mode...",
+          );
           exactAiBtn.focus();
           exactAiBtn.click();
-          exactAiBtn.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, view: window }));
-          exactAiBtn.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true, view: window }));
-          exactAiBtn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
+          exactAiBtn.dispatchEvent(
+            new MouseEvent("mousedown", {
+              bubbles: true,
+              cancelable: true,
+              view: window,
+            }),
+          );
+          exactAiBtn.dispatchEvent(
+            new MouseEvent("mouseup", {
+              bubbles: true,
+              cancelable: true,
+              view: window,
+            }),
+          );
+          exactAiBtn.dispatchEvent(
+            new MouseEvent("click", {
+              bubbles: true,
+              cancelable: true,
+              view: window,
+            }),
+          );
           await new Promise((r) => setTimeout(r, 500));
           return true;
         }
 
         // 2. Button with span.lTxWLe ("AI Mode")
-        const aiSpan = Array.from(document.querySelectorAll("span.lTxWLe, span")).find(
-          (s) => s.textContent?.trim() === "AI Mode"
-        );
+        const aiSpan = Array.from(
+          document.querySelectorAll("span.lTxWLe, span"),
+        ).find((s) => s.textContent?.trim() === "AI Mode");
         if (aiSpan) {
-          const parentBtn = aiSpan.closest("button, [role='link'], [role='button']") || aiSpan;
-          tabLog("GoogleTab", "✨ Found AI Mode span. Clicking parent button...");
+          const parentBtn =
+            aiSpan.closest("button, [role='link'], [role='button']") || aiSpan;
+          tabLog(
+            "GoogleTab",
+            "✨ Found AI Mode span. Clicking parent button...",
+          );
           parentBtn.click();
-          parentBtn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
+          parentBtn.dispatchEvent(
+            new MouseEvent("click", {
+              bubbles: true,
+              cancelable: true,
+              view: window,
+            }),
+          );
           await new Promise((r) => setTimeout(r, 500));
           return true;
         }
@@ -1165,19 +1306,28 @@
           'button[aria-label*="AI Mode" i]',
           'a[aria-label*="AI Mode" i]',
           'div[role="button"][aria-label*="AI Mode" i]',
-          'button.SbLVJc',
-          'button.UTNPFf',
-          'button.ONx74b',
+          "button.SbLVJc",
+          "button.UTNPFf",
+          "button.ONx74b",
           'a[href*="udm=50"]',
-          'button.Sw4CSc',
+          "button.Sw4CSc",
         ];
 
         for (const sel of aiSelectors) {
           const el = document.querySelector(sel);
           if (el && el.offsetParent !== null) {
-            tabLog("GoogleTab", `✨ Found AI Mode element (${sel}). Clicking to activate...`);
+            tabLog(
+              "GoogleTab",
+              `✨ Found AI Mode element (${sel}). Clicking to activate...`,
+            );
             el.click();
-            el.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
+            el.dispatchEvent(
+              new MouseEvent("click", {
+                bubbles: true,
+                cancelable: true,
+                view: window,
+              }),
+            );
             await new Promise((r) => setTimeout(r, 500));
             return true;
           }
@@ -1191,7 +1341,10 @@
     /** Attach an image to Google search / Google Lens directly */
     async attachImage(imageDataUrl) {
       if (!imageDataUrl) return false;
-      tabLog("GoogleTab", "🖼️ Processing direct image upload for Google AI / Lens...");
+      tabLog(
+        "GoogleTab",
+        "🖼️ Processing direct image upload for Google AI / Lens...",
+      );
 
       try {
         const arr = imageDataUrl.split(",");
@@ -1202,12 +1355,15 @@
         while (n--) {
           u8arr[n] = bstr.charCodeAt(n);
         }
-        const file = new File([u8arr], "screenshot.png", { type: mime, lastModified: Date.now() });
+        const file = new File([u8arr], "screenshot.png", {
+          type: mime,
+          lastModified: Date.now(),
+        });
 
         // 1. Try finding and clicking the Google Lens button on homepage
         const lensSelectors = [
           'div[aria-label="Search by image"]',
-          'div.nDcEnd',
+          "div.nDcEnd",
           'div[role="button"][aria-label*="image" i]',
           'div[role="button"][aria-label*="Search by image" i]',
           'div[jscontroller="e2B3Fd"]',
@@ -1225,23 +1381,35 @@
         }
 
         if (lensBtn) {
-          tabLog("GoogleTab", "🔍 Found Google Lens icon. Clicking to open image dropzone...");
+          tabLog(
+            "GoogleTab",
+            "🔍 Found Google Lens icon. Clicking to open image dropzone...",
+          );
           lensBtn.click();
           await new Promise((r) => setTimeout(r, 600));
         }
 
         // 2. Look for Google file input (<input type="file">)
         const fileInputs = Array.from(
-          document.querySelectorAll('input[type="file"], input[name="encoded_image"], input.FVO9Bd'),
+          document.querySelectorAll(
+            'input[type="file"], input[name="encoded_image"], input.FVO9Bd',
+          ),
         );
         for (const fileInput of fileInputs) {
           try {
             const dt = new DataTransfer();
             dt.items.add(file);
             fileInput.files = dt.files;
-            fileInput.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
-            fileInput.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
-            tabLog("GoogleTab", "📁 Dispatched image file to Google's input[type='file']!");
+            fileInput.dispatchEvent(
+              new Event("change", { bubbles: true, composed: true }),
+            );
+            fileInput.dispatchEvent(
+              new Event("input", { bubbles: true, composed: true }),
+            );
+            tabLog(
+              "GoogleTab",
+              "📁 Dispatched image file to Google's input[type='file']!",
+            );
             await new Promise((r) => setTimeout(r, 800));
             return true;
           } catch (e) {
@@ -1251,16 +1419,39 @@
 
         // 3. Try Drag & Drop on Google drop zone
         const dropZones = Array.from(
-          document.querySelectorAll("div.Gdd5U, div.a9gg0e, div.m37tJe, textarea[name='q'], form[role='search']"),
+          document.querySelectorAll(
+            "div.Gdd5U, div.a9gg0e, div.m37tJe, textarea[name='q'], form[role='search']",
+          ),
         );
         for (const dropZone of dropZones) {
           try {
             const dt = new DataTransfer();
             dt.items.add(file);
-            dropZone.dispatchEvent(new DragEvent("dragenter", { bubbles: true, cancelable: true, dataTransfer: dt }));
-            dropZone.dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, dataTransfer: dt }));
-            dropZone.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: dt }));
-            tabLog("GoogleTab", "📦 Dispatched DragEvent 'drop' to Google dropzone!");
+            dropZone.dispatchEvent(
+              new DragEvent("dragenter", {
+                bubbles: true,
+                cancelable: true,
+                dataTransfer: dt,
+              }),
+            );
+            dropZone.dispatchEvent(
+              new DragEvent("dragover", {
+                bubbles: true,
+                cancelable: true,
+                dataTransfer: dt,
+              }),
+            );
+            dropZone.dispatchEvent(
+              new DragEvent("drop", {
+                bubbles: true,
+                cancelable: true,
+                dataTransfer: dt,
+              }),
+            );
+            tabLog(
+              "GoogleTab",
+              "📦 Dispatched DragEvent 'drop' to Google dropzone!",
+            );
             await new Promise((r) => setTimeout(r, 800));
             return true;
           } catch (e) {
@@ -1274,9 +1465,16 @@
           this.focusInput();
           const dt = new DataTransfer();
           dt.items.add(file);
-          const pasteEv = new ClipboardEvent("paste", { bubbles: true, cancelable: true, clipboardData: dt });
+          const pasteEv = new ClipboardEvent("paste", {
+            bubbles: true,
+            cancelable: true,
+            clipboardData: dt,
+          });
           input.dispatchEvent(pasteEv);
-          tabLog("GoogleTab", "📋 Dispatched synthetic ClipboardEvent paste to search input");
+          tabLog(
+            "GoogleTab",
+            "📋 Dispatched synthetic ClipboardEvent paste to search input",
+          );
           await new Promise((r) => setTimeout(r, 600));
           return true;
         }
@@ -1289,7 +1487,9 @@
     findInput() {
       // If on search page, prioritize the follow-up textarea .ITIRGe
       if (window.location.pathname.startsWith("/search")) {
-        const followUp = document.querySelector('textarea.ITIRGe, textarea[placeholder*="Ask anything" i], textarea[aria-label*="Ask a follow up" i]');
+        const followUp = document.querySelector(
+          'textarea.ITIRGe, textarea[placeholder*="Ask anything" i], textarea[aria-label*="Ask a follow up" i]',
+        );
         if (followUp) return followUp;
       }
       return document.querySelector(
@@ -1309,8 +1509,14 @@
       this.focusInput();
 
       const nativeSetter =
-        Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value")?.set ||
-        Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
+        Object.getOwnPropertyDescriptor(
+          window.HTMLTextAreaElement.prototype,
+          "value",
+        )?.set ||
+        Object.getOwnPropertyDescriptor(
+          window.HTMLInputElement.prototype,
+          "value",
+        )?.set;
 
       if (nativeSetter) {
         nativeSetter.call(input, text);
@@ -1318,10 +1524,15 @@
         input.value = text;
       }
 
-      input.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+      input.dispatchEvent(
+        new Event("input", { bubbles: true, composed: true }),
+      );
       input.dispatchEvent(new Event("change", { bubbles: true }));
       input.dispatchEvent(new KeyboardEvent("input", { bubbles: true }));
-      tabLog("GoogleTab", `✍️ Prompt inserted into search box: "${text.slice(0, 30)}..."`);
+      tabLog(
+        "GoogleTab",
+        `✍️ Prompt inserted into search box: "${text.slice(0, 30)}..."`,
+      );
       await new Promise((r) => setTimeout(r, 200));
       return true;
     }
@@ -1330,8 +1541,8 @@
       const selectors = [
         'button[jsname="B6rgad"].Sw4CSc',
         'button[jsname="B6rgad"]',
-        'button.plR5qb.Sw4CSc',
-        'button.plR5qb',
+        "button.plR5qb.Sw4CSc",
+        "button.plR5qb",
         'button[aria-label="Google Search"]',
         'input[name="btnK"]',
         'input[value="Google Search"]',
@@ -1356,19 +1567,46 @@
       const input = this.findInput();
 
       // Case 1: In-page follow-up conversation turn on /search page
-      if (isSearchPage && input?.classList?.contains("ITIRGe")) {
+      if (isSearchPage || input?.classList?.contains("ITIRGe")) {
         tabLog("GoogleTab", "↵ Dispatching Enter key to follow-up chat box...");
-        input.dispatchEvent(
-          new KeyboardEvent("keydown", {
-            key: "Enter",
-            code: "Enter",
-            keyCode: 13,
-            which: 13,
-            bubbles: true,
-            cancelable: true,
-          }),
-        );
-        const sendBtn = this.findSendButton();
+        try {
+          input.focus();
+          input.dispatchEvent(
+            new KeyboardEvent("keydown", {
+              key: "Enter",
+              code: "Enter",
+              keyCode: 13,
+              which: 13,
+              bubbles: true,
+              cancelable: true,
+            }),
+          );
+          input.dispatchEvent(
+            new KeyboardEvent("keypress", {
+              key: "Enter",
+              code: "Enter",
+              keyCode: 13,
+              which: 13,
+              bubbles: true,
+              cancelable: true,
+            }),
+          );
+          input.dispatchEvent(
+            new KeyboardEvent("keyup", {
+              key: "Enter",
+              code: "Enter",
+              keyCode: 13,
+              which: 13,
+              bubbles: true,
+              cancelable: true,
+            }),
+          );
+        } catch {}
+
+        const sendBtn =
+          document.querySelector(
+            'button[aria-label*="Send" i], button[aria-label*="Search" i], button[type="submit"]',
+          ) || this.findSendButton();
         if (sendBtn) {
           try {
             sendBtn.click();
@@ -1378,17 +1616,28 @@
       }
 
       // Case 2: Google Homepage initial search submission
-      tabLog("GoogleTab", "🚀 Submitting search from Google homepage with AI Mode...");
+      tabLog(
+        "GoogleTab",
+        "🚀 Submitting search from Google homepage with AI Mode...",
+      );
       const btn = this.findSendButton();
       if (btn) {
         tabLog("GoogleTab", "🔘 Clicking Google Search / AI button...");
         try {
           btn.click();
-          btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
+          btn.dispatchEvent(
+            new MouseEvent("click", {
+              bubbles: true,
+              cancelable: true,
+              view: window,
+            }),
+          );
         } catch {}
       }
 
-      const form = input ? input.closest("form") : document.querySelector('form[role="search"], form[action="/search"]');
+      const form = input
+        ? input.closest("form")
+        : document.querySelector('form[role="search"], form[action="/search"]');
       if (form) {
         tabLog("GoogleTab", "📄 Triggering form submit...");
         try {
@@ -1414,44 +1663,82 @@
     }
 
     findResponseContainer() {
-      // 1. Check for AI Overview copy buttons or response blocks (latest turn in thread)
-      const copyBtns = Array.from(document.querySelectorAll('button[aria-label="Copy text"].bKxaof, button[aria-label*="Copy text" i]'));
-      if (copyBtns.length > 0) {
-        const lastCopyBtn = copyBtns[copyBtns.length - 1];
-        const block = lastCopyBtn.closest('div[jsname], div.mZJni, div.Dn7Fzd, div[data-container-id="main-col"]') || lastCopyBtn.parentElement?.parentElement;
-        if (block && (block.textContent || "").trim().length > 25) {
-          return block;
-        }
-      }
-
-      // 2. ONLY select the pure AI answer column (main-col), picking the latest (last) in thread
+      // 1. Primary AI Overview text containers in Google AI Search (e.g. div.mZJni.Dn7Fzd)
       const selectors = [
+        "div.mZJni.Dn7Fzd",
+        "div.mZJni",
+        "div.Dn7Fzd",
         'div[data-container-id="main-col"] .Dn7Fzd',
         'div[data-container-id="main-col"] div[jsname="N760b"]',
         'div[data-container-id="main-col"] div[data-attrid="wa:/description"]',
         'div[data-container-id="main-col"]',
-        'div.mZJni.Dn7Fzd',
-        'div.mZJni',
         'div[data-attrid="wa:/description"]',
-        'div.ULSXZd',
-        'div.IZ6rdc',
-        'div[data-sokoban-container]',
-        'div.wDYxhc',
-        'div.xpdopen',
-        'div.kp-blk',
-        'div.V3FYCf',
-        'div.MjjYud',
-        '#rso',
+        "div.ULSXZd",
+        "div.IZ6rdc",
+        "div[data-sokoban-container]",
+        "div.wDYxhc",
+        "div.xpdopen",
+        "div.kp-blk",
+        "div.V3FYCf",
+        "div.MjjYud",
+        "#rso",
       ];
       for (const sel of selectors) {
-        const matched = document.querySelectorAll(sel);
-        if (matched.length > 0) {
-          const lastEl = matched[matched.length - 1];
-          if (lastEl && (lastEl.textContent || "").trim().length > 25) {
-            return lastEl;
+        try {
+          const matched = document.querySelectorAll(sel);
+          if (matched.length > 0) {
+            const lastEl = matched[matched.length - 1];
+            if (
+              lastEl &&
+              (lastEl.textContent || "").trim().length > 25 &&
+              !lastEl.querySelector("textarea.ITIRGe")
+            ) {
+              return lastEl;
+            }
+          }
+        } catch {}
+      }
+
+      // 2. Fallback via Copy button parent (excluding toolbar-only nodes like zkL70c)
+      const copyBtns = Array.from(
+        document.querySelectorAll(
+          'button[aria-label="Copy text"].bKxaof, button[aria-label*="Copy text" i], button.bKxaof, button[aria-label="Copy text"]',
+        ),
+      );
+
+      if (copyBtns.length > 0) {
+        const lastCopyBtn = copyBtns[copyBtns.length - 1];
+
+        // Check preceding sibling
+        const toolbar = lastCopyBtn.closest(
+          '[role="toolbar"], div[jsaction], div.eGAasd, div',
+        );
+        if (toolbar && toolbar.parentElement) {
+          const parent = toolbar.parentElement;
+          if (
+            (parent.textContent || "").trim().length > 25 &&
+            !parent.querySelector("textarea.ITIRGe") &&
+            !parent.classList.contains("zkL70c")
+          ) {
+            return parent;
           }
         }
+
+        // Traverse up
+        let cur = lastCopyBtn.parentElement;
+        while (cur && cur !== document.body) {
+          const text = (cur.textContent || "").trim();
+          if (
+            text.length > 25 &&
+            !cur.querySelector("textarea.ITIRGe") &&
+            !cur.classList.contains("zkL70c")
+          ) {
+            return cur;
+          }
+          cur = cur.parentElement;
+        }
       }
+
       return null;
     }
 
@@ -1462,50 +1749,72 @@
         'div[data-xid="aim-aside-initial-corroboration-container"]',
         'div[data-xid="Gd7Hsc"]',
         'div[data-xid="YruvMc"]',
-        'div.ub891',
-        'div.nLDHre',
-        'div.ofHStc',
-        'div.SK38Xc',
-        'div.tbIZh',
-        'div.N6Axvb',
-        'div.OBWDNe',
-        'div.jR6h',
-        'ul.aajpme',
-        'div.UrecDd',
-        'div.YOTKvb',
-        'div.HvurC',
-        'div.PpHF4',
-        'div.DBNuff',
-        'span.DHPVt',
-        'button.vDOt8c',
-        'div.a14YJe',
-        'span.NMq1me',
+        "div.ub891",
+        "div.nLDHre",
+        "div.ofHStc",
+        "div.SK38Xc",
+        "div.tbIZh",
+        "div.N6Axvb",
+        "div.OBWDNe",
+        "div.jR6h",
+        "ul.aajpme",
+        "div.UrecDd",
+        "div.YOTKvb",
+        "div.HvurC",
+        "div.PpHF4",
+        "div.DBNuff",
+        "span.DHPVt",
+        "button.vDOt8c",
+        "div.a14YJe",
+        "span.NMq1me",
       ];
     }
 
-    observeResponse(timeoutMs = 25000) {
+    observeResponse(timeoutMs = 25000, previousContent = "") {
       return new Promise(async (resolve) => {
         const startTime = Date.now();
         let lastTextLength = 0;
         let idleCount = 0;
+        let hasSeenChange = !previousContent;
 
-        // Try clicking AI Mode or Generate button if present
+        // Activate AI Mode once on homepage if not already active
         await this.ensureAiMode();
 
         const checkInterval = setInterval(async () => {
-          // Continuously check for dynamic in-page AI generation button
-          this.ensureAiMode();
-
+          const hasCopyBtn = Boolean(
+            document.querySelector(
+              'button[aria-label="Copy text"].bKxaof, button[aria-label*="Copy text" i], button.bKxaof',
+            ),
+          );
           const container = this.findResponseContainer();
+
           if (container) {
-            const currentLength = (container.textContent || "").trim().length;
+            const currentContent = (container.textContent || "").trim();
+            const currentLength = currentContent.length;
+
+            if (previousContent && !hasSeenChange) {
+              if (currentContent !== previousContent && currentLength > 25) {
+                hasSeenChange = true;
+                lastTextLength = currentLength;
+                idleCount = 0;
+              }
+              return;
+            }
+
             if (currentLength > 25) {
+              if (hasCopyBtn) {
+                idleCount += 2;
+              }
+
               if (currentLength === lastTextLength) {
                 idleCount++;
                 if (idleCount >= 3) {
                   clearInterval(checkInterval);
                   const md = await this.getCurrentResponse();
-                  tabLog("GoogleTab", `✅ AI Overview extracted, length: ${md?.length || 0}`);
+                  tabLog(
+                    "GoogleTab",
+                    `✅ AI Overview extracted, length: ${md?.length || 0}`,
+                  );
                   resolve(md);
                   return;
                 }
@@ -1603,5 +1912,4 @@
   global.BingCopilotAdapter = BingCopilotAdapter;
   global.GoogleSearchAdapter = GoogleSearchAdapter;
   global.ProviderAdapterRegistry = ProviderAdapterRegistry;
-
 })(typeof window !== "undefined" ? window : globalThis);

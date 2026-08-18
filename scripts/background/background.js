@@ -578,4 +578,5 @@ runtimeOnMessage("IF_B_GET_ANSWER", async (payload, sender, sendResponse) => {
 
   console.log(`[SpectraLens:Background] 📤 Sending response back to content script for provider: "${provider}", answer length: ${answer?.length || 0}`);
   sendResponse({ status: "success", answer, provider, requestId });
+  return true;
 });
