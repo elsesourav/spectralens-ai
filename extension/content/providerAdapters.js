@@ -2113,97 +2113,142 @@
 
     async insertPrompt(text) {
       const input = this.findInput();
-      if (!input) return false;
+      if (!input) {
+        tabLog(
+          "PerplexityTab",
+          JSON.stringify({
+            step: "insertPrompt",
+            status: "ERROR",
+            error: "Input editor not found",
+            timestamp: new Date().toISOString(),
+          }),
+        );
+        return false;
+      }
+
+      const initialText = (input.textContent || input.value || "").trim();
+      tabLog(
+        "PerplexityTab",
+        JSON.stringify({
+          step: "insertPrompt:start",
+          inputTag: input.tagName.toLowerCase(),
+          inputId: input.id || "",
+          initialTextLength: initialText.length,
+          initialTextPreview: initialText.slice(0, 40),
+          targetTextPreview: text.slice(0, 40),
+          timestamp: new Date().toISOString(),
+        }),
+      );
 
       this.focusInput();
       await new Promise((r) => setTimeout(r, 60));
 
       if (input.tagName.toLowerCase() === "textarea") {
-        input.value = "";
-        const nativeSetter = Object.getOwnPropertyDescriptor(
-          window.HTMLTextAreaElement.prototype,
-          "value",
-        )?.set;
-        if (nativeSetter) {
-          nativeSetter.call(input, text);
-        } else {
-          input.value = text;
-        }
+        input.value = text;
         input.dispatchEvent(new Event("input", { bubbles: true }));
         input.dispatchEvent(new Event("change", { bubbles: true }));
       } else {
-        // ContentEditable / Lexical Rich Text Editor (#ask-input)
+        // ContentEditable / Lexical Editor (#ask-input)
         input.focus();
 
-        // 1. Clear existing text in Lexical editor
+        // 1. Clear content using Range Selection & delete
+        const sel = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(input);
+        sel.removeAllRanges();
+        sel.addRange(range);
         try {
-          document.execCommand("selectAll", false, null);
           document.execCommand("delete", false, null);
         } catch {}
 
-        // 2. Dispatch synthetic Paste event - this triggers Lexical's internal AST update and immediately enables the submit button
+        // 2. Dispatch beforeinput for insertText
+        const beforeInput = new InputEvent("beforeinput", {
+          bubbles: true,
+          cancelable: true,
+          composed: true,
+          inputType: "insertText",
+          data: text,
+        });
+        input.dispatchEvent(beforeInput);
+
+        // 3. Use execCommand insertText
         try {
-          const dt = new DataTransfer();
-          dt.setData("text/plain", text);
-          const pasteEvent = new ClipboardEvent("paste", {
-            bubbles: true,
-            cancelable: true,
-            composed: true,
-            clipboardData: dt,
-          });
-          input.dispatchEvent(pasteEvent);
+          document.execCommand("insertText", false, text);
         } catch {}
 
-        // 3. Fallback: if text not yet populated, use execCommand
-        const currentText = (input.textContent || "").trim();
-        if (!currentText || currentText !== text.trim()) {
-          const beforeInput = new InputEvent("beforeinput", {
+        // 4. If execCommand didn't insert text, insert TextNode directly into selection range
+        if ((input.textContent || "").trim().length === 0) {
+          const currentSel = window.getSelection();
+          if (currentSel && currentSel.rangeCount > 0) {
+            const curRange = currentSel.getRangeAt(0);
+            curRange.deleteContents();
+            const textNode = document.createTextNode(text);
+            curRange.insertNode(textNode);
+            curRange.selectNodeContents(textNode);
+            curRange.collapse(false);
+            currentSel.removeAllRanges();
+            currentSel.addRange(curRange);
+          } else {
+            input.textContent = text;
+          }
+        }
+
+        // 5. Dispatch InputEvent to notify React
+        input.dispatchEvent(
+          new InputEvent("input", {
             bubbles: true,
             cancelable: true,
             composed: true,
             inputType: "insertText",
             data: text,
-          });
-          input.dispatchEvent(beforeInput);
-          try {
-            document.execCommand("insertText", false, text);
-          } catch {}
-          input.dispatchEvent(
-            new InputEvent("input", {
-              bubbles: true,
-              cancelable: true,
-              composed: true,
-              inputType: "insertText",
-              data: text,
-            }),
-          );
-        }
-
+          }),
+        );
         input.dispatchEvent(new Event("input", { bubbles: true }));
         input.dispatchEvent(new Event("change", { bubbles: true }));
       }
 
-      await new Promise((r) => setTimeout(r, 150));
+      await new Promise((r) => setTimeout(r, 100));
+      const finalText = (input.textContent || input.value || "").trim();
+      tabLog(
+        "PerplexityTab",
+        JSON.stringify({
+          step: "insertPrompt:complete",
+          finalTextLength: finalText.length,
+          finalTextPreview: finalText.slice(0, 40),
+          success: finalText.length > 0,
+          timestamp: new Date().toISOString(),
+        }),
+      );
       return true;
     }
 
     findSendButton() {
       const input = this.findInput();
-      if (input) {
-        const wrapper =
-          input.closest(
-            "div.relative, form, div.border, div.bg-base, div.bg-raised, div.rounded-2xl",
-          ) || input.parentElement?.parentElement;
-        if (wrapper) {
-          const wrapperBtn = wrapper.querySelector(
-            'button[aria-label="Submit" i], button[aria-label*="Submit" i], button[aria-label*="Send" i], button.bg-button-bg, button.bg-super, button[type="submit"], button:has(svg use[*|href*="arrow-up"]), button:has(svg.lucide-arrow-up), button:has(svg.lucide-arrow-right)',
-          );
-          if (wrapperBtn) return wrapperBtn;
-        }
-      }
+      const container =
+        input?.closest(
+          'div[data-ask-input-container="true"], div.bg-base, form, div.relative',
+        ) || document;
+
+      // 1. Exact Submit / Send aria-label
+      const exactBtn = container.querySelector(
+        'button[aria-label="Submit" i], button[aria-label="Send" i], button[aria-label="Ask" i]',
+      );
+      if (exactBtn) return exactBtn;
+
+      // 2. Button with arrow-up SVG icon
+      const arrowBtn = container.querySelector(
+        'button:has(use[*|href*="arrow-up"]), button:has(svg.lucide-arrow-up), button:has(svg path[d*="M12 19V5"])',
+      );
+      if (arrowBtn) return arrowBtn;
+
+      // 3. Submit button with bg-button-bg or bg-super
+      const styledBtn = container.querySelector(
+        'button.bg-button-bg:not([aria-label*="Model" i]):not([aria-label*="Dictation" i]), button.bg-super:not([aria-label*="Model" i]):not([aria-label*="Dictation" i])',
+      );
+      if (styledBtn) return styledBtn;
 
       return document.querySelector(
-        'button[aria-label="Submit" i], button[aria-label*="Submit" i], button[aria-label*="Search" i], button[aria-label*="Send" i], button[data-testid="submit-button"], button.bg-button-bg, button.bg-super, button:has(svg use[*|href*="arrow-up"]), button:has(svg.lucide-arrow-up), button:has(svg.lucide-arrow-right), button.reset.interactable:has(svg)',
+        'button[aria-label="Submit" i], button[aria-label="Send" i]',
       );
     }
 
@@ -2211,6 +2256,19 @@
       await new Promise((r) => setTimeout(r, 200));
       const btn = this.findSendButton();
       const input = this.findInput();
+
+      tabLog(
+        "PerplexityTab",
+        JSON.stringify({
+          step: "submit:start",
+          sendButtonFound: Boolean(btn),
+          buttonTag: btn ? btn.tagName.toLowerCase() : null,
+          ariaLabel: btn ? btn.getAttribute("aria-label") : null,
+          disabled: btn ? btn.disabled : null,
+          isPointerEventsNone: btn ? btn.classList.contains("pointer-events-none") : null,
+          timestamp: new Date().toISOString(),
+        }),
+      );
 
       function triggerFullClick(el) {
         if (!el) return;
@@ -2278,13 +2336,28 @@
           await new Promise((r) => setTimeout(r, 100));
           if (!btn.disabled && !btn.classList.contains("pointer-events-none")) {
             activeBtn = btn;
+            tabLog(
+              "PerplexityTab",
+              JSON.stringify({
+                step: "submit:button_enabled",
+                pollAttempt: i + 1,
+                timestamp: new Date().toISOString(),
+              }),
+            );
             break;
           }
         }
       }
 
       if (activeBtn) {
-        tabLog("PerplexityTab", "🔘 Triggering full Pointer/Mouse click on Perplexity Send button...");
+        tabLog(
+          "PerplexityTab",
+          JSON.stringify({
+            step: "submit:click_active_button",
+            ariaLabel: activeBtn.getAttribute("aria-label"),
+            timestamp: new Date().toISOString(),
+          }),
+        );
         triggerFullClick(activeBtn);
         await new Promise((r) => setTimeout(r, 100));
         return true;
@@ -2292,14 +2365,26 @@
 
       // If button still not active, force enable & click and dispatch Enter
       if (btn) {
-        tabLog("PerplexityTab", "🔘 Forcing full click on Perplexity Send button...");
+        tabLog(
+          "PerplexityTab",
+          JSON.stringify({
+            step: "submit:force_click",
+            timestamp: new Date().toISOString(),
+          }),
+        );
         btn.removeAttribute("disabled");
         btn.classList.remove("pointer-events-none");
         triggerFullClick(btn);
       }
 
       if (input) {
-        tabLog("PerplexityTab", "↵ Dispatching Enter key sequence to Perplexity input...");
+        tabLog(
+          "PerplexityTab",
+          JSON.stringify({
+            step: "submit:dispatch_enter",
+            timestamp: new Date().toISOString(),
+          }),
+        );
         triggerEnter(input);
         return true;
       }
@@ -2355,7 +2440,14 @@
           'button[aria-label="Copy"], button[aria-label*="Copy" i]:not([aria-label*="query" i])',
         ).length;
 
+        tabLog(
+          "PerplexityTab",
+          `👀 [observeResponse] Starting response observation (timeout: ${timeoutMs / 1000}s, initialCopyBtns: ${initialCopyCount}, prevContentLen: ${previousContent.length})`,
+        );
+
+        let tickCount = 0;
         const checkInterval = setInterval(async () => {
+          tickCount++;
           const isStreamingNow = this.isStreaming();
           if (isStreamingNow) {
             hasSeenStreaming = true;
@@ -2367,6 +2459,12 @@
 
           // For follow-up queries, wait until new response begins
           if (previousContent && currentCopyCount <= initialCopyCount && !hasSeenStreaming) {
+            if (tickCount % 5 === 0) {
+              tabLog(
+                "PerplexityTab",
+                `⏳ [observeResponse tick #${tickCount}] Waiting for new turn response to start (copyBtns: ${currentCopyCount}/${initialCopyCount}, isStreaming: ${isStreamingNow})...`,
+              );
+            }
             return;
           }
 
@@ -2382,10 +2480,21 @@
             if (currentLength > 20) {
               const isFinished = !isStreamingNow && (hasSeenStreaming ? idleCount >= 2 : idleCount >= 4);
 
+              if (tickCount % 4 === 0) {
+                tabLog(
+                  "PerplexityTab",
+                  `📊 [observeResponse tick #${tickCount}] Current text length: ${currentLength} (last: ${lastTextLength}, idle: ${idleCount}, isStreaming: ${isStreamingNow})`,
+                );
+              }
+
               if (currentLength === lastTextLength) {
                 idleCount++;
                 if (isFinished || idleCount >= 5) {
                   clearInterval(checkInterval);
+                  tabLog(
+                    "PerplexityTab",
+                    `🎉 [observeResponse] Generation complete! Text settled at ${currentLength} chars (idleCount: ${idleCount}). Extracting markdown...`,
+                  );
                   const md = await this.getCurrentResponse();
                   resolve(md);
                   return;
@@ -2399,6 +2508,7 @@
 
           if (Date.now() - startTime > timeoutMs) {
             clearInterval(checkInterval);
+            tabLog("PerplexityTab", `⏱️ [observeResponse] Timeout (${timeoutMs / 1000}s) reached!`);
             const response = await this.getCurrentResponse();
             resolve(
               response ||
