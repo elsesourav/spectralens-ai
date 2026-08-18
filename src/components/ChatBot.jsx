@@ -895,7 +895,7 @@ export default function ChatBot({
 
         {/* Sequential Conversation Turns (One after one) */}
         {turns.map((turn) => {
-          const activeProviderId = turn.selectedProvider || selectedProvider || "google";
+          const activeProviderId = selectedProvider || turn.selectedProvider || "google";
           const pAns = turn.answers?.[activeProviderId];
           const activeContent = pAns?.content || pAns?.answer || (typeof pAns === "string" ? pAns : "");
           const providerMeta = allProvidersList.find((p) => p.id === activeProviderId) || {
