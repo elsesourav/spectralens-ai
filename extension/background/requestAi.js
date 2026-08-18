@@ -366,14 +366,10 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
           const resultVal = injectResult?.[0]?.result;
           if (resultVal === "__NAVIGATING__") {
             isExecuting = false;
-            if (chrome.tabs?.get) {
-              chrome.tabs.get(tabId, (currentTab) => {
-                void chrome.runtime?.lastError;
-                if (currentTab && currentTab.status === "complete" && !isResolved && !isExecuting) {
-                  runInjection();
-                }
-              });
-            }
+            console.log(
+              `%c[SpectraLens:Pipeline] 🚀 [STEP 4/5] Submitted from homepage. Waiting for /search navigation to complete...`,
+              "color: #3b82f6; font-weight: bold;",
+            );
             return;
           }
 
@@ -381,18 +377,6 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
             safeResolve(resultVal);
           } else {
             isExecuting = false;
-            if (chrome.tabs?.get) {
-              chrome.tabs.get(tabId, (currentTab) => {
-                void chrome.runtime?.lastError;
-                if (currentTab && currentTab.status === "complete" && !isResolved && !isExecuting) {
-                  console.log(
-                    `%c[SpectraLens:Pipeline] 🔄 Tab #${tabId} completed navigation to search results. Running adapter to extract AI Overview...`,
-                    "color: #3b82f6; font-weight: bold;",
-                  );
-                  runInjection();
-                }
-              });
-            }
           }
         },
         extractArgs,
