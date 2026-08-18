@@ -1775,40 +1775,52 @@
         const startTime = Date.now();
         let lastTextLength = 0;
         let idleCount = 0;
-        let hasSeenChange = !previousContent;
+
+        // Record initial count of turns and copy buttons before this turn starts
+        const initialTurnCount = document.querySelectorAll(
+          "div.mZJni.Dn7Fzd, div.Dn7Fzd, div.mZJni",
+        ).length;
+        const initialCopyBtnCount = document.querySelectorAll(
+          'button[aria-label="Copy text"].bKxaof, button[aria-label*="Copy text" i], button.bKxaof',
+        ).length;
 
         // Activate AI Mode once on homepage if not already active
         await this.ensureAiMode();
 
         const checkInterval = setInterval(async () => {
-          const hasCopyBtn = Boolean(
-            document.querySelector(
-              'button[aria-label="Copy text"].bKxaof, button[aria-label*="Copy text" i], button.bKxaof',
-            ),
-          );
+          const currentCopyBtnCount = document.querySelectorAll(
+            'button[aria-label="Copy text"].bKxaof, button[aria-label*="Copy text" i], button.bKxaof',
+          ).length;
           const container = this.findResponseContainer();
 
           if (container) {
             const currentContent = (container.textContent || "").trim();
             const currentLength = currentContent.length;
 
-            if (previousContent && !hasSeenChange) {
-              if (currentContent !== previousContent && currentLength > 25) {
-                hasSeenChange = true;
-                lastTextLength = currentLength;
-                idleCount = 0;
+            // If this is a follow-up turn in an existing thread:
+            if (previousContent) {
+              const currentTurnCount = document.querySelectorAll(
+                "div.mZJni.Dn7Fzd, div.Dn7Fzd, div.mZJni",
+              ).length;
+              if (
+                currentTurnCount <= initialTurnCount &&
+                currentContent === previousContent
+              ) {
+                return; // Wait for new turn to be created
               }
-              return;
             }
 
             if (currentLength > 25) {
-              if (hasCopyBtn) {
-                idleCount += 2;
-              }
+              // Completion signal:
+              // Turn 1: any copy button on page OR stable text
+              // Turn 2+: new copy button appeared OR stable text for 3 checks
+              const isTurnFinished = previousContent
+                ? currentCopyBtnCount > initialCopyBtnCount
+                : currentCopyBtnCount > 0;
 
               if (currentLength === lastTextLength) {
                 idleCount++;
-                if (idleCount >= 3) {
+                if (isTurnFinished || idleCount >= 3) {
                   clearInterval(checkInterval);
                   const md = await this.getCurrentResponse();
                   tabLog(
