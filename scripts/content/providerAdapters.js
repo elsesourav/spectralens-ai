@@ -1481,23 +1481,16 @@
     }
 
     findResponseContainer() {
-      // 1. Primary Gemini model response containers (newest turn at the end)
-      const responses = document.querySelectorAll(
-        'model-response, message-content, structured-content-container.model-response-text, .markdown-main-panel, div[data-test-id="model-response"]',
+      // Strictly target the latest model response turn
+      const modelResponses = document.querySelectorAll(
+        'model-response, message-content, div[data-test-id="model-response"]',
       );
-      if (responses.length > 0) {
-        for (let i = responses.length - 1; i >= 0; i--) {
-          const resp = responses[i];
-          const innerContent = resp.querySelector(
-            '.model-response-text, .markdown, .response-content, .markdown-main-panel, .sparkle-text-output, structured-content-container',
-          );
-          const target = innerContent || resp;
-          const text = (target.textContent || "").trim();
-          if (text.length > 15) {
-            return target;
-          }
-        }
-        return responses[responses.length - 1];
+      if (modelResponses.length > 0) {
+        const latestResp = modelResponses[modelResponses.length - 1];
+        const innerContent = latestResp.querySelector(
+          '.model-response-text, .markdown, .response-content, .sparkle-text-output, structured-content-container, .markdown-main-panel',
+        );
+        return innerContent || latestResp;
       }
 
       return document.querySelector(
@@ -1530,9 +1523,10 @@
         let lastTextLength = 0;
         let idleCount = 0;
         let isDone = false;
+        let hasSeenStreaming = false;
 
         const initialTurnCount = document.querySelectorAll(
-          'model-response, message-content, structured-content-container.model-response-text, .markdown-main-panel',
+          'model-response, message-content, div[data-test-id="model-response"]',
         ).length;
         const initialCopyBtnCount = document.querySelectorAll(
           'button[aria-label*="Copy" i], button[data-test-id="copy-button"]',
@@ -1559,12 +1553,31 @@
 
         const checkInterval = setInterval(async () => {
           if (isDone) return;
+
+          const isStreamingNow = this.isStreaming();
+          if (isStreamingNow) {
+            hasSeenStreaming = true;
+          }
+
+          const currentTurnCount = document.querySelectorAll(
+            'model-response, message-content, div[data-test-id="model-response"]',
+          ).length;
           const currentCopyBtnCount = document.querySelectorAll(
             'button[aria-label*="Copy" i], button[data-test-id="copy-button"]',
           ).length;
-          const currentTurnCount = document.querySelectorAll(
-            'model-response, message-content, structured-content-container.model-response-text, .markdown-main-panel',
-          ).length;
+
+          // For multi-turn follow-up queries, wait until new turn starts
+          if (previousContent) {
+            const isNewTurnActive =
+              currentTurnCount > initialTurnCount ||
+              currentCopyBtnCount > initialCopyBtnCount ||
+              hasSeenStreaming ||
+              hasReceivedNetChunk;
+
+            if (!isNewTurnActive) {
+              return;
+            }
+          }
 
           const container = this.findResponseContainer();
 
@@ -1572,29 +1585,20 @@
             const currentContent = (container.textContent || "").trim();
             const currentLength = currentContent.length;
 
-            if (previousContent) {
-              const hasNewTurnAppeared =
-                currentTurnCount > initialTurnCount ||
-                currentCopyBtnCount > initialCopyBtnCount ||
-                hasReceivedNetChunk;
-
-              if (!hasNewTurnAppeared || currentContent === previousContent) {
-                return;
-              }
+            if (previousContent && currentContent === previousContent) {
+              return;
             }
 
-            if (currentLength > 20) {
-              const isTurnFinished = previousContent
-                ? currentCopyBtnCount > initialCopyBtnCount ||
-                  (hasReceivedNetChunk && idleCount >= 2) ||
-                  (currentTurnCount > initialTurnCount && idleCount >= 3)
-                : currentCopyBtnCount > 0 ||
+            if (currentLength > 0) {
+              const isFinished = hasSeenStreaming
+                ? !isStreamingNow
+                : currentCopyBtnCount > initialCopyBtnCount ||
                   (hasReceivedNetChunk && idleCount >= 2) ||
                   idleCount >= 3;
 
               if (currentLength === lastTextLength) {
                 idleCount++;
-                if (isTurnFinished || idleCount >= 4) {
+                if (isFinished || idleCount >= 4) {
                   cleanUp();
                   const md = await this.getCurrentResponse();
                   tabLog(
@@ -1633,7 +1637,12 @@
       return Boolean(
         container?.classList?.contains("processing-state-visible") ||
         document.querySelector("div.response-container-header-processing-state") ||
-        document.querySelector("mat-progress-bar")
+        document.querySelector("mat-progress-bar") ||
+        document.querySelector("button.stop-button") ||
+        document.querySelector('button[aria-label*="Stop response" i]') ||
+        document.querySelector('button[aria-label*="Stop generating" i]') ||
+        document.querySelector(".sparkle-icon-spinning") ||
+        document.querySelector(".loading-indicator")
       );
     }
 
