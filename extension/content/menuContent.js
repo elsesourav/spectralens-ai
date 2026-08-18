@@ -77,14 +77,14 @@ function checkAndShowDailyIntro(left, top) {
         badgeColor: "#10b981",
         title: "Fully Draggable Anywhere",
         desc: "Click and hold the grip handle or anywhere on the launcher back to move the widget anywhere on your screen. It automatically remembers your preferred position.",
-        spotlight: { xOffset: 44, yOffset: 2, width: 52, height: 44, radius: "14px" },
+        spotlight: { xOffset: -2, yOffset: -2, width: 104, height: 52, radius: "26px 12px 12px 26px" },
       },
       {
         badge: "💬 Step 3 of 3 • Multi-AI & Context",
         badgeColor: "#a855f7",
         title: "Launch Chat & @ Features",
         desc: "Click the chat icon to open the full assistant. Use @page to send web links, metadata & top screenshots, or @screen to ask about visual areas.",
-        spotlight: { xOffset: 104, yOffset: 2, width: 46, height: 44, radius: "22px" },
+        spotlight: { xOffset: 102, yOffset: 2, width: 48, height: 44, radius: "22px" },
       },
     ];
 
