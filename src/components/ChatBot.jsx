@@ -547,34 +547,6 @@ export default function ChatBot({
     [],
   );
 
-  // Request answer on demand for an earlier turn (e.g. if provider was added later)
-  const handleAskProviderForTurn = useCallback(
-    (turnId, questionText, providerId) => {
-      if (!turnId || !questionText || !providerId) return;
-
-      setTurns((prev) =>
-        prev.map((t) => {
-          if (t.id !== turnId) return t;
-          const currentLoading = Array.isArray(t.loadingProviders)
-            ? [...t.loadingProviders]
-            : [];
-          if (!currentLoading.includes(providerId)) {
-            currentLoading.push(providerId);
-          }
-          return {
-            ...t,
-            loadingProviders: currentLoading,
-            isLoading: true,
-          };
-        }),
-      );
-      setIsLoading(true);
-
-      dispatchAiRequestToBackground(questionText, providerId, turnId);
-    },
-    [dispatchAiRequestToBackground],
-  );
-
   // Concurrent provider loading (only queries ENABLED providers!)
   const fetchAiResponsesWithConcurrency = useCallback(
     async (question, requestId, image = null) => {
@@ -664,33 +636,39 @@ export default function ChatBot({
     return list;
   }, [aiProviders, turns]);
 
-  // Combine only ACTIVE enabled providers, plus historical answers from past turns
+  // Provider tabs: When viewing history, shows only the providers that answered in that session. When in live chat, shows only currently enabled providers.
   const availableProviderTabs = useMemo(() => {
-    const enabled = aiProviders.filter((p) => p.enabled);
-    const existingIds = new Set(enabled.map((p) => p.id));
-    const combined = [...enabled];
-
-    turns.forEach((turn) => {
-      Object.keys(turn.answers || {}).forEach((providerId) => {
-        if (!existingIds.has(providerId)) {
-          const matching = aiProviders.find((p) => p.id === providerId);
-          combined.push({
-            id: providerId,
-            name: matching?.name || (providerId.charAt(0).toUpperCase() + providerId.slice(1)),
-            enabled: false,
-          });
-          existingIds.add(providerId);
-        }
+    if (isViewingHistory) {
+      const historyProviders = new Set();
+      turns.forEach((turn) => {
+        Object.keys(turn.answers || {}).forEach((id) => {
+          const ans = turn.answers[id];
+          if (ans && (ans.content || ans.answer || typeof ans === "string")) {
+            historyProviders.add(id);
+          }
+        });
       });
-    });
 
-    if (combined.length === 0) {
-      return [
-        { id: "google", name: "Google AI", enabled: true },
-      ];
+      const list = Array.from(historyProviders).map((id) => {
+        const matching = aiProviders.find((p) => p.id === id);
+        return {
+          id,
+          name: matching?.name || (id.charAt(0).toUpperCase() + id.slice(1)),
+          enabled: true,
+        };
+      });
+
+      return list.length > 0
+        ? list
+        : [{ id: "google", name: "Google AI", enabled: true }];
     }
-    return combined;
-  }, [aiProviders, turns]);
+
+    const enabled = aiProviders.filter((p) => p.enabled);
+    if (enabled.length === 0) {
+      return [{ id: "google", name: "Google AI", enabled: true }];
+    }
+    return enabled;
+  }, [aiProviders, turns, isViewingHistory]);
 
   // Providers shown as primary pills (first 3) vs overflow menu
   const primaryProviderTabs = availableProviderTabs.slice(0, 3);
@@ -1057,62 +1035,28 @@ export default function ChatBot({
         {/* Sequential Conversation Turns (One after one) */}
         {turns.map((turn) => {
           const turnAnswers = turn.answers || {};
-          const availableAnswerKeys = Object.keys(turnAnswers).filter(
-            (k) =>
-              turnAnswers[k]?.content ||
-              turnAnswers[k]?.answer ||
-              (typeof turnAnswers[k] === "string" && turnAnswers[k].trim()),
-          );
-
-          const requestedProviderId =
+          const currentProviderId =
             selectedProvider || turn.selectedProvider || "google";
-          const pAns = turnAnswers[requestedProviderId];
-          const hasDirectContent = Boolean(
-            pAns?.content ||
-              pAns?.answer ||
-              (typeof pAns === "string" && pAns.trim()),
-          );
-
-          const isCardLoading = Boolean(
-            !hasDirectContent &&
-              (turn.isLoading ||
-                (Array.isArray(turn.loadingProviders) &&
-                  turn.loadingProviders.includes(requestedProviderId))),
-          );
-
-          let effectiveProviderId = requestedProviderId;
-          let isFallback = false;
-
-          // If current tab has no answer and is not loading, but other providers answered this turn, fallback to the turn's answering provider
-          if (!hasDirectContent && !isCardLoading && availableAnswerKeys.length > 0) {
-            effectiveProviderId =
-              turn.selectedProvider && availableAnswerKeys.includes(turn.selectedProvider)
-                ? turn.selectedProvider
-                : availableAnswerKeys[0];
-            isFallback = effectiveProviderId !== requestedProviderId;
-          }
-
-          const finalAns = turnAnswers[effectiveProviderId];
+          const finalAns = turnAnswers[currentProviderId];
           const activeContent =
             finalAns?.content ||
             finalAns?.answer ||
             (typeof finalAns === "string" ? finalAns : "");
-          const providerMeta = allProvidersList.find(
-            (p) => p.id === effectiveProviderId,
-          ) || {
-            id: effectiveProviderId,
-            name:
-              effectiveProviderId.charAt(0).toUpperCase() +
-              effectiveProviderId.slice(1),
-          };
 
-          const requestedProviderMeta = allProvidersList.find(
-            (p) => p.id === requestedProviderId,
+          const isCardLoading = Boolean(
+            !activeContent &&
+              (turn.isLoading ||
+                (Array.isArray(turn.loadingProviders) &&
+                  turn.loadingProviders.includes(currentProviderId))),
+          );
+
+          const providerMeta = allProvidersList.find(
+            (p) => p.id === currentProviderId,
           ) || {
-            id: requestedProviderId,
+            id: currentProviderId,
             name:
-              requestedProviderId.charAt(0).toUpperCase() +
-              requestedProviderId.slice(1),
+              currentProviderId.charAt(0).toUpperCase() +
+              currentProviderId.slice(1),
           };
 
           return (
@@ -1129,30 +1073,21 @@ export default function ChatBot({
                 }
               />
 
-              {/* AI Response Card for this Turn */}
+              {/* AI Response Card for this Turn (Strictly shows only the selected provider's response) */}
               <ChatAiResponseCard
                 activeAiResponseContent={activeContent}
                 isLoading={isCardLoading}
                 activeAiProviderMetadata={providerMeta}
                 copiedProviderId={
-                  copiedProviderId === effectiveProviderId
-                    ? effectiveProviderId
+                  copiedProviderId === currentProviderId
+                    ? currentProviderId
                     : null
                 }
-                selectedProvider={effectiveProviderId}
+                selectedProvider={currentProviderId}
                 messageTime={turn.messageTime}
                 contrastMode={contrastMode}
-                isFallback={isFallback}
-                requestedProviderMetadata={requestedProviderMeta}
-                onAskCurrentProvider={() =>
-                  handleAskProviderForTurn(
-                    turn.id,
-                    turn.question,
-                    requestedProviderId,
-                  )
-                }
                 onCopyAiResponse={() =>
-                  handleCopyAiResponse(activeContent, effectiveProviderId)
+                  handleCopyAiResponse(activeContent, currentProviderId)
                 }
               />
             </div>
