@@ -6,6 +6,7 @@ export default function ChatModelTabs({
   overflowProviderTabs,
   selectedProvider,
   viewedProviders,
+  unreadProviders,
   answers,
   hasAnyActivity,
   contrastMode,
@@ -14,19 +15,24 @@ export default function ChatModelTabs({
   onSelectProvider,
   moreMenuRef,
 }) {
-  const overflowHasAnswer = overflowProviderTabs.some((provider) => {
-    const isSelected = hasAnyActivity && selectedProvider === provider.id;
-    const provAnswer = answers[provider.id];
+  const isUnread = (providerId) => {
+    if (unreadProviders instanceof Set) {
+      return unreadProviders.has(providerId);
+    }
+    const isSelected = hasAnyActivity && selectedProvider === providerId;
+    const provAnswer = answers?.[providerId];
     return (
       Boolean(
         provAnswer?.content ||
           provAnswer?.answer ||
           (typeof provAnswer === "string" && provAnswer),
       ) &&
-      !viewedProviders.has(provider.id) &&
+      !viewedProviders?.has(providerId) &&
       !isSelected
     );
-  });
+  };
+
+  const overflowHasAnswer = overflowProviderTabs.some((provider) => isUnread(provider.id));
 
   return (
     <div className="flex items-center justify-between gap-1.5 px-3.5 py-2 border-b border-slate-200/50 dark:border-white/[0.06] bg-slate-50/50 dark:bg-black/10 shrink-0">
@@ -34,15 +40,7 @@ export default function ChatModelTabs({
       <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar flex-1 py-0.5">
         {primaryProviderTabs.map((provider) => {
           const isSelected = hasAnyActivity && selectedProvider === provider.id;
-          const provAnswer = answers[provider.id];
-          const hasAnswer =
-            Boolean(
-              provAnswer?.content ||
-                provAnswer?.answer ||
-                (typeof provAnswer === "string" && provAnswer),
-            ) &&
-            !viewedProviders.has(provider.id) &&
-            !isSelected;
+          const hasAnswer = isUnread(provider.id);
 
           return (
             <button
@@ -102,15 +100,7 @@ export default function ChatModelTabs({
             <div className="absolute right-0 top-full mt-1.5 w-44 rounded-xl bg-white dark:bg-[#1a1d26] border border-slate-200 dark:border-white/10 shadow-xl py-1 z-30 animate-fade-in">
               {overflowProviderTabs.map((provider) => {
                 const isSelected = hasAnyActivity && selectedProvider === provider.id;
-                const provAnswer = answers[provider.id];
-                const hasAnswer =
-                  Boolean(
-                    provAnswer?.content ||
-                      provAnswer?.answer ||
-                      (typeof provAnswer === "string" && provAnswer),
-                  ) &&
-                  !viewedProviders.has(provider.id) &&
-                  !isSelected;
+                const hasAnswer = isUnread(provider.id);
 
                 return (
                   <button
@@ -150,8 +140,9 @@ ChatModelTabs.propTypes = {
   primaryProviderTabs: PropTypes.array.isRequired,
   overflowProviderTabs: PropTypes.array.isRequired,
   selectedProvider: PropTypes.string,
-  viewedProviders: PropTypes.object.isRequired,
-  answers: PropTypes.object.isRequired,
+  viewedProviders: PropTypes.object,
+  unreadProviders: PropTypes.object,
+  answers: PropTypes.object,
   hasAnyActivity: PropTypes.bool.isRequired,
   contrastMode: PropTypes.string,
   isMoreMenuOpen: PropTypes.bool.isRequired,

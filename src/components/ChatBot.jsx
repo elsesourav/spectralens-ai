@@ -71,6 +71,7 @@ export default function ChatBot({
       : null,
   );
   const [viewedProviders, setViewedProviders] = useState(new Set());
+  const [unreadProviders, setUnreadProviders] = useState(new Set());
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const [copiedTurnId, setCopiedTurnId] = useState(null);
   const [copiedProviderId, setCopiedProviderId] = useState(null);
@@ -249,10 +250,16 @@ export default function ChatBot({
     }
   }, [selectedProvider]);
 
-  // Tab selection helper: switch provider, mark as viewed, and scroll to bottom instantly
+  // Tab selection helper: switch provider, mark as viewed, clear unread dot, and scroll to bottom instantly
   const handleSelectProvider = useCallback((providerId) => {
     setSelectedProvider(providerId);
     setViewedProviders((prev) => new Set([...prev, providerId]));
+    setUnreadProviders((prev) => {
+      if (!prev.has(providerId)) return prev;
+      const next = new Set(prev);
+      next.delete(providerId);
+      return next;
+    });
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
     }
@@ -400,6 +407,7 @@ export default function ChatBot({
     setShowMentionMenu(false);
     setIsLoading(false);
     currentRequestIdRef.current = null;
+    setUnreadProviders(new Set());
     UTILS.pagePostMessage("IF_B_NEW_CHAT", {}, window.parent);
     if (textareaRef.current) {
       textareaRef.current.style.height = "24px";
@@ -594,6 +602,7 @@ export default function ChatBot({
 
       setSelectedProvider(targetProvider);
       setViewedProviders(new Set([targetProvider]));
+      setUnreadProviders(new Set());
 
       let sentQuestion = actualInput;
       let currentImage = attachedImage;
@@ -771,6 +780,13 @@ export default function ChatBot({
         if (isFirstAnswerForTurn) {
           setSelectedProvider(provider);
           setViewedProviders((v) => new Set([...v, provider]));
+        } else {
+          setSelectedProvider((currentSelected) => {
+            if (provider !== currentSelected) {
+              setUnreadProviders((v) => new Set([...v, provider]));
+            }
+            return currentSelected;
+          });
         }
 
         if (!isStillLoading) {
@@ -889,6 +905,7 @@ export default function ChatBot({
         overflowProviderTabs={overflowProviderTabs}
         selectedProvider={selectedProvider}
         viewedProviders={viewedProviders}
+        unreadProviders={unreadProviders}
         answers={combinedAnswers}
         hasAnyActivity={hasAnyActivity}
         contrastMode={contrastMode}
