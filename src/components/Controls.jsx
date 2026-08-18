@@ -81,7 +81,11 @@ export default function Controls({ isMenuOpen = true }) {
               }
               return item;
             });
-            setAiList(capped);
+
+            // Always place enabled AI providers at the top
+            const enabledItems = capped.filter((item) => item.enabled);
+            const disabledItems = capped.filter((item) => !item.enabled);
+            setAiList([...enabledItems, ...disabledItems]);
           }
 
           if (data.concurrentRequests !== undefined) {
@@ -245,13 +249,16 @@ export default function Controls({ isMenuOpen = true }) {
         const next = prev.map((item) =>
           item.id === id ? { ...item, enabled: false } : item,
         );
-        saveControlsSettings(next);
+        const enabledItems = next.filter((item) => item.enabled);
+        const disabledItems = next.filter((item) => !item.enabled);
+        const sorted = [...enabledItems, ...disabledItems];
+        saveControlsSettings(sorted);
         extensionUtils.pagePostMessage(
           "IF_B_CLOSE_PROVIDER_TAB",
           { providerId: id },
           window.parent,
         );
-        return next;
+        return sorted;
       });
       return;
     }
@@ -270,9 +277,12 @@ export default function Controls({ isMenuOpen = true }) {
       const next = prev.map((item) =>
         item.id === id ? { ...item, enabled: true } : item,
       );
-      saveControlsSettings(next);
+      const enabledItems = next.filter((item) => item.enabled);
+      const disabledItems = next.filter((item) => !item.enabled);
+      const sorted = [...enabledItems, ...disabledItems];
+      saveControlsSettings(sorted);
       showToast(`Activated ${target.name}`, "success");
-      return next;
+      return sorted;
     });
   };
 

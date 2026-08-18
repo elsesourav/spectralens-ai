@@ -401,8 +401,9 @@ export default function ChatBot({
       UTILS.chromeStorageGetLocal(UTILS.KEYS.CONTROLS, (data) => {
         const storedProviders = data?.aiProviders;
         if (storedProviders && Array.isArray(storedProviders)) {
-          setAiProviders(storedProviders);
           const enabledProviders = storedProviders.filter((p) => p.enabled);
+          const disabledProviders = storedProviders.filter((p) => !p.enabled);
+          setAiProviders([...enabledProviders, ...disabledProviders]);
           if (enabledProviders.length > 0) {
             setSelectedProvider((prev) => {
               if (!prev || !enabledProviders.some((p) => p.id === prev)) {
@@ -437,8 +438,9 @@ export default function ChatBot({
         data?.controls || {};
 
       if (storedProviders && Array.isArray(storedProviders)) {
-        setAiProviders(storedProviders);
         const enabledProviders = storedProviders.filter((p) => p.enabled);
+        const disabledProviders = storedProviders.filter((p) => !p.enabled);
+        setAiProviders([...enabledProviders, ...disabledProviders]);
         if (enabledProviders.length > 0) {
           setSelectedProvider((prev) => {
             if (!prev || !enabledProviders.some((p) => p.id === prev)) {
