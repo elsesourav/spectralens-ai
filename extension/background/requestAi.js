@@ -426,15 +426,15 @@ function runTabAdapter(providerId, prompt, image = null) {
         return;
       }
 
-      // 1. Locate input editor (or observe pre-loaded initial search results)
-      let input = adapter.findInput();
-
-      // If no input editor is available immediately, check if this is an initial search results page load with answer already rendered
-      if (!input && window.location.pathname.startsWith("/search")) {
+      // 1. If already on search results page with rendered AI response and NO follow-up input is active, observe directly
+      const isSearchPage = window.location.pathname.startsWith("/search");
+      const followUpInput = document.querySelector('textarea.ITIRGe, textarea[placeholder*="Ask anything" i], textarea[aria-label*="Ask a follow up" i]');
+      
+      if (isSearchPage && !followUpInput) {
         const existingAnswer = adapter.findResponseContainer();
-        if (existingAnswer && existingAnswer.textContent.trim().length > 25) {
+        if (existingAnswer && (existingAnswer.textContent || "").trim().length > 25) {
           console.log(
-            `%c[SpectraLens:Adapter] 🎯 Search results response container rendered. Observing stream...`,
+            `%c[SpectraLens:Adapter] 🎯 Search results AI Overview rendered. Observing stream...`,
             "color: #10b981; font-weight: bold;",
           );
           const answer = await adapter.observeResponse(20000);
@@ -443,33 +443,37 @@ function runTabAdapter(providerId, prompt, image = null) {
         }
       }
 
-      // 2. Wait up to 25 attempts for input editor to mount
+      // 2. Locate input editor (or wait up to 20 attempts)
       console.log(
         `%c[SpectraLens:Adapter] ✍️ [ADAPTER 2/4] Locating input editor for "${providerId}"...`,
         "color: #f59e0b;",
       );
+      let input = adapter.findInput();
       let attempts = 0;
-      while (!input && attempts < 25) {
-        if (adapter.findResponseContainer()?.textContent?.trim()?.length > 25 && window.location.pathname.startsWith("/search")) {
+      while (!input && attempts < 20) {
+        if (isSearchPage && adapter.findResponseContainer()?.textContent?.trim()?.length > 25) {
           const answer = await adapter.observeResponse(15000);
           resolve(answer || getShortError(providerId, "Empty response"));
           return;
         }
-        await new Promise((r) => setTimeout(r, 400));
+        await new Promise((r) => setTimeout(r, 350));
         input = adapter.findInput();
         attempts++;
       }
 
-      // If no input box and still no response container
-      if (!input) {
+      // If on search page and response already exists
+      if (!input && isSearchPage) {
         const finalCheck = adapter.findResponseContainer();
-        if (finalCheck && finalCheck.textContent.trim().length > 25) {
+        if (finalCheck && (finalCheck.textContent || "").trim().length > 25) {
           const answer = await adapter.observeResponse(15000);
           resolve(answer || getShortError(providerId, "Empty response"));
           return;
         }
+      }
+
+      if (!input) {
         console.warn(
-          `%c[SpectraLens:Adapter] ⚠️ Input box not found for "${providerId}" after 25 attempts.`,
+          `%c[SpectraLens:Adapter] ⚠️ Input box not found for "${providerId}" after 20 attempts.`,
           "color: #ef4444; font-weight: bold;",
         );
         resolve(getShortError(providerId, "Input box not found or login required"));
@@ -504,7 +508,7 @@ function runTabAdapter(providerId, prompt, image = null) {
         return;
       }
 
-      await new Promise((r) => setTimeout(r, 300));
+      await new Promise((r) => setTimeout(r, 250));
 
       // 5. Submit
       console.log(
@@ -532,9 +536,9 @@ function runTabAdapter(providerId, prompt, image = null) {
 }
 
 async function getGoogleAiAnswer(q, requestId, image = null) {
-  const url = `https://www.google.com/search?q=${encodeURIComponent(q)}&hl=en`;
+  const url = "https://www.google.com/?hl=en";
   console.log(
-    `[SpectraLens:Background] 🔍 getGoogleAiAnswer (direct search URL) for: "${q.slice(0, 30)}..."${image ? " (with image)" : ""} (requestId: ${requestId})`,
+    `[SpectraLens:Background] 🔍 getGoogleAiAnswer (opening google.com -> enable AI mode -> sending prompt) for: "${q.slice(0, 30)}..."${image ? " (with image)" : ""} (requestId: ${requestId})`,
   );
 
   return fetchAiAnswer(url, runTabAdapter, ["google", q, image], requestId);
