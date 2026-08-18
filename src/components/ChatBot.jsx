@@ -355,6 +355,8 @@ export default function ChatBot({
     });
   }, []);
 
+  const prevEnabledIdsRef = useRef(null);
+
   // Load history item if requested from outside
   useEffect(() => {
     if (initialHistoryItem) {
@@ -362,24 +364,38 @@ export default function ChatBot({
       setIsViewingHistory(true);
       if (Array.isArray(initialHistoryItem.turns) && initialHistoryItem.turns.length > 0) {
         setTurns(initialHistoryItem.turns);
+        const answeredProviders = [];
+        for (const t of initialHistoryItem.turns) {
+          if (t.answers) {
+            for (const [k, ans] of Object.entries(t.answers)) {
+              if (ans?.content || ans?.answer || (typeof ans === "string" && ans.trim())) {
+                answeredProviders.push(k);
+              }
+            }
+          }
+        }
         const lastTurn = initialHistoryItem.turns[initialHistoryItem.turns.length - 1];
-        const avail = Object.keys(lastTurn?.answers || {});
-        if (avail.length > 0) setSelectedProvider(avail[0]);
+        const targetProv =
+          lastTurn?.selectedProvider && answeredProviders.includes(lastTurn.selectedProvider)
+            ? lastTurn.selectedProvider
+            : answeredProviders[0] || "google";
+        setSelectedProvider(targetProv);
       } else if (initialHistoryItem.question || initialHistoryItem.answers) {
         // Legacy history format
+        const legacyAnswers = initialHistoryItem.answers || {};
+        const firstAnswered = Object.keys(legacyAnswers)[0] || "google";
         const legacyTurn = {
           id: initialHistoryItem.id || Date.now().toString(),
           question: initialHistoryItem.question || "",
           questionImage: initialHistoryItem.image || null,
           questionPage: initialHistoryItem.page || null,
           messageTime: formatDateTimeBadge(initialHistoryItem.timestamp),
-          answers: initialHistoryItem.answers || {},
+          answers: legacyAnswers,
           isLoading: false,
-          selectedProvider: Object.keys(initialHistoryItem.answers || {})[0] || "google",
+          selectedProvider: firstAnswered,
         };
         setTurns([legacyTurn]);
-        const avail = Object.keys(initialHistoryItem.answers || {});
-        if (avail.length > 0) setSelectedProvider(avail[0]);
+        setSelectedProvider(firstAnswered);
       }
       if (onClearLoadedHistory) {
         onClearLoadedHistory();
@@ -417,6 +433,16 @@ export default function ChatBot({
     }, 50);
   }, [handleStopFetch]);
 
+  // Listen for reset trigger from controls settings change
+  useEffect(() => {
+    const unsub = UTILS.pageOnMessage("IF_C_RESET_TO_NEW_CHAT", () => {
+      handleNewChat();
+    });
+    return () => {
+      if (typeof unsub === "function") unsub();
+    };
+  }, [handleNewChat]);
+
   // Live sync active AI providers from Chrome storage & settings
   useEffect(() => {
     const loadControls = () => {
@@ -425,6 +451,18 @@ export default function ChatBot({
         if (storedProviders && Array.isArray(storedProviders)) {
           const enabledProviders = storedProviders.filter((p) => p.enabled);
           const disabledProviders = storedProviders.filter((p) => !p.enabled);
+          const currentEnabledIds = enabledProviders.map((p) => p.id).sort().join(",");
+
+          // If enabled provider configuration changed while chat was active, auto-reset to clean new chat
+          if (
+            prevEnabledIdsRef.current !== null &&
+            prevEnabledIdsRef.current !== currentEnabledIds &&
+            (turns.length > 0 || isLoading)
+          ) {
+            handleNewChat();
+          }
+          prevEnabledIdsRef.current = currentEnabledIds;
+
           setAiProviders([...enabledProviders, ...disabledProviders]);
           if (enabledProviders.length > 0) {
             setSelectedProvider((prev) => {
@@ -452,7 +490,7 @@ export default function ChatBot({
       chrome.storage.onChanged.addListener(storageListener);
       return () => chrome.storage.onChanged.removeListener(storageListener);
     }
-  }, []);
+  }, [turns.length, isLoading, handleNewChat]);
 
   useEffect(() => {
     UTILS.pageOnMessage("IF_C_GET_CURRENT_CONTROLS", (data) => {
@@ -462,6 +500,17 @@ export default function ChatBot({
       if (storedProviders && Array.isArray(storedProviders)) {
         const enabledProviders = storedProviders.filter((p) => p.enabled);
         const disabledProviders = storedProviders.filter((p) => !p.enabled);
+        const currentEnabledIds = enabledProviders.map((p) => p.id).sort().join(",");
+
+        if (
+          prevEnabledIdsRef.current !== null &&
+          prevEnabledIdsRef.current !== currentEnabledIds &&
+          (turns.length > 0 || isLoading)
+        ) {
+          handleNewChat();
+        }
+        prevEnabledIdsRef.current = currentEnabledIds;
+
         setAiProviders([...enabledProviders, ...disabledProviders]);
         if (enabledProviders.length > 0) {
           setSelectedProvider((prev) => {
@@ -476,7 +525,7 @@ export default function ChatBot({
         setMaxConcurrentRequest(concurrentRequests);
       }
     });
-  }, []);
+  }, [turns.length, isLoading, handleNewChat]);
 
   // Get answer from background script
   const dispatchAiRequestToBackground = async (
@@ -867,12 +916,21 @@ export default function ChatBot({
   const allProvidersList = useMemo(() => {
     const list = [...aiProviders];
     const existingIds = new Set(aiProviders.map((p) => p.id));
+    const defaultNames = {
+      google: "Google AI",
+      chatgpt: "ChatGPT",
+      claude: "Claude",
+      gemini: "Gemini",
+      grok: "Grok",
+      perplexity: "Perplexity",
+      bing: "Bing Copilot",
+    };
     turns.forEach((turn) => {
       Object.keys(turn.answers || {}).forEach((id) => {
         if (!existingIds.has(id)) {
           list.push({
             id,
-            name: id.charAt(0).toUpperCase() + id.slice(1),
+            name: defaultNames[id.toLowerCase()] || (id.charAt(0).toUpperCase() + id.slice(1)),
             enabled: false,
           });
           existingIds.add(id);
@@ -947,20 +1005,51 @@ export default function ChatBot({
 
         {/* Sequential Conversation Turns (One after one) */}
         {turns.map((turn) => {
-          const activeProviderId = selectedProvider || turn.selectedProvider || "google";
-          const pAns = turn.answers?.[activeProviderId];
-          const activeContent = pAns?.content || pAns?.answer || (typeof pAns === "string" ? pAns : "");
-          const providerMeta = allProvidersList.find((p) => p.id === activeProviderId) || {
-            id: activeProviderId,
-            name: activeProviderId.charAt(0).toUpperCase() + activeProviderId.slice(1),
-          };
+          const turnAnswers = turn.answers || {};
+          const availableAnswerKeys = Object.keys(turnAnswers).filter(
+            (k) =>
+              turnAnswers[k]?.content ||
+              turnAnswers[k]?.answer ||
+              (typeof turnAnswers[k] === "string" && turnAnswers[k].trim()),
+          );
+
+          let effectiveProviderId =
+            selectedProvider || turn.selectedProvider || "google";
+          const pAns = turnAnswers[effectiveProviderId];
+          const hasDirectContent = Boolean(
+            pAns?.content ||
+              pAns?.answer ||
+              (typeof pAns === "string" && pAns.trim()),
+          );
 
           const isCardLoading = Boolean(
-            !activeContent &&
+            !hasDirectContent &&
               (turn.isLoading ||
                 (Array.isArray(turn.loadingProviders) &&
-                  turn.loadingProviders.includes(activeProviderId))),
+                  turn.loadingProviders.includes(effectiveProviderId))),
           );
+
+          // If current tab has no answer and is not loading, but other providers answered this turn, fallback to the turn's answering provider
+          if (!hasDirectContent && !isCardLoading && availableAnswerKeys.length > 0) {
+            effectiveProviderId =
+              turn.selectedProvider && availableAnswerKeys.includes(turn.selectedProvider)
+                ? turn.selectedProvider
+                : availableAnswerKeys[0];
+          }
+
+          const finalAns = turnAnswers[effectiveProviderId];
+          const activeContent =
+            finalAns?.content ||
+            finalAns?.answer ||
+            (typeof finalAns === "string" ? finalAns : "");
+          const providerMeta = allProvidersList.find(
+            (p) => p.id === effectiveProviderId,
+          ) || {
+            id: effectiveProviderId,
+            name:
+              effectiveProviderId.charAt(0).toUpperCase() +
+              effectiveProviderId.slice(1),
+          };
 
           return (
             <div key={turn.id} data-turn-id={turn.id} className="space-y-3.5">
@@ -971,7 +1060,9 @@ export default function ChatBot({
                 lastQuestionPage={turn.questionPage}
                 messageTime={turn.messageTime}
                 isUserCopied={copiedTurnId === turn.id}
-                onCopyUserQuestion={() => handleCopyUserQuestion(turn.question, turn.id)}
+                onCopyUserQuestion={() =>
+                  handleCopyUserQuestion(turn.question, turn.id)
+                }
               />
 
               {/* AI Response Card for this Turn */}
@@ -979,11 +1070,17 @@ export default function ChatBot({
                 activeAiResponseContent={activeContent}
                 isLoading={isCardLoading}
                 activeAiProviderMetadata={providerMeta}
-                copiedProviderId={copiedProviderId === activeProviderId ? activeProviderId : null}
-                selectedProvider={activeProviderId}
+                copiedProviderId={
+                  copiedProviderId === effectiveProviderId
+                    ? effectiveProviderId
+                    : null
+                }
+                selectedProvider={effectiveProviderId}
                 messageTime={turn.messageTime}
                 contrastMode={contrastMode}
-                onCopyAiResponse={() => handleCopyAiResponse(activeContent, activeProviderId)}
+                onCopyAiResponse={() =>
+                  handleCopyAiResponse(activeContent, effectiveProviderId)
+                }
               />
             </div>
           );
