@@ -45,15 +45,99 @@ body {
    overflow: hidden;
    scrollbar-width: none;
    -ms-overflow-style: none;
-
-   * {
-      scrollbar-width: none;
-      -ms-overflow-style: none;
-   }
 }
 
 body::-webkit-scrollbar {
    display: none;
+}
+
+/* ==========================================================================
+   Universal Ultra-Thin Custom Scrollbar Engine (Everywhere)
+   ========================================================================== */
+* {
+   scrollbar-width: thin;
+   scrollbar-color: rgba(148, 163, 184, 0.28) transparent;
+}
+
+.dark *, html.dark * {
+   scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+}
+
+*::-webkit-scrollbar {
+   width: 3.5px;
+   height: 3.5px;
+}
+
+*::-webkit-scrollbar-track {
+   background: transparent !important;
+}
+
+*::-webkit-scrollbar-thumb {
+   background: rgba(148, 163, 184, 0.25);
+   border-radius: 9999px;
+   transition: background-color 150ms ease;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+   background: rgba(148, 163, 184, 0.55);
+}
+
+.dark *::-webkit-scrollbar-thumb, html.dark *::-webkit-scrollbar-thumb {
+   background: rgba(255, 255, 255, 0.2);
+}
+
+.dark *::-webkit-scrollbar-thumb:hover, html.dark *::-webkit-scrollbar-thumb:hover {
+   background: rgba(255, 255, 255, 0.45);
+}
+
+*::-webkit-scrollbar-corner {
+   background: transparent !important;
+}
+
+/* Custom Sleek Scrollbar Utility */
+.custom-scrollbar {
+   scrollbar-width: thin;
+   scrollbar-color: rgba(148, 163, 184, 0.28) transparent;
+   overscroll-behavior: contain;
+}
+
+.dark .custom-scrollbar, html.dark .custom-scrollbar {
+   scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+   width: 3.5px;
+   height: 3.5px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+   background: transparent !important;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+   background: rgba(148, 163, 184, 0.25);
+   border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+   background: rgba(148, 163, 184, 0.55);
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb, html.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+   background: rgba(255, 255, 255, 0.2);
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover, html.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+   background: rgba(255, 255, 255, 0.45);
+}
+
+.no-scrollbar {
+   scrollbar-width: none !important;
+   -ms-overflow-style: none !important;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+   display: none !important;
 }
 
 /* Ultra-Smooth Physical Spring Toggle Switch */
