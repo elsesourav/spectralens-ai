@@ -62,19 +62,27 @@ export default function ChatAiResponseCard({
             }}
           />
         ) : (
-          <div className="flex items-center gap-2 py-3">
-            <div
-              className="w-2 h-2 rounded-full bg-blue-500 animate-bounce"
-              style={{ animationDelay: "0ms" }}
-            />
-            <div
-              className="w-2 h-2 rounded-full bg-blue-500 animate-bounce"
-              style={{ animationDelay: "150ms" }}
-            />
-            <div
-              className="w-2 h-2 rounded-full bg-blue-500 animate-bounce"
-              style={{ animationDelay: "300ms" }}
-            />
+          <div className="space-y-2.5 py-2">
+            <div className="flex items-center gap-2 mb-2">
+              <div
+                className="w-2 h-2 rounded-full bg-blue-500 animate-bounce"
+                style={{ animationDelay: "0ms" }}
+              />
+              <div
+                className="w-2 h-2 rounded-full bg-blue-500 animate-bounce"
+                style={{ animationDelay: "150ms" }}
+              />
+              <div
+                className="w-2 h-2 rounded-full bg-blue-500 animate-bounce"
+                style={{ animationDelay: "300ms" }}
+              />
+              <span className="text-[11px] text-blue-600 dark:text-blue-400 font-bold ml-1 animate-pulse">
+                Thinking & generating answer...
+              </span>
+            </div>
+            <div className="h-3 bg-gradient-to-r from-blue-500/15 via-indigo-500/20 to-blue-500/15 dark:from-white/10 dark:via-white/15 dark:to-white/10 rounded-md w-11/12 animate-pulse" />
+            <div className="h-3 bg-gradient-to-r from-blue-500/15 via-indigo-500/20 to-blue-500/15 dark:from-white/10 dark:via-white/15 dark:to-white/10 rounded-md w-3/4 animate-pulse" />
+            <div className="h-3 bg-gradient-to-r from-blue-500/15 via-indigo-500/20 to-blue-500/15 dark:from-white/10 dark:via-white/15 dark:to-white/10 rounded-md w-4/5 animate-pulse" />
           </div>
         )}
 

@@ -1,6 +1,6 @@
-/* global chrome */
 import PropTypes from "prop-types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { IoTimeOutline, IoAdd } from "react-icons/io5";
 import ChatAiResponseCard from "../features/chat/ChatAiResponseCard.jsx";
 import ChatMessageBubble from "../features/chat/ChatMessageBubble.jsx";
 import ChatModelTabs from "../features/chat/ChatModelTabs.jsx";
@@ -47,6 +47,7 @@ export default function ChatBot({
   const { contrastMode } = useTheme();
   const [input, setInput] = useState(pendingInput || "");
   const [isLoading, setIsLoading] = useState(false);
+  const [isViewingHistory, setIsViewingHistory] = useState(false);
   
   // Continuous Conversation Turns: Array<{ id, question, questionImage, questionPage, messageTime, answers, isLoading, selectedProvider }>
   const [turns, setTurns] = useState([]);
@@ -320,6 +321,7 @@ export default function ChatBot({
   useEffect(() => {
     if (initialHistoryItem) {
       setInput("");
+      setIsViewingHistory(true);
       if (Array.isArray(initialHistoryItem.turns) && initialHistoryItem.turns.length > 0) {
         setTurns(initialHistoryItem.turns);
         const lastTurn = initialHistoryItem.turns[initialHistoryItem.turns.length - 1];
@@ -360,6 +362,7 @@ export default function ChatBot({
     if (isLoading) {
       handleStopFetch();
     }
+    setIsViewingHistory(false);
     setInput("");
     setTurns([]);
     setAttachedImage(null);
@@ -910,30 +913,61 @@ export default function ChatBot({
         })}
       </div>
 
-      {/* Bottom Input Dock Bar */}
-      <ChatPromptInput
-        input={input}
-        setInput={setInput}
-        isLoading={isLoading}
-        attachedImage={attachedImage}
-        setAttachedImage={setAttachedImage}
-        attachedPage={attachedPage}
-        setAttachedPage={setAttachedPage}
-        setAttachedContextType={setAttachedContextType}
-        showMentionMenu={showMentionMenu}
-        filteredMentionOptions={filteredMentionOptions}
-        mentionSelectedIndex={mentionSelectedIndex}
-        mentionMenuRef={mentionMenuRef}
-        textareaRef={textareaRef}
-        isMultiLineInput={isMultiLineInput}
-        contrastMode={contrastMode}
-        onKeyDown={handleKeyDown}
-        onChangeInput={handleInputChange}
-        onSelectMention={handleSelectMention}
-        onOpenSelector={onOpenSelector}
-        onStopFetching={handleStopFetch}
-        onSendMessage={handleSendMessage}
-      />
+      {/* Bottom Input Dock Bar OR Past History Info Banner */}
+      {isViewingHistory ? (
+        <div
+          className={`p-3 border-t shrink-0 flex items-center justify-between gap-3 ${
+            contrastMode === "solid"
+              ? "bg-slate-100 dark:bg-[#14161e] border-slate-200/90 dark:border-white/[0.08]"
+              : "bg-white/50 dark:bg-black/20 backdrop-blur-md border-slate-200/50 dark:border-white/[0.06]"
+          }`}
+        >
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            <div className="p-2 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 shrink-0">
+              <IoTimeOutline className="w-4 h-4" />
+            </div>
+            <div className="flex flex-col min-w-0">
+              <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
+                Viewing Past Conversation
+              </span>
+              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 truncate">
+                Session ended • Start a new chat to ask questions
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={handleNewChat}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-xs font-bold shadow-xs transition-all cursor-pointer shrink-0"
+          >
+            <IoAdd className="w-4 h-4" />
+            <span>New Chat</span>
+          </button>
+        </div>
+      ) : (
+        <ChatPromptInput
+          input={input}
+          setInput={setInput}
+          isLoading={isLoading}
+          attachedImage={attachedImage}
+          setAttachedImage={setAttachedImage}
+          attachedPage={attachedPage}
+          setAttachedPage={setAttachedPage}
+          setAttachedContextType={setAttachedContextType}
+          showMentionMenu={showMentionMenu}
+          filteredMentionOptions={filteredMentionOptions}
+          mentionSelectedIndex={mentionSelectedIndex}
+          mentionMenuRef={mentionMenuRef}
+          textareaRef={textareaRef}
+          isMultiLineInput={isMultiLineInput}
+          contrastMode={contrastMode}
+          onKeyDown={handleKeyDown}
+          onChangeInput={handleInputChange}
+          onSelectMention={handleSelectMention}
+          onOpenSelector={onOpenSelector}
+          onStopFetching={handleStopFetch}
+          onSendMessage={handleSendMessage}
+        />
+      )}
     </div>
   );
 }
