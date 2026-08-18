@@ -2135,16 +2135,11 @@
         // ContentEditable / Lexical Rich Text Editor (#ask-input)
         input.focus();
 
-        // 1. Clear existing selection in Lexical
+        // 1. Clear existing text in Lexical editor
         try {
-          const sel = window.getSelection();
-          const range = document.createRange();
-          range.selectNodeContents(input);
-          sel.removeAllRanges();
-          sel.addRange(range);
+          document.execCommand("selectAll", false, null);
           document.execCommand("delete", false, null);
         } catch {}
-        input.textContent = "";
 
         // 2. Dispatch synthetic Paste event - this triggers Lexical's internal AST update and immediately enables the submit button
         try {
@@ -2153,36 +2148,37 @@
           const pasteEvent = new ClipboardEvent("paste", {
             bubbles: true,
             cancelable: true,
+            composed: true,
             clipboardData: dt,
           });
           input.dispatchEvent(pasteEvent);
         } catch {}
 
-        // 3. Dispatch standard input events as reinforcement
-        const beforeInput = new InputEvent("beforeinput", {
-          bubbles: true,
-          cancelable: true,
-          inputType: "insertText",
-          data: text,
-        });
-        input.dispatchEvent(beforeInput);
-
-        try {
-          document.execCommand("insertText", false, text);
-        } catch {}
-
-        if ((input.textContent || "").trim() === "") {
-          input.textContent = text;
-        }
-
-        input.dispatchEvent(
-          new InputEvent("input", {
+        // 3. Fallback: if text not yet populated, use execCommand
+        const currentText = (input.textContent || "").trim();
+        if (!currentText || currentText !== text.trim()) {
+          const beforeInput = new InputEvent("beforeinput", {
             bubbles: true,
             cancelable: true,
+            composed: true,
             inputType: "insertText",
             data: text,
-          }),
-        );
+          });
+          input.dispatchEvent(beforeInput);
+          try {
+            document.execCommand("insertText", false, text);
+          } catch {}
+          input.dispatchEvent(
+            new InputEvent("input", {
+              bubbles: true,
+              cancelable: true,
+              composed: true,
+              inputType: "insertText",
+              data: text,
+            }),
+          );
+        }
+
         input.dispatchEvent(new Event("input", { bubbles: true }));
         input.dispatchEvent(new Event("change", { bubbles: true }));
       }
@@ -2212,17 +2208,73 @@
     }
 
     async submit() {
-      await new Promise((r) => setTimeout(r, 150));
+      await new Promise((r) => setTimeout(r, 200));
       const btn = this.findSendButton();
       const input = this.findInput();
 
-      // Wait up to 1.5s for send button to be enabled if Lexical state is settling
+      function triggerFullClick(el) {
+        if (!el) return;
+        el.focus();
+        const rect = el.getBoundingClientRect();
+        const clientX = rect.left + rect.width / 2;
+        const clientY = rect.top + rect.height / 2;
+        const mouseOpts = {
+          bubbles: true,
+          cancelable: true,
+          composed: true,
+          view: window,
+          clientX,
+          clientY,
+          button: 0,
+          buttons: 1,
+        };
+        const pointerOpts = {
+          ...mouseOpts,
+          pointerId: 1,
+          pointerType: "mouse",
+          isPrimary: true,
+        };
+
+        el.dispatchEvent(new PointerEvent("pointerover", pointerOpts));
+        el.dispatchEvent(new PointerEvent("pointerenter", pointerOpts));
+        el.dispatchEvent(new PointerEvent("pointerdown", pointerOpts));
+        el.dispatchEvent(new MouseEvent("mousedown", mouseOpts));
+        el.dispatchEvent(new PointerEvent("pointerup", pointerOpts));
+        el.dispatchEvent(new MouseEvent("mouseup", mouseOpts));
+        el.dispatchEvent(new MouseEvent("click", mouseOpts));
+        try {
+          el.click();
+        } catch {}
+      }
+
+      function triggerEnter(el) {
+        if (!el) return;
+        el.focus();
+        const eventOpts = {
+          key: "Enter",
+          code: "Enter",
+          keyCode: 13,
+          which: 13,
+          charCode: 13,
+          bubbles: true,
+          cancelable: true,
+          composed: true,
+          isComposing: false,
+          view: window,
+        };
+        el.dispatchEvent(new KeyboardEvent("keydown", eventOpts));
+        el.dispatchEvent(new KeyboardEvent("keypress", eventOpts));
+        el.dispatchEvent(new KeyboardEvent("keyup", eventOpts));
+      }
+
+      // Check if send button is active / enabled
       let activeBtn =
         btn && !btn.disabled && !btn.classList.contains("pointer-events-none")
           ? btn
           : null;
+
       if (!activeBtn && btn) {
-        for (let i = 0; i < 10; i++) {
+        for (let i = 0; i < 12; i++) {
           await new Promise((r) => setTimeout(r, 100));
           if (!btn.disabled && !btn.classList.contains("pointer-events-none")) {
             activeBtn = btn;
@@ -2232,64 +2284,23 @@
       }
 
       if (activeBtn) {
-        tabLog("PerplexityTab", "🔘 Clicking enabled Perplexity Send button...");
-        try {
-          activeBtn.focus();
-          activeBtn.click();
-          activeBtn.dispatchEvent(
-            new MouseEvent("click", {
-              bubbles: true,
-              cancelable: true,
-              view: window,
-            }),
-          );
-          return true;
-        } catch {}
+        tabLog("PerplexityTab", "🔘 Triggering full Pointer/Mouse click on Perplexity Send button...");
+        triggerFullClick(activeBtn);
+        await new Promise((r) => setTimeout(r, 100));
+        return true;
       }
 
-      // If button still disabled, force remove disabled and click, or dispatch Enter key
+      // If button still not active, force enable & click and dispatch Enter
       if (btn) {
-        tabLog("PerplexityTab", "🔘 Forcing click on Perplexity Send button...");
-        try {
-          btn.removeAttribute("disabled");
-          btn.classList.remove("pointer-events-none");
-          btn.click();
-          btn.dispatchEvent(
-            new MouseEvent("click", {
-              bubbles: true,
-              cancelable: true,
-              view: window,
-            }),
-          );
-        } catch {}
+        tabLog("PerplexityTab", "🔘 Forcing full click on Perplexity Send button...");
+        btn.removeAttribute("disabled");
+        btn.classList.remove("pointer-events-none");
+        triggerFullClick(btn);
       }
 
       if (input) {
-        tabLog(
-          "PerplexityTab",
-          "↵ Dispatching Enter key to Perplexity input...",
-        );
-        input.focus();
-        input.dispatchEvent(
-          new KeyboardEvent("keydown", {
-            key: "Enter",
-            code: "Enter",
-            keyCode: 13,
-            which: 13,
-            bubbles: true,
-            cancelable: true,
-          }),
-        );
-        input.dispatchEvent(
-          new KeyboardEvent("keyup", {
-            key: "Enter",
-            code: "Enter",
-            keyCode: 13,
-            which: 13,
-            bubbles: true,
-            cancelable: true,
-          }),
-        );
+        tabLog("PerplexityTab", "↵ Dispatching Enter key sequence to Perplexity input...");
+        triggerEnter(input);
         return true;
       }
 
