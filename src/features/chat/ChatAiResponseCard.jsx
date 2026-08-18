@@ -13,7 +13,7 @@ export default function ChatAiResponseCard({
   contrastMode,
   onCopyAiResponse,
 }) {
-  if (!activeAiResponseContent && (!isLoading || activeAiResponseContent)) {
+  if (!activeAiResponseContent && !isLoading) {
     return null;
   }
 

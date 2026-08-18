@@ -611,6 +611,12 @@ export default function ChatBot({
             ? "Explain what is on this screen"
             : "");
 
+      const enabledList = aiProviders.filter((p) => p.enabled);
+      const requestedIds =
+        enabledList.length > 0
+          ? enabledList.map((p) => p.id)
+          : ["google"];
+
       // Append new Turn to continuous conversation list (one after one)
       const newTurn = {
         id: requestId,
@@ -620,6 +626,7 @@ export default function ChatBot({
         messageTime: getFormattedTimeBadge(),
         answers: {},
         isLoading: true,
+        loadingProviders: requestedIds,
         selectedProvider: targetProvider,
       };
 
@@ -735,15 +742,24 @@ export default function ChatBot({
           },
         };
 
+        const currentLoading = Array.isArray(targetTurn.loadingProviders)
+          ? targetTurn.loadingProviders.filter((id) => id !== provider)
+          : [];
+        const isStillLoading = currentLoading.length > 0;
+
         const updatedTurn = {
           ...targetTurn,
           answers: updatedAnswers,
-          isLoading: false,
+          loadingProviders: currentLoading,
+          isLoading: isStillLoading,
         };
 
         if (isFirstAnswerForTurn) {
           setSelectedProvider(provider);
           setViewedProviders((v) => new Set([...v, provider]));
+        }
+
+        if (!isStillLoading) {
           setIsLoading(false);
         }
 
@@ -903,6 +919,13 @@ export default function ChatBot({
             name: activeProviderId.charAt(0).toUpperCase() + activeProviderId.slice(1),
           };
 
+          const isCardLoading = Boolean(
+            !activeContent &&
+              (turn.isLoading ||
+                (Array.isArray(turn.loadingProviders) &&
+                  turn.loadingProviders.includes(activeProviderId))),
+          );
+
           return (
             <div key={turn.id} className="space-y-3.5">
               {/* User Question Message Bubble */}
@@ -918,7 +941,7 @@ export default function ChatBot({
               {/* AI Response Card for this Turn */}
               <ChatAiResponseCard
                 activeAiResponseContent={activeContent}
-                isLoading={turn.isLoading}
+                isLoading={isCardLoading}
                 activeAiProviderMetadata={providerMeta}
                 copiedProviderId={copiedProviderId === activeProviderId ? activeProviderId : null}
                 selectedProvider={activeProviderId}
