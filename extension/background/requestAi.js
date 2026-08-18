@@ -35,8 +35,69 @@ if (typeof chrome !== "undefined" && chrome.tabs?.onRemoved) {
   });
 }
 
+async function getOrCreateWorkerWindow(firstUrl, providerId) {
+  if (workerWindowId && typeof chrome !== "undefined" && chrome.windows?.get) {
+    try {
+      const win = await chrome.windows.get(workerWindowId);
+      if (win && win.id) {
+        return win;
+      }
+    } catch {
+      workerWindowId = null;
+    }
+  }
+
+  if (workerWindowPromise) {
+    return workerWindowPromise;
+  }
+
+  workerWindowPromise = new Promise((resolve) => {
+    if (typeof chrome === "undefined" || !chrome.windows?.create) {
+      resolve(null);
+      return;
+    }
+
+    const maxHeight =
+      typeof screen !== "undefined" && screen.availHeight
+        ? screen.availHeight
+        : 950;
+    chrome.windows.create(
+      {
+        url: firstUrl,
+        focused: false,
+        type: "popup",
+        width: 500,
+        height: maxHeight,
+      },
+      (win) => {
+        workerWindowPromise = null;
+        if (!chrome.runtime?.lastError && win && win.id) {
+          workerWindowId = win.id;
+          console.log(
+            `%c[SpectraLens:Pipeline] 🪟 Created Worker Window #${workerWindowId} (width: 500px, height: ${maxHeight}px) directly with "${providerId}" URL`,
+            "color: #8b5cf6; font-weight: bold;",
+          );
+          resolve(win);
+        } else {
+          // Fallback: normal window
+          chrome.windows.create(
+            { url: firstUrl, focused: false, width: 500, height: maxHeight },
+            (winFallback) => {
+              if (winFallback?.id) workerWindowId = winFallback.id;
+              resolve(winFallback || null);
+            },
+          );
+        }
+      },
+    );
+  });
+
+  return workerWindowPromise;
+}
+
 /**
- * Opens or retrieves a dedicated background worker tab for an AI provider.
+ * Retrieves an existing provider tab or instantiates a new background tab
+ * directly with the target URL inside the compact popup worker window (width: 500px, height: max).
  * When the worker window does not exist yet, it creates the window with the provider's URL directly,
  * preventing any extra blank new tabs from ever being opened!
  */
@@ -59,85 +120,42 @@ async function openOrReuseProviderTab(providerId, url) {
     }
   }
 
-  // 2. Check if worker window is already open and valid
-  if (workerWindowId && typeof chrome !== "undefined" && chrome.windows?.get) {
-    try {
-      const win = await chrome.windows.get(workerWindowId);
-      if (win && win.id) {
-        // Window already exists, create tab inside this worker window
-        return new Promise((resolve) => {
-          chrome.tabs.create(
-            { url, windowId: win.id, active: false },
-            (tab) => {
-              if (chrome.runtime?.lastError || !tab) {
-                resolve({ tab: null, isReused: false });
-              } else {
-                resolve({ tab, isReused: false });
-              }
-            },
-          );
-        });
-      }
-    } catch {
-      workerWindowId = null;
-    }
-  }
-
-  // 3. No worker window exists yet: create compact popup window directly with url (NO extra blank tab!)
-  return new Promise((resolve) => {
-    if (typeof chrome === "undefined" || !chrome.windows?.create) {
+  // 2. Get or create the shared worker window
+  const win = await getOrCreateWorkerWindow(url, providerId);
+  if (!win || !win.id) {
+    return new Promise((resolve) => {
       chrome.tabs.create({ url, active: false }, (tab) => {
         resolve({ tab: tab || null, isReused: false });
       });
-      return;
+    });
+  }
+
+  // Check if the window was just created and its initial tab has matching URL or is unassigned
+  const existingTabs = await new Promise((res) =>
+    chrome.tabs.query({ windowId: win.id }, res),
+  );
+  const unassignedTab = existingTabs?.find(
+    (t) =>
+      !Array.from(persistentProviderTabs.values()).some(
+        (e) => e.tabId === t.id,
+      ),
+  );
+
+  if (unassignedTab && unassignedTab.id) {
+    if (
+      unassignedTab.url !== url &&
+      !unassignedTab.url?.startsWith(url.split("?")[0])
+    ) {
+      await chrome.tabs.update(unassignedTab.id, { url, active: false });
     }
+    return { tab: unassignedTab, isReused: false };
+  }
 
-    // Create worker window (width: 500px, height: max)
-    const maxHeight =
-      typeof screen !== "undefined" && screen.availHeight
-        ? screen.availHeight
-        : 950;
-    chrome.windows.create(
-      {
-        url,
-        focused: false,
-        type: "popup",
-        width: 500,
-        height: maxHeight,
-      },
-      (win) => {
-        if (!chrome.runtime?.lastError && win && win.id) {
-          workerWindowId = win.id;
-          console.log(
-            `%c[SpectraLens:Pipeline] 🪟 Created Worker Window #${workerWindowId} (width: 500px, height: ${maxHeight}px) directly with "${providerId}" URL`,
-            "color: #8b5cf6; font-weight: bold;",
-          );
-          const tab = win.tabs?.[0] || null;
-          if (tab) {
-            resolve({ tab, isReused: false });
-            return;
-          }
-          chrome.tabs.query({ windowId: win.id }, (tabs) => {
-            resolve({ tab: tabs?.[0] || null, isReused: false });
-          });
-          return;
-        }
-
-        console.warn(
-          "[SpectraLens:Pipeline] Popup window creation failed, fallback to normal window:",
-          chrome.runtime?.lastError?.message,
-        );
-
-        // Fallback: normal window
-        chrome.windows.create(
-          { url, focused: false, width: 500, height: maxHeight },
-          (winFallback) => {
-            if (winFallback?.id) workerWindowId = winFallback.id;
-            resolve({ tab: winFallback?.tabs?.[0] || null, isReused: false });
-          },
-        );
-      },
-    );
+  // Window already has tabs for other providers, create a new tab in this shared window
+  return new Promise((resolve) => {
+    chrome.tabs.create({ url, windowId: win.id, active: false }, (tab) => {
+      resolve({ tab: tab || null, isReused: false });
+    });
   });
 }
 
@@ -371,14 +389,14 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
       }
     }
 
-    // 25s timeout protection per query
+    // 45s timeout protection per query
     timeoutId = setTimeout(() => {
       console.warn(
-        `%c[SpectraLens:Pipeline] ⏱️ [TIMEOUT] 25s timeout reached for Tab #${tabId}`,
+        `%c[SpectraLens:Pipeline] ⏱️ [TIMEOUT] 45s timeout reached for Tab #${tabId}`,
         "color: #ef4444; font-weight: bold;",
       );
       safeResolve(formatProviderError(providerId, "Request timed out"));
-    }, 25000);
+    }, 45000);
 
     function runInjection() {
       if (isResolved || isExecuting) return;

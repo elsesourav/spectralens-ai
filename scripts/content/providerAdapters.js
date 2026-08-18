@@ -1556,7 +1556,7 @@
       ];
     }
 
-    observeResponse(timeoutMs = 25000, previousContent = "") {
+    observeResponse(timeoutMs = 40000, previousContent = "") {
       return new Promise(async (resolve) => {
         const startTime = Date.now();
         let lastTextLength = 0;
@@ -1629,11 +1629,11 @@
             }
 
             if (currentLength > 0) {
-              const isFinished = hasSeenStreaming
-                ? !isStreamingNow
-                : currentCopyBtnCount > initialCopyBtnCount ||
-                  (hasReceivedNetChunk && idleCount >= 2) ||
-                  idleCount >= 3;
+              const isFinished =
+                !isStreamingNow ||
+                currentCopyBtnCount > initialCopyBtnCount ||
+                (hasReceivedNetChunk && idleCount >= 2) ||
+                idleCount >= 3;
 
               if (currentLength === lastTextLength) {
                 idleCount++;
