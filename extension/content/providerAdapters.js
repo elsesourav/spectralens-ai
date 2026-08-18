@@ -2035,8 +2035,22 @@
 
     findInput() {
       return document.querySelector(
-        'textarea[placeholder*="Ask" i], textarea[placeholder*="follow-up" i], textarea[placeholder*="anything" i], textarea[placeholder*="search" i], div[data-lexical-editor="true"], #ask-input, textarea.overflow-hidden, div[role="textbox"]',
+        'div#ask-input, textarea#ask-input, div[data-lexical-editor="true"], textarea[placeholder*="Ask" i], textarea[placeholder*="follow-up" i], textarea[placeholder*="anything" i], textarea[placeholder*="search" i], textarea.overflow-hidden, div[role="textbox"]',
       );
+    }
+
+    focusInput() {
+      const el = this.findInput();
+      if (!el) return;
+      el.focus();
+      try {
+        const sel = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        range.collapse(false);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      } catch {}
     }
 
     async attachImage(imageDataUrl) {
@@ -2102,7 +2116,7 @@
       if (!input) return false;
 
       this.focusInput();
-      await new Promise((r) => setTimeout(r, 80));
+      await new Promise((r) => setTimeout(r, 60));
 
       if (input.tagName.toLowerCase() === "textarea") {
         input.value = "";
@@ -2118,34 +2132,52 @@
         input.dispatchEvent(new Event("input", { bubbles: true }));
         input.dispatchEvent(new Event("change", { bubbles: true }));
       } else {
-        // ContentEditable / Lexical Rich Text Editor
+        // ContentEditable / Lexical Rich Text Editor (#ask-input)
         input.focus();
+
+        // 1. Clear existing selection in Lexical
         try {
-          document.execCommand("selectAll", false, null);
+          const sel = window.getSelection();
+          const range = document.createRange();
+          range.selectNodeContents(input);
+          sel.removeAllRanges();
+          sel.addRange(range);
           document.execCommand("delete", false, null);
         } catch {}
         input.textContent = "";
 
+        // 2. Dispatch synthetic Paste event - this triggers Lexical's internal AST update and immediately enables the submit button
+        try {
+          const dt = new DataTransfer();
+          dt.setData("text/plain", text);
+          const pasteEvent = new ClipboardEvent("paste", {
+            bubbles: true,
+            cancelable: true,
+            clipboardData: dt,
+          });
+          input.dispatchEvent(pasteEvent);
+        } catch {}
+
+        // 3. Dispatch standard input events as reinforcement
         const beforeInput = new InputEvent("beforeinput", {
           bubbles: true,
-          composed: true,
           cancelable: true,
           inputType: "insertText",
           data: text,
         });
         input.dispatchEvent(beforeInput);
+
         try {
           document.execCommand("insertText", false, text);
         } catch {}
 
-        if ((input.textContent || "").trim() !== text.trim()) {
+        if ((input.textContent || "").trim() === "") {
           input.textContent = text;
         }
 
         input.dispatchEvent(
           new InputEvent("input", {
             bubbles: true,
-            composed: true,
             cancelable: true,
             inputType: "insertText",
             data: text,
@@ -2164,30 +2196,47 @@
       if (input) {
         const wrapper =
           input.closest(
-            "div.relative, form, div.border, div.bg-background, div.rounded-2xl",
+            "div.relative, form, div.border, div.bg-base, div.bg-raised, div.rounded-2xl",
           ) || input.parentElement?.parentElement;
         if (wrapper) {
           const wrapperBtn = wrapper.querySelector(
-            'button[aria-label*="Submit" i], button[aria-label*="Send" i], button.bg-super, button[type="submit"], button:has(svg.lucide-arrow-up), button:has(svg.lucide-arrow-right), button.rounded-full:has(svg)',
+            'button[aria-label="Submit" i], button[aria-label*="Submit" i], button[aria-label*="Send" i], button.bg-button-bg, button.bg-super, button[type="submit"], button:has(svg use[*|href*="arrow-up"]), button:has(svg.lucide-arrow-up), button:has(svg.lucide-arrow-right)',
           );
           if (wrapperBtn) return wrapperBtn;
         }
       }
 
       return document.querySelector(
-        'button[aria-label="Submit" i], button[aria-label*="Submit" i], button[aria-label*="Search" i], button[aria-label*="Send" i], button[data-testid="submit-button"], button.bg-super, button:has(svg.lucide-arrow-up), button:has(svg.lucide-arrow-right), button:has(svg.lucide-corner-down-left), button.reset.interactable:has(svg)',
+        'button[aria-label="Submit" i], button[aria-label*="Submit" i], button[aria-label*="Search" i], button[aria-label*="Send" i], button[data-testid="submit-button"], button.bg-button-bg, button.bg-super, button:has(svg use[*|href*="arrow-up"]), button:has(svg.lucide-arrow-up), button:has(svg.lucide-arrow-right), button.reset.interactable:has(svg)',
       );
     }
 
     async submit() {
       await new Promise((r) => setTimeout(r, 150));
       const btn = this.findSendButton();
-      if (btn && !btn.disabled) {
-        tabLog("PerplexityTab", "🔘 Clicking Perplexity Send button...");
+      const input = this.findInput();
+
+      // Wait up to 1.5s for send button to be enabled if Lexical state is settling
+      let activeBtn =
+        btn && !btn.disabled && !btn.classList.contains("pointer-events-none")
+          ? btn
+          : null;
+      if (!activeBtn && btn) {
+        for (let i = 0; i < 10; i++) {
+          await new Promise((r) => setTimeout(r, 100));
+          if (!btn.disabled && !btn.classList.contains("pointer-events-none")) {
+            activeBtn = btn;
+            break;
+          }
+        }
+      }
+
+      if (activeBtn) {
+        tabLog("PerplexityTab", "🔘 Clicking enabled Perplexity Send button...");
         try {
-          btn.focus();
-          btn.click();
-          btn.dispatchEvent(
+          activeBtn.focus();
+          activeBtn.click();
+          activeBtn.dispatchEvent(
             new MouseEvent("click", {
               bubbles: true,
               cancelable: true,
@@ -2198,8 +2247,23 @@
         } catch {}
       }
 
-      // Fallback: Dispatch Enter key ONLY if send button was not clicked
-      const input = this.findInput();
+      // If button still disabled, force remove disabled and click, or dispatch Enter key
+      if (btn) {
+        tabLog("PerplexityTab", "🔘 Forcing click on Perplexity Send button...");
+        try {
+          btn.removeAttribute("disabled");
+          btn.classList.remove("pointer-events-none");
+          btn.click();
+          btn.dispatchEvent(
+            new MouseEvent("click", {
+              bubbles: true,
+              cancelable: true,
+              view: window,
+            }),
+          );
+        } catch {}
+      }
+
       if (input) {
         tabLog(
           "PerplexityTab",
@@ -2229,7 +2293,7 @@
         return true;
       }
 
-      return false;
+      return Boolean(btn);
     }
 
     findResponseContainer() {
