@@ -504,6 +504,26 @@ export default function ChatBot({
     });
   }, []);
 
+  // Get answer from background script
+  const dispatchAiRequestToBackground = useCallback(
+    async (
+      question,
+      provider = "google",
+      requestId,
+      image = null,
+    ) => {
+      console.log(
+        `[SpectraLens:ChatBot] 🚀 Posting IF_B_GET_ANSWER for provider: "${provider}", query: "${question.slice(0, 30)}..."${image ? " (with screen image attachment)" : ""} (requestId: ${requestId})`,
+      );
+      UTILS.pagePostMessage(
+        "IF_B_GET_ANSWER",
+        { question, provider, requestId, image },
+        window.parent,
+      );
+    },
+    [],
+  );
+
   // Request answer on demand for an earlier turn (e.g. if provider was added later)
   const handleAskProviderForTurn = useCallback(
     (turnId, questionText, providerId) => {
@@ -529,23 +549,8 @@ export default function ChatBot({
 
       dispatchAiRequestToBackground(questionText, providerId, turnId);
     },
-    [],
+    [dispatchAiRequestToBackground],
   );
-
-  // Get answer from background script
-  const dispatchAiRequestToBackground = async (
-    question,
-    provider = "google",
-    requestId,
-    image = null,
-  ) => {
-    console.log(`[SpectraLens:ChatBot] 🚀 Posting IF_B_GET_ANSWER for provider: "${provider}", query: "${question.slice(0, 30)}..."${image ? " (with screen image attachment)" : ""} (requestId: ${requestId})`);
-    UTILS.pagePostMessage(
-      "IF_B_GET_ANSWER",
-      { question, provider, requestId, image },
-      window.parent,
-    );
-  };
 
   // Concurrent provider loading (only queries ENABLED providers!)
   const fetchAiResponsesWithConcurrency = useCallback(
@@ -605,8 +610,36 @@ export default function ChatBot({
         }
       }
     },
-    [aiProviders, maxConcurrentRequest],
+    [aiProviders, maxConcurrentRequest, dispatchAiRequestToBackground],
   );
+
+  // Providers list memoized
+  const allProvidersList = useMemo(() => {
+    const list = [...aiProviders];
+    const existingIds = new Set(aiProviders.map((p) => p.id));
+    const defaultNames = {
+      google: "Google AI",
+      chatgpt: "ChatGPT",
+      claude: "Claude",
+      gemini: "Gemini",
+      grok: "Grok",
+      perplexity: "Perplexity",
+      bing: "Bing Copilot",
+    };
+    turns.forEach((turn) => {
+      Object.keys(turn.answers || {}).forEach((id) => {
+        if (!existingIds.has(id)) {
+          list.push({
+            id,
+            name: defaultNames[id.toLowerCase()] || (id.charAt(0).toUpperCase() + id.slice(1)),
+            enabled: false,
+          });
+          existingIds.add(id);
+        }
+      });
+    });
+    return list;
+  }, [aiProviders, turns]);
 
   // Combine only ACTIVE enabled providers, plus historical answers from past turns
   const availableProviderTabs = useMemo(() => {
@@ -934,34 +967,6 @@ export default function ChatBot({
       handleNewChat();
     }
   }, [newChatTrigger, handleNewChat]);
-
-  // Providers list memoized
-  const allProvidersList = useMemo(() => {
-    const list = [...aiProviders];
-    const existingIds = new Set(aiProviders.map((p) => p.id));
-    const defaultNames = {
-      google: "Google AI",
-      chatgpt: "ChatGPT",
-      claude: "Claude",
-      gemini: "Gemini",
-      grok: "Grok",
-      perplexity: "Perplexity",
-      bing: "Bing Copilot",
-    };
-    turns.forEach((turn) => {
-      Object.keys(turn.answers || {}).forEach((id) => {
-        if (!existingIds.has(id)) {
-          list.push({
-            id,
-            name: defaultNames[id.toLowerCase()] || (id.charAt(0).toUpperCase() + id.slice(1)),
-            enabled: false,
-          });
-          existingIds.add(id);
-        }
-      });
-    });
-    return list;
-  }, [aiProviders, turns]);
 
   // Combined answers for top model tabs across turns
   const combinedAnswers = useMemo(() => {
