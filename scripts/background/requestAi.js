@@ -312,10 +312,24 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
             injectResult,
           );
           const cleanedHtml = injectResult?.[0]?.result;
-          if (cleanedHtml) {
+          if (cleanedHtml && cleanedHtml.length > 20) {
             safeResolve(cleanedHtml);
           } else {
             isExecuting = false;
+            // If the script returned undefined because the form submitted and navigated to search results,
+            // check if the tab is already complete and run the adapter to observe the generated response!
+            if (chrome.tabs?.get) {
+              chrome.tabs.get(tabId, (currentTab) => {
+                void chrome.runtime?.lastError;
+                if (currentTab && currentTab.status === "complete" && !isResolved && !isExecuting) {
+                  console.log(
+                    `%c[SpectraLens:Pipeline] 🔄 Tab #${tabId} completed navigation to search results. Running adapter to extract AI Overview...`,
+                    "color: #3b82f6; font-weight: bold;",
+                  );
+                  runInjection();
+                }
+              });
+            }
           }
         },
         extractArgs,
@@ -323,12 +337,13 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
     }
 
     function listener(updatedTabId, info) {
-      if (isResolved || isExecuting) return;
+      if (isResolved) return;
       if (updatedTabId === tabId && info.status === "complete") {
         console.log(
           `%c[SpectraLens:Pipeline] 🌐 [PAGE LOAD COMPLETE] Tab #${tabId} status is "complete". Running adapter injection...`,
           "color: #3b82f6; font-weight: bold;",
         );
+        isExecuting = false;
         runInjection();
       }
     }
@@ -392,7 +407,19 @@ function runTabAdapter(providerId, prompt, image = null) {
         return;
       }
 
-      // 1. Locate input editor (up to 20 attempts)
+      // 1. If AI response is already rendering/active on page, observe stream directly!
+      const existingContainer = adapter.findResponseContainer();
+      if (existingContainer && (existingContainer.textContent || "").trim().length > 25) {
+        console.log(
+          `%c[SpectraLens:Adapter] 🎯 AI Overview response already present on page. Observing stream...`,
+          "color: #10b981; font-weight: bold;",
+        );
+        const answer = await adapter.observeResponse(22000);
+        resolve(answer || getShortError(providerId, "No response generated"));
+        return;
+      }
+
+      // 2. Otherwise locate input editor (up to 20 attempts)
       console.log(
         `%c[SpectraLens:Adapter] ✍️ [ADAPTER 2/4] Locating input editor for "${providerId}"...`,
         "color: #f59e0b;",
@@ -400,12 +427,23 @@ function runTabAdapter(providerId, prompt, image = null) {
       let input = adapter.findInput();
       let attempts = 0;
       while (!input && attempts < 20) {
+        if (adapter.findResponseContainer() && (adapter.findResponseContainer().textContent || "").trim().length > 25) {
+          const answer = await adapter.observeResponse(15000);
+          resolve(answer || getShortError(providerId, "Empty response"));
+          return;
+        }
         await new Promise((r) => setTimeout(r, 350));
         input = adapter.findInput();
         attempts++;
       }
 
       if (!input) {
+        const finalCheck = adapter.findResponseContainer();
+        if (finalCheck && (finalCheck.textContent || "").trim().length > 25) {
+          const answer = await adapter.observeResponse(15000);
+          resolve(answer || getShortError(providerId, "Empty response"));
+          return;
+        }
         console.warn(
           `%c[SpectraLens:Adapter] ⚠️ Input box not found for "${providerId}" after 20 attempts.`,
           "color: #ef4444; font-weight: bold;",

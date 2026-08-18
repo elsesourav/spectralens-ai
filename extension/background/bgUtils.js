@@ -264,23 +264,23 @@ function injectFloatingMenuWidget(tabId) {
 const __PUSH_MENU__ = injectFloatingMenuWidget;
 
 function chromeTabMediaAccess(tabId, isBlocked = false) {
-   if (!isBlocked) {
+   if (typeof chrome === "undefined" || !chrome.declarativeNetRequest?.updateSessionRules || !tabId) return;
+   try {
       chrome.declarativeNetRequest.updateSessionRules({
          removeRuleIds: [tabId],
-      });
-      return;
-   }
-   chrome.declarativeNetRequest.updateSessionRules({
-      addRules: [
-         {
-            id: tabId,
-            priority: 1,
-            action: { type: "block" },
-            condition: {
-               resourceTypes: ["image", "media", "font"],
-               tabIds: [tabId],
-            },
-         },
-      ],
-   });
+         addRules: isBlocked
+            ? [
+                 {
+                    id: tabId,
+                    priority: 1,
+                    action: { type: "block" },
+                    condition: {
+                       resourceTypes: ["image", "media", "font"],
+                       tabIds: [tabId],
+                    },
+                 },
+              ]
+            : [],
+      }).catch(() => {});
+   } catch {}
 }
