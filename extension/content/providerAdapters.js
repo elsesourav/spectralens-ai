@@ -1297,7 +1297,15 @@
           lastModified: Date.now(),
         });
 
-        // 1. Check file input
+        // Snapshot DOM state BEFORE dispatching the paste
+        const beforeUploadCardCount = document.querySelectorAll(
+          "uploader-file-card, .file-chip, .attachment-chip, .uploaded-file-chip",
+        ).length;
+        const beforeImgCount = document.querySelectorAll(
+          'img[src*="blob:"], img.uploaded-image',
+        ).length;
+
+        // 1. Try file input first
         const fileInput = document.querySelector(
           'input[type="file"], input[accept*="image"]',
         );
@@ -1315,57 +1323,88 @@
         }
 
         // 2. Synthetic ClipboardEvent paste onto input editor
-        const input = this.findInput();
-        if (input) {
-          this.focusInput();
-          const dt = new DataTransfer();
-          dt.items.add(file);
-          const pasteEv = new ClipboardEvent("paste", {
-            bubbles: true,
-            cancelable: true,
-            clipboardData: dt,
-          });
-          input.dispatchEvent(pasteEv);
-          tabLog("GeminiTab", "📋 Dispatched synthetic paste event to Gemini input!");
-          dispatched = true;
+        if (!dispatched) {
+          const input = this.findInput();
+          if (input) {
+            this.focusInput();
+            const dt = new DataTransfer();
+            dt.items.add(file);
+            const pasteEv = new ClipboardEvent("paste", {
+              bubbles: true,
+              cancelable: true,
+              clipboardData: dt,
+            });
+            input.dispatchEvent(pasteEv);
+            tabLog("GeminiTab", "📋 Dispatched synthetic paste event to Gemini input!");
+            dispatched = true;
+          }
         }
 
         if (!dispatched) return false;
 
-        // 3. Wait for image upload / processing in Gemini UI
-        tabLog("GeminiTab", "⏳ Waiting for Gemini image attachment to upload and finalize...");
+        // 3. Wait for Gemini to actually process and upload the image
+        tabLog("GeminiTab", "⏳ Waiting for Gemini to process & upload image...");
         const uploadStart = Date.now();
-        const maxWaitMs = 10000;
+        const maxWaitMs = 15000;
+        let uploadConfirmed = false;
 
         while (Date.now() - uploadStart < maxWaitMs) {
-          await new Promise((r) => setTimeout(r, 400));
+          await new Promise((r) => setTimeout(r, 500));
 
-          // Check if image thumbnail / file card has appeared
-          const hasImageThumbnail = Boolean(
+          // Count NEW upload cards / chips that appeared AFTER our paste
+          const currentUploadCardCount = document.querySelectorAll(
+            "uploader-file-card, .file-chip, .attachment-chip, .uploaded-file-chip",
+          ).length;
+          const currentImgCount = document.querySelectorAll(
+            'img[src*="blob:"], img.uploaded-image',
+          ).length;
+
+          const newCardsAppeared = currentUploadCardCount > beforeUploadCardCount;
+          const newImagesAppeared = currentImgCount > beforeImgCount;
+
+          // Check if uploading progress indicators are still active
+          const isStillUploading = Boolean(
             document.querySelector(
-              'uploader-file-card, div.file-preview, div.image-preview, img[src*="blob:"], img[src*="data:"], div.uploaded-image, .attachment-card, div[role="img"]',
+              'mat-progress-bar, mat-spinner, .upload-progress, div[role="progressbar"], .loading-spinner, .mat-mdc-progress-bar',
             ),
           );
 
-          // Check if uploading progress bar has vanished
-          const isUploading = Boolean(
-            document.querySelector(
-              'mat-progress-bar, .upload-progress, div.loading-spinner, div[role="progressbar"]',
-            ),
-          );
+          if ((newCardsAppeared || newImagesAppeared) && !isStillUploading) {
+            // Wait a bit more to let Gemini finalize the upload
+            await new Promise((r) => setTimeout(r, 800));
 
-          if (hasImageThumbnail && !isUploading) {
+            // Double-check it's still stable (no progress bar reappeared)
+            const stillUploading = Boolean(
+              document.querySelector(
+                'mat-progress-bar, mat-spinner, .upload-progress, div[role="progressbar"], .mat-mdc-progress-bar',
+              ),
+            );
+            if (!stillUploading) {
+              tabLog(
+                "GeminiTab",
+                `✨ Image uploaded & confirmed in ${Date.now() - uploadStart}ms! (cards: ${beforeUploadCardCount}→${currentUploadCardCount}, imgs: ${beforeImgCount}→${currentImgCount})`,
+              );
+              uploadConfirmed = true;
+              break;
+            }
+          }
+
+          // Log progress every 2 seconds
+          const elapsed = Date.now() - uploadStart;
+          if (elapsed % 2000 < 500) {
             tabLog(
               "GeminiTab",
-              `✨ Image successfully uploaded & verified in ${Date.now() - uploadStart}ms!`,
+              `⏳ Still waiting for upload... (${Math.round(elapsed / 1000)}s, uploading: ${isStillUploading}, newCards: ${newCardsAppeared}, newImgs: ${newImagesAppeared})`,
             );
-            await new Promise((r) => setTimeout(r, 400));
-            return true;
           }
         }
 
-        tabLog("GeminiTab", "⏱️ Image attachment wait completed. Proceeding with prompt...");
-        await new Promise((r) => setTimeout(r, 600));
+        if (!uploadConfirmed) {
+          // Fallback: wait a generous fixed delay if detection couldn't confirm
+          tabLog("GeminiTab", "⏱️ Upload detection timed out. Waiting 3s fallback before proceeding...");
+          await new Promise((r) => setTimeout(r, 3000));
+        }
+
         return true;
       } catch (err) {
         tabLog("GeminiTab", "❌ attachImage error:", err?.message);
