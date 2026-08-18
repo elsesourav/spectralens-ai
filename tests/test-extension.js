@@ -73,12 +73,13 @@ const extensionDir = path.join(rootDir, "extension");
 const requiredFiles = [
   "manifest.json",
   "popup/popup.html",
-  "inject/menuWindow.html",
+  "inject/widgetWindow.html",
   "inject/selection.html",
   "options/options.html",
   "background/background.js",
   "content/content.js",
   "content/enableCopy.js",
+  "content/widgetContent.js",
   "content/providerAdapters.js",
   "offscreen/worker.js",
   "offscreen/offscreen.html",
@@ -173,15 +174,15 @@ import("../scripts/update-version.js").then(({ calculateNextVersion, normalizeVe
   // --- TEST SUITE 7: Theme-Aware Isolated Response & Dynamic CSS Engine ---
   console.log("\n7. Theme-Aware Isolated Response & Dynamic CSS Engine:");
   const popupCss = fs.readFileSync(path.join(rootDir, "src", "popup", "index.css"), "utf-8");
-  const menuCss = fs.readFileSync(path.join(rootDir, "src", "inject", "menuWindow.css"), "utf-8");
+  const widgetCss = fs.readFileSync(path.join(rootDir, "src", "inject", "widgetWindow.css"), "utf-8");
   const adaptersJs = fs.readFileSync(path.join(rootDir, "scripts", "content", "providerAdapters.js"), "utf-8");
 
   assert(popupCss.includes("--sl-text-primary:"), "popup/index.css defines --sl-text-primary theme token");
   assert(popupCss.includes("--sl-bg-surface:"), "popup/index.css defines --sl-bg-surface theme token");
   assert(popupCss.includes("--sl-border-subtle:"), "popup/index.css defines --sl-border-subtle theme token");
   assert(popupCss.includes(".dark .spectralens-isolated-response"), "popup/index.css defines dark mode theme token overrides");
-  assert(menuCss.includes("--sl-text-primary:"), "inject/menuWindow.css defines --sl-text-primary theme token");
-  assert(menuCss.includes(".dark .spectralens-isolated-response"), "inject/menuWindow.css defines dark mode theme token overrides");
+  assert(widgetCss.includes("--sl-text-primary:"), "inject/widgetWindow.css defines --sl-text-primary theme token");
+  assert(widgetCss.includes(".dark .spectralens-isolated-response"), "inject/widgetWindow.css defines dark mode theme token overrides");
 
   assert(adaptersJs.includes("virtualizeComputedStyle"), "providerAdapters.js defines virtualizeComputedStyle color virtualizer");
   assert(adaptersJs.includes("extractStyledHtml"), "providerAdapters.js defines extractStyledHtml method on BaseProviderAdapter");

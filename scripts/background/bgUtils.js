@@ -217,7 +217,7 @@ function injectFloatingMenuWidget(tabId) {
             `;
 
             document.head.appendChild(style);
-            frame.src = chrome.runtime.getURL(`./inject/menuWindow.html?pageTheme=${currentTheme}`);
+            frame.src = chrome.runtime.getURL(`./inject/widgetWindow.html?pageTheme=${currentTheme}`);
             document.body.append(frame);
          } else {
             existingMWF.style.display = "block";

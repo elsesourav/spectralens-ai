@@ -45,7 +45,7 @@
 ## 3. Host Permissions Audit
 
 - **Declared Patterns**: `http://*/*` and `https://*/*`.
-- **Justification**: SpectraLens AI injects content scripts (`menuContent.js`, `enableCopy.js`) to provide the floating AI assistant, text selection tools, and copy unblocker across general research websites, and opens background tabs against selected search engines (Google, Bing, Perplexity, Gemini, Grok).
+- **Justification**: SpectraLens AI injects content scripts (`widgetContent.js`, `enableCopy.js`) to provide the floating AI assistant, text selection tools, and copy unblocker across general research websites, and opens background tabs against selected search engines (Google, Bing, Perplexity, Gemini, Grok).
 - **Narrowing Applied**: Replaced `<all_urls>` with standard web schemes (`http` / `https`), explicitly avoiding privileged browser schemes (`chrome://`, `edge://`, `file://`, `devtools://`).
 
 ---

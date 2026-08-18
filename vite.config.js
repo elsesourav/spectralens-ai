@@ -21,7 +21,7 @@ export default defineConfig({
          input: {
             popup: resolve(__dirname, "./src/popup/popup.html"),
             selection: resolve(__dirname, "./src/inject/selection.html"),
-            menuWindow: resolve(__dirname, "./src/inject/menuWindow.html"),
+            widgetWindow: resolve(__dirname, "./src/inject/widgetWindow.html"),
             options: resolve(__dirname, "./src/options/options.html"),
          },
       },
