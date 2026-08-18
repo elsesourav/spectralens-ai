@@ -17,7 +17,7 @@ if (typeof chrome !== "undefined" && chrome.windows?.onRemoved) {
 
 /**
  * Returns an existing background worker window, or creates a new
- * unfocused, minimized popup window dedicated exclusively to AI scraper tabs.
+ * unfocused, minimized/offscreen window dedicated exclusively to AI scraper tabs.
  */
 async function getOrCreateWorkerWindow() {
   if (workerWindowId && typeof chrome !== "undefined" && chrome.windows?.get) {
@@ -32,45 +32,93 @@ async function getOrCreateWorkerWindow() {
   if (workerWindowPromise) return workerWindowPromise;
 
   workerWindowPromise = new Promise((resolve) => {
-    try {
-      if (typeof chrome === "undefined" || !chrome.windows?.create) {
-        resolve(null);
-        return;
-      }
+    if (typeof chrome === "undefined" || !chrome.windows?.create) {
+      resolve(null);
+      return;
+    }
 
-      chrome.windows.create(
-        {
-          url: "about:blank",
-          focused: false,
-          state: "minimized",
-          type: "popup",
-        },
-        (win) => {
-          if (chrome.runtime?.lastError || !win || !win.id) {
-            console.warn(
-              "[SpectraLens:Pipeline] ⚠️ Could not create minimized window, falling back to active window:",
-              chrome.runtime?.lastError?.message,
-            );
-            workerWindowId = null;
-            workerWindowPromise = null;
-            resolve(null);
-            return;
-          }
-          workerWindowId = win.id;
+    // Strategy 1: Minimized normal window (unfocused)
+    chrome.windows.create(
+      {
+        focused: false,
+        state: "minimized",
+      },
+      (win1) => {
+        if (!chrome.runtime?.lastError && win1 && win1.id) {
+          workerWindowId = win1.id;
           workerWindowPromise = null;
           console.log(
-            `%c[SpectraLens:Pipeline] 🪟 Created isolated Background Worker Window #${workerWindowId} (focused: false, state: minimized)`,
+            `%c[SpectraLens:Pipeline] 🪟 Created Minimized Worker Window #${workerWindowId}`,
             "color: #8b5cf6; font-weight: bold;",
           );
           resolve(workerWindowId);
-        },
-      );
-    } catch (err) {
-      console.warn("[SpectraLens:Pipeline] ⚠️ Error creating worker window:", err);
-      workerWindowId = null;
-      workerWindowPromise = null;
-      resolve(null);
-    }
+          return;
+        }
+
+        console.warn(
+          "[SpectraLens:Pipeline] Strategy 1 (minimized) failed:",
+          chrome.runtime?.lastError?.message,
+          "- trying Strategy 2 (off-screen popup)...",
+        );
+
+        // Strategy 2: Off-screen popup window (positioned outside visible screen bounds)
+        chrome.windows.create(
+          {
+            focused: false,
+            left: 25000,
+            top: 25000,
+            width: 320,
+            height: 240,
+            type: "popup",
+          },
+          (win2) => {
+            if (!chrome.runtime?.lastError && win2 && win2.id) {
+              workerWindowId = win2.id;
+              workerWindowPromise = null;
+              console.log(
+                `%c[SpectraLens:Pipeline] 🪟 Created Off-screen Worker Window #${workerWindowId}`,
+                "color: #8b5cf6; font-weight: bold;",
+              );
+              resolve(workerWindowId);
+              return;
+            }
+
+            console.warn(
+              "[SpectraLens:Pipeline] Strategy 2 (offscreen) failed:",
+              chrome.runtime?.lastError?.message,
+              "- trying Strategy 3 (unfocused normal)...",
+            );
+
+            // Strategy 3: Standard unfocused window
+            chrome.windows.create(
+              {
+                focused: false,
+              },
+              (win3) => {
+                if (!chrome.runtime?.lastError && win3 && win3.id) {
+                  workerWindowId = win3.id;
+                  workerWindowPromise = null;
+                  console.log(
+                    `%c[SpectraLens:Pipeline] 🪟 Created Unfocused Worker Window #${workerWindowId}`,
+                    "color: #8b5cf6; font-weight: bold;",
+                  );
+                  resolve(workerWindowId);
+                  return;
+                }
+
+                console.warn(
+                  "[SpectraLens:Pipeline] ⚠️ All window creation strategies failed, fallback to current window:",
+                  chrome.runtime?.lastError?.message,
+                );
+                workerWindowId = null;
+                workerWindowPromise = null;
+                resolve(null);
+              },
+            );
+          },
+        );
+      },
+    );
   });
 
   return workerWindowPromise;
