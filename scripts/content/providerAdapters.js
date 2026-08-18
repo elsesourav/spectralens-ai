@@ -2194,10 +2194,11 @@
               view: window,
             }),
           );
+          return true;
         } catch {}
       }
 
-      // Always also dispatch Enter key on the input to ensure submission
+      // Fallback: Dispatch Enter key ONLY if send button was not clicked
       const input = this.findInput();
       if (input) {
         tabLog(
@@ -2207,16 +2208,6 @@
         input.focus();
         input.dispatchEvent(
           new KeyboardEvent("keydown", {
-            key: "Enter",
-            code: "Enter",
-            keyCode: 13,
-            which: 13,
-            bubbles: true,
-            cancelable: true,
-          }),
-        );
-        input.dispatchEvent(
-          new KeyboardEvent("keypress", {
             key: "Enter",
             code: "Enter",
             keyCode: 13,
@@ -2238,44 +2229,32 @@
         return true;
       }
 
-      return Boolean(btn);
+      return false;
     }
 
     findResponseContainer() {
-      // 1. Target the latest assistant response block via copy buttons (excluding user query copy)
-      const copyBtns = document.querySelectorAll(
-        'button[aria-label="Copy"], button[aria-label*="Copy" i]:not([aria-label*="query" i])',
-      );
-      if (copyBtns.length > 0) {
-        for (let i = copyBtns.length - 1; i >= 0; i--) {
-          const btn = copyBtns[i];
-          let parent = btn.parentElement;
-          while (parent && parent !== document.body) {
-            const prose = parent.querySelector(
-              "div[dir='auto'].prose, div.prose, div[data-testid='answer-content']",
-            );
-            if (prose) {
-              const text = (prose.textContent || "").trim();
-              if (text.length > 15) return prose;
-            }
-            if (parent.classList?.contains("prose")) {
-              const text = (parent.textContent || "").trim();
-              if (text.length > 15) return parent;
-            }
-            parent = parent.parentElement;
-          }
-        }
-      }
-
-      // 2. Target all prose blocks on the page and select the last valid answer block
+      // 1. Find all individual, innermost prose blocks and return strictly the LAST one
       const proseContainers = document.querySelectorAll(
-        "div[dir='auto'].prose, div.prose, div[data-testid='answer-content'], #markdown-content-0",
+        "div[dir='auto'].prose, div.prose:not(:has(div.prose)), div[data-testid='answer-content']",
       );
       if (proseContainers.length > 0) {
+        for (let i = proseContainers.length - 1; i >= 0; i--) {
+          const container = proseContainers[i];
+          const text = (container.textContent || "").trim();
+          if (text.length > 15) {
+            return container;
+          }
+        }
         return proseContainers[proseContainers.length - 1];
       }
 
-      return document.querySelector("div.prose, #markdown-content-0, div[dir='auto']");
+      // 2. Fallback: all prose containers
+      const allProse = document.querySelectorAll("div.prose, #markdown-content-0");
+      if (allProse.length > 0) {
+        return allProse[allProse.length - 1];
+      }
+
+      return document.querySelector("div.prose, div[dir='auto']");
     }
 
     getJunkSelectors() {
