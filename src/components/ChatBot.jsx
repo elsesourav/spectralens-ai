@@ -377,6 +377,42 @@ export default function ChatBot({
     }, 50);
   }, [isLoading, handleStopFetch]);
 
+  // Live sync active AI providers from Chrome storage & settings
+  useEffect(() => {
+    const loadControls = () => {
+      UTILS.chromeStorageGetLocal(UTILS.KEYS.CONTROLS, (data) => {
+        const storedProviders = data?.aiProviders;
+        if (storedProviders && Array.isArray(storedProviders)) {
+          setAiProviders(storedProviders);
+          const enabledProviders = storedProviders.filter((p) => p.enabled);
+          if (enabledProviders.length > 0) {
+            setSelectedProvider((prev) => {
+              if (!prev || !enabledProviders.some((p) => p.id === prev)) {
+                return enabledProviders[0].id;
+              }
+              return prev;
+            });
+          }
+        }
+        if (data?.concurrentRequests) {
+          setMaxConcurrentRequest(Number(data.concurrentRequests));
+        }
+      });
+    };
+
+    loadControls();
+
+    if (typeof chrome !== "undefined" && chrome.storage?.onChanged) {
+      const storageListener = (changes, areaName) => {
+        if (areaName === "local" && changes[UTILS.KEYS.CONTROLS]) {
+          loadControls();
+        }
+      };
+      chrome.storage.onChanged.addListener(storageListener);
+      return () => chrome.storage.onChanged.removeListener(storageListener);
+    }
+  }, []);
+
   useEffect(() => {
     UTILS.pageOnMessage("IF_C_GET_CURRENT_CONTROLS", (data) => {
       const { aiProviders: storedProviders, concurrentRequests } =
@@ -385,18 +421,20 @@ export default function ChatBot({
       if (storedProviders && Array.isArray(storedProviders)) {
         setAiProviders(storedProviders);
         const enabledProviders = storedProviders.filter((p) => p.enabled);
-        if (
-          !selectedProvider &&
-          enabledProviders.length > 0
-        ) {
-          setSelectedProvider(enabledProviders[0].id);
+        if (enabledProviders.length > 0) {
+          setSelectedProvider((prev) => {
+            if (!prev || !enabledProviders.some((p) => p.id === prev)) {
+              return enabledProviders[0].id;
+            }
+            return prev;
+          });
         }
       }
       if (concurrentRequests) {
         setMaxConcurrentRequest(concurrentRequests);
       }
     });
-  }, [selectedProvider]);
+  }, []);
 
   // Get answer from background script
   const dispatchAiRequestToBackground = async (
@@ -413,10 +451,14 @@ export default function ChatBot({
     );
   };
 
-  // Concurrent provider loading
+  // Concurrent provider loading (only queries ENABLED providers!)
   const fetchAiResponsesWithConcurrency = useCallback(
     async (question, requestId, image = null) => {
-      const providersToProcess = [...aiProviders];
+      const enabledProviders = aiProviders.filter((p) => p.enabled);
+      const providersToProcess =
+        enabledProviders.length > 0
+          ? [...enabledProviders]
+          : [{ id: "google", name: "Google AI", enabled: true }];
       const activeRequests = new Map();
 
       const startProviderRequest = (provider) => {
@@ -470,17 +512,19 @@ export default function ChatBot({
     [aiProviders, maxConcurrentRequest],
   );
 
-  // Combine active providers with all answers across turns
+  // Combine only ACTIVE enabled providers, plus historical answers from past turns
   const availableProviderTabs = useMemo(() => {
-    const combined = [...aiProviders];
-    const existingIds = new Set(aiProviders.map((p) => p.id));
+    const enabled = aiProviders.filter((p) => p.enabled);
+    const existingIds = new Set(enabled.map((p) => p.id));
+    const combined = [...enabled];
 
     turns.forEach((turn) => {
       Object.keys(turn.answers || {}).forEach((providerId) => {
         if (!existingIds.has(providerId)) {
+          const matching = aiProviders.find((p) => p.id === providerId);
           combined.push({
             id: providerId,
-            name: providerId.charAt(0).toUpperCase() + providerId.slice(1),
+            name: matching?.name || (providerId.charAt(0).toUpperCase() + providerId.slice(1)),
             enabled: false,
           });
           existingIds.add(providerId);
@@ -491,8 +535,6 @@ export default function ChatBot({
     if (combined.length === 0) {
       return [
         { id: "google", name: "Google AI", enabled: true },
-        { id: "bing", name: "Bing AI", enabled: true },
-        { id: "gemini", name: "Gemini", enabled: true },
       ];
     }
     return combined;
