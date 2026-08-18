@@ -740,12 +740,12 @@
   /* -------------------------------------------------------------------------- */
   class ChatGPTAdapter extends BaseProviderAdapter {
     constructor() {
-      super("chatgpt", "ChatGPT", /chatgpt\.com/);
+      super("chatgpt", "ChatGPT", /chatgpt\.com|chat\.openai\.com/);
     }
 
     findInput() {
       return document.querySelector(
-        'div[role="textbox"][aria-label="Chat with ChatGPT"], #prompt-textarea, textarea[data-id="root"], div.ProseMirror[contenteditable="true"], div[contenteditable="true"]',
+        '#prompt-textarea, div[role="textbox"][aria-label*="ChatGPT" i], div[role="textbox"], textarea[data-id="root"], div.ProseMirror[contenteditable="true"], div[contenteditable="true"]',
       );
     }
 
@@ -982,13 +982,11 @@
             }
 
             if (currentLength > 20) {
-              const isFinished = hasSeenStreaming
-                ? !isStreamingNow
-                : idleCount >= 3;
+              const isFinished = !isStreamingNow && (hasSeenStreaming ? idleCount >= 2 : idleCount >= 5);
 
               if (currentLength === lastTextLength) {
                 idleCount++;
-                if (isFinished || idleCount >= 4) {
+                if (isFinished || idleCount >= 6) {
                   clearInterval(checkInterval);
                   const md = await this.getCurrentResponse();
                   resolve(md);
