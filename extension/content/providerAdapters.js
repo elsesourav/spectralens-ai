@@ -1230,10 +1230,56 @@
   class GoogleSearchAdapter extends BaseProviderAdapter {
     constructor() {
       super("google", "Google AI Overview", /google\.com/);
+      this.ensureNetworkInterceptor();
+    }
+
+    /** Install in-page fetch/XHR network response interceptor for Google's /async/folif endpoint */
+    ensureNetworkInterceptor() {
+      try {
+        if (typeof window === "undefined" || window.__SPECTRALENS_NET_HOOKED__) return;
+        window.__SPECTRALENS_NET_HOOKED__ = true;
+        window.__SPECTRALENS_LATEST_TURNS__ = [];
+
+        const interceptScript = document.createElement("script");
+        interceptScript.textContent = `(${function () {
+          if (window.__SPECTRALENS_MAIN_NET_HOOKED__) return;
+          window.__SPECTRALENS_MAIN_NET_HOOKED__ = true;
+
+          const origFetch = window.fetch;
+          window.fetch = async function (...args) {
+            const response = await origFetch.apply(this, args);
+            try {
+              const url = typeof args[0] === "string" ? args[0] : args[0]?.url || "";
+              if (url.includes("/async/folif") || url.includes("/async/aim") || url.includes("/async/")) {
+                const clone = response.clone();
+                clone.text().then((text) => {
+                  if (text && text.length > 50) {
+                    window.dispatchEvent(
+                      new CustomEvent("spectralens:network_chunk", {
+                        detail: { url, raw: text, timestamp: Date.now() },
+                      }),
+                    );
+                  }
+                }).catch(() => {});
+              }
+            } catch {}
+            return response;
+          };
+        }.toString()})();`;
+        (document.head || document.documentElement).appendChild(interceptScript);
+        interceptScript.remove();
+
+        window.addEventListener("spectralens:network_chunk", (e) => {
+          if (e.detail?.raw) {
+            window.__SPECTRALENS_LATEST_TURNS__.push(e.detail);
+          }
+        });
+      } catch {}
     }
 
     /** Find and click Google's in-page dynamic "AI Mode" button on google.com homepage */
     async ensureAiMode() {
+      this.ensureNetworkInterceptor();
       if (window.location.pathname.startsWith("/search")) {
         return false;
       }
