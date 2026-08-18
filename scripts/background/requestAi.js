@@ -1,6 +1,80 @@
-/* --- Request Cancellation State --- */
+/* --- Request Cancellation State & Isolated Worker Window Pool --- */
 let currentRequestId = null;
 let activeAiTabs = [];
+let workerWindowId = null;
+let workerWindowPromise = null;
+
+// Track if background worker window is closed externally
+if (typeof chrome !== "undefined" && chrome.windows?.onRemoved) {
+  chrome.windows.onRemoved.addListener((removedWinId) => {
+    if (removedWinId === workerWindowId) {
+      console.log(`[SpectraLens:Pipeline] 🪟 Background Worker Window #${removedWinId} was closed.`);
+      workerWindowId = null;
+      workerWindowPromise = null;
+    }
+  });
+}
+
+/**
+ * Returns an existing background worker window, or creates a new
+ * unfocused, minimized popup window dedicated exclusively to AI scraper tabs.
+ */
+async function getOrCreateWorkerWindow() {
+  if (workerWindowId && typeof chrome !== "undefined" && chrome.windows?.get) {
+    try {
+      const win = await chrome.windows.get(workerWindowId);
+      if (win && win.id) return win.id;
+    } catch {
+      workerWindowId = null;
+    }
+  }
+
+  if (workerWindowPromise) return workerWindowPromise;
+
+  workerWindowPromise = new Promise((resolve) => {
+    try {
+      if (typeof chrome === "undefined" || !chrome.windows?.create) {
+        resolve(null);
+        return;
+      }
+
+      chrome.windows.create(
+        {
+          url: "about:blank",
+          focused: false,
+          state: "minimized",
+          type: "popup",
+        },
+        (win) => {
+          if (chrome.runtime?.lastError || !win || !win.id) {
+            console.warn(
+              "[SpectraLens:Pipeline] ⚠️ Could not create minimized window, falling back to active window:",
+              chrome.runtime?.lastError?.message,
+            );
+            workerWindowId = null;
+            workerWindowPromise = null;
+            resolve(null);
+            return;
+          }
+          workerWindowId = win.id;
+          workerWindowPromise = null;
+          console.log(
+            `%c[SpectraLens:Pipeline] 🪟 Created isolated Background Worker Window #${workerWindowId} (focused: false, state: minimized)`,
+            "color: #8b5cf6; font-weight: bold;",
+          );
+          resolve(workerWindowId);
+        },
+      );
+    } catch (err) {
+      console.warn("[SpectraLens:Pipeline] ⚠️ Error creating worker window:", err);
+      workerWindowId = null;
+      workerWindowPromise = null;
+      resolve(null);
+    }
+  });
+
+  return workerWindowPromise;
+}
 
 /** Immediately cancel all ongoing AI scraper requests and close all active scraper tabs */
 function cancelAllAiRequests() {
@@ -45,7 +119,7 @@ function formatProviderError(providerId, shortReason) {
 /* --- Shared Helper --- */
 
 /**
- * Opens a background tab, waits for it to load, executes a content
+ * Opens an isolated background tab inside the worker window, waits for it to load, executes a content
  * extraction function, and returns the cleaned HTML.
  *
  * @param {string} url - The URL to open
@@ -55,7 +129,7 @@ function formatProviderError(providerId, shortReason) {
  * @returns {Promise<string>} The cleaned HTML result
  */
 function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
-  return new Promise((resolve) => {
+  return new Promise(async (resolve) => {
     const providerId = extractArgs?.[0] || "ai";
     console.log(
       `%c[SpectraLens:Pipeline] 🚀 [STEP 1/5] Initiating request for "${providerId}" (URL: ${url}, RequestID: ${requestId})`,
@@ -76,13 +150,28 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
     let timeoutId = null;
     let isExecuting = false;
 
+    // Retrieve or instantiate dedicated background worker window
+    const targetWindowId = await getOrCreateWorkerWindow();
+
     console.log(
-      `%c[SpectraLens:Pipeline] 📑 [STEP 2/5] Creating background tab in current browser window (active: false)...`,
+      `%c[SpectraLens:Pipeline] 📑 [STEP 2/5] Creating background tab inside isolated Worker Window #${targetWindowId || "default"} (active: false)...`,
       "color: #3b82f6;",
     );
 
-    chrome.tabs.create({ url, active: false }, (tab) => {
-      if (!tab || !tab.id) {
+    const tabCreateOptions = { url, active: false };
+    if (targetWindowId) {
+      tabCreateOptions.windowId = targetWindowId;
+    }
+
+    chrome.tabs.create(tabCreateOptions, (tab) => {
+      // Fallback: If creating tab inside workerWindow failed (e.g. user closed window), recreate in default window
+      if (chrome.runtime?.lastError || !tab || !tab.id) {
+        if (targetWindowId) {
+          console.warn("[SpectraLens:Pipeline] ⚠️ Failed creating tab in worker window, retrying with fallback:", chrome.runtime?.lastError?.message);
+          workerWindowId = null;
+          chrome.tabs.create({ url, active: false }, handleCreatedTab);
+          return;
+        }
         console.error(
           `%c[SpectraLens:Pipeline] ❌ [STEP 2/5 FAILED] Failed to create background tab for ${url}`,
           "color: #ef4444; font-weight: bold;",
@@ -90,11 +179,19 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
         resolve(formatProviderError(providerId, "Tab creation failed"));
         return;
       }
+      handleCreatedTab(tab);
+    });
+
+    function handleCreatedTab(tab) {
+      if (!tab || !tab.id) {
+        resolve(formatProviderError(providerId, "Tab creation failed"));
+        return;
+      }
 
       const tabId = tab.id;
       activeAiTabs.push(tabId);
       console.log(
-        `%c[SpectraLens:Pipeline] 📑 [STEP 3/5] Background Tab #${tabId} created (active: false, title: "${tab.title || "Loading..."}"). Enabling media access & listening for load completion...`,
+        `%c[SpectraLens:Pipeline] 📑 [STEP 3/5] Background Tab #${tabId} created (Window #${tab.windowId}, active: false). Enabling media access & listening for load completion...`,
         "color: #10b981; font-weight: bold;",
       );
       chromeTabMediaAccess(tabId, true);
@@ -211,7 +308,7 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
         }
       }
       chrome.tabs.onRemoved.addListener(onRemoved);
-    });
+    }
   });
 }
 
