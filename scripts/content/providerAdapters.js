@@ -2193,19 +2193,39 @@
     }
 
     findResponseContainer() {
-      const proseContainers = document.querySelectorAll(
-        "div[dir='auto'].prose, div.prose, div[data-testid='answer-content'], #markdown-content-0, div[id^='markdown-content'], div.default.font-sans, div.col-start-1.min-w-0, div.answer-content",
+      // 1. Target the latest assistant response block via copy buttons (excluding user query copy)
+      const copyBtns = document.querySelectorAll(
+        'button[aria-label="Copy"], button[aria-label*="Copy" i]:not([aria-label*="query" i])',
       );
-      if (proseContainers.length > 0) {
-        for (let i = proseContainers.length - 1; i >= 0; i--) {
-          const container = proseContainers[i];
-          const text = (container.textContent || "").trim();
-          if (text.length > 15) {
-            return container;
+      if (copyBtns.length > 0) {
+        for (let i = copyBtns.length - 1; i >= 0; i--) {
+          const btn = copyBtns[i];
+          let parent = btn.parentElement;
+          while (parent && parent !== document.body) {
+            const prose = parent.querySelector(
+              "div[dir='auto'].prose, div.prose, div[data-testid='answer-content']",
+            );
+            if (prose) {
+              const text = (prose.textContent || "").trim();
+              if (text.length > 15) return prose;
+            }
+            if (parent.classList?.contains("prose")) {
+              const text = (parent.textContent || "").trim();
+              if (text.length > 15) return parent;
+            }
+            parent = parent.parentElement;
           }
         }
+      }
+
+      // 2. Target all prose blocks on the page and select the last valid answer block
+      const proseContainers = document.querySelectorAll(
+        "div[dir='auto'].prose, div.prose, div[data-testid='answer-content'], #markdown-content-0",
+      );
+      if (proseContainers.length > 0) {
         return proseContainers[proseContainers.length - 1];
       }
+
       return document.querySelector("div.prose, #markdown-content-0, div[dir='auto']");
     }
 
@@ -2228,10 +2248,23 @@
         let idleCount = 0;
         let hasSeenStreaming = false;
 
+        const initialCopyCount = document.querySelectorAll(
+          'button[aria-label="Copy"], button[aria-label*="Copy" i]:not([aria-label*="query" i])',
+        ).length;
+
         const checkInterval = setInterval(async () => {
           const isStreamingNow = this.isStreaming();
           if (isStreamingNow) {
             hasSeenStreaming = true;
+          }
+
+          const currentCopyCount = document.querySelectorAll(
+            'button[aria-label="Copy"], button[aria-label*="Copy" i]:not([aria-label*="query" i])',
+          ).length;
+
+          // For follow-up queries, wait until new response begins
+          if (previousContent && currentCopyCount <= initialCopyCount && !hasSeenStreaming) {
+            return;
           }
 
           const container = this.findResponseContainer();

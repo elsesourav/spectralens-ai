@@ -310,17 +310,6 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
     chromeTabMediaAccess(tabId, true);
     injectMainWorldNetworkInterceptor(tabId);
 
-    // If reusing a tab and the provider uses direct URL search parameters (Perplexity, Bing, Grok), update URL if needed
-    if (
-      isReused &&
-      (providerId === "perplexity" ||
-        providerId === "bing" ||
-        providerId === "grok")
-    ) {
-      chrome.tabs.update(tabId, { url, active: false });
-      injectMainWorldNetworkInterceptor(tabId);
-    }
-
     function detachTurnListeners() {
       if (timeoutId) clearTimeout(timeoutId);
       chrome.tabs.onUpdated.removeListener(listener);
