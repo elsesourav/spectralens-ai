@@ -254,11 +254,8 @@ export default function Controls({ isMenuOpen = true }) {
         const disabledItems = next.filter((item) => !item.enabled);
         const sorted = [...enabledItems, ...disabledItems];
         saveControlsSettings(sorted);
-        extensionUtils.pagePostMessage(
-          "IF_B_CLOSE_PROVIDER_TAB",
-          { providerId: id },
-          window.parent,
-        );
+        extensionUtils.pagePostMessage("IF_B_NEW_CHAT", {}, window.parent);
+        extensionUtils.pagePostMessage("IF_C_RESET_TO_NEW_CHAT", {}, window.parent);
         return sorted;
       });
       return;
@@ -282,6 +279,8 @@ export default function Controls({ isMenuOpen = true }) {
       const disabledItems = next.filter((item) => !item.enabled);
       const sorted = [...enabledItems, ...disabledItems];
       saveControlsSettings(sorted);
+      extensionUtils.pagePostMessage("IF_B_NEW_CHAT", {}, window.parent);
+      extensionUtils.pagePostMessage("IF_C_RESET_TO_NEW_CHAT", {}, window.parent);
       showToast(`Activated ${target.name}`, "success");
       return sorted;
     });
@@ -301,11 +300,8 @@ export default function Controls({ isMenuOpen = true }) {
       const nextList = [...enabledItems, ...disabledItems];
 
       saveControlsSettings(nextList);
-      extensionUtils.pagePostMessage(
-        "IF_B_CLOSE_PROVIDER_TAB",
-        { providerId: replaceId },
-        window.parent,
-      );
+      extensionUtils.pagePostMessage("IF_B_NEW_CHAT", {}, window.parent);
+      extensionUtils.pagePostMessage("IF_C_RESET_TO_NEW_CHAT", {}, window.parent);
       return nextList;
     });
 

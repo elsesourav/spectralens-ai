@@ -441,6 +441,8 @@ export default function ChatBot({
     };
   }, [handleNewChat]);
 
+  const prevEnabledProvidersKeyRef = useRef(null);
+
   // Live sync active AI providers from Chrome storage & settings
   useEffect(() => {
     const loadControls = () => {
@@ -449,6 +451,17 @@ export default function ChatBot({
         if (storedProviders && Array.isArray(storedProviders)) {
           const enabledProviders = storedProviders.filter((p) => p.enabled);
           const disabledProviders = storedProviders.filter((p) => !p.enabled);
+          const enabledKey = enabledProviders.map((p) => p.id).sort().join(",");
+
+          // If enabled provider configuration changed, automatically start a fresh new chat
+          if (
+            prevEnabledProvidersKeyRef.current !== null &&
+            prevEnabledProvidersKeyRef.current !== enabledKey &&
+            (turns.length > 0 || isLoading)
+          ) {
+            handleNewChat();
+          }
+          prevEnabledProvidersKeyRef.current = enabledKey;
 
           setAiProviders([...enabledProviders, ...disabledProviders]);
           if (enabledProviders.length > 0) {
@@ -477,7 +490,7 @@ export default function ChatBot({
       chrome.storage.onChanged.addListener(storageListener);
       return () => chrome.storage.onChanged.removeListener(storageListener);
     }
-  }, []);
+  }, [turns.length, isLoading, handleNewChat]);
 
   useEffect(() => {
     UTILS.pageOnMessage("IF_C_GET_CURRENT_CONTROLS", (data) => {
@@ -487,6 +500,16 @@ export default function ChatBot({
       if (storedProviders && Array.isArray(storedProviders)) {
         const enabledProviders = storedProviders.filter((p) => p.enabled);
         const disabledProviders = storedProviders.filter((p) => !p.enabled);
+        const enabledKey = enabledProviders.map((p) => p.id).sort().join(",");
+
+        if (
+          prevEnabledProvidersKeyRef.current !== null &&
+          prevEnabledProvidersKeyRef.current !== enabledKey &&
+          (turns.length > 0 || isLoading)
+        ) {
+          handleNewChat();
+        }
+        prevEnabledProvidersKeyRef.current = enabledKey;
 
         setAiProviders([...enabledProviders, ...disabledProviders]);
         if (enabledProviders.length > 0) {
@@ -502,7 +525,7 @@ export default function ChatBot({
         setMaxConcurrentRequest(concurrentRequests);
       }
     });
-  }, []);
+  }, [turns.length, isLoading, handleNewChat]);
 
   // Get answer from background script
   const dispatchAiRequestToBackground = useCallback(
