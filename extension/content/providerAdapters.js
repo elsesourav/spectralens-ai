@@ -1665,9 +1665,14 @@
     findResponseContainer() {
       // 1. Primary AI Overview text containers in Google AI Search & /async/folif turn containers
       const selectors = [
+        'div[data-subtree="aimc"] div[data-container-id="main-col"] .Dn7Fzd',
+        'div[data-subtree="aimc"] div[data-container-id="main-col"]',
+        'div[data-subtree="aimc"] .Dn7Fzd',
+        'div[data-subtree="aimc"] div.mZJni',
+        'div[data-subtree="aimc"]',
+        'div[data-scope-id="turn"]:last-of-type div[data-subtree="aimc"]',
         'div[data-scope-id="turn"]:last-of-type div.mZJni.Dn7Fzd',
         'div[data-scope-id="turn"]:last-of-type div[data-container-id="main-col"]',
-        'div[data-scope-id="turn"]:last-of-type',
         "div.mZJni.Dn7Fzd",
         "div.mZJni",
         "div.Dn7Fzd",
@@ -1693,12 +1698,21 @@
           const matched = document.querySelectorAll(sel);
           if (matched.length > 0) {
             const lastEl = matched[matched.length - 1];
-            if (
-              lastEl &&
-              (lastEl.textContent || "").trim().length > 25 &&
-              !lastEl.querySelector("textarea.ITIRGe")
-            ) {
-              return lastEl;
+            if (lastEl && !lastEl.querySelector("textarea.ITIRGe")) {
+              // If lastEl contains an inner aimc or main-col, prioritize the deeper AI content
+              const innerAi = lastEl.querySelector(
+                'div[data-subtree="aimc"], div.mZJni.Dn7Fzd, div[data-container-id="main-col"]',
+              );
+              const target = innerAi || lastEl;
+              const text = (target.textContent || "").trim();
+              // Exclude containers that only contain the user's prompt or image thumbnail
+              if (
+                text.length > 25 &&
+                !text.startsWith("You sent: 1 image and said:") &&
+                !text.startsWith("You sent:")
+              ) {
+                return target;
+              }
             }
           }
         } catch {}
@@ -1720,10 +1734,12 @@
         );
         if (toolbar && toolbar.parentElement) {
           const parent = toolbar.parentElement;
+          const text = (parent.textContent || "").trim();
           if (
-            (parent.textContent || "").trim().length > 25 &&
+            text.length > 25 &&
             !parent.querySelector("textarea.ITIRGe") &&
-            !parent.classList.contains("zkL70c")
+            !parent.classList.contains("zkL70c") &&
+            !text.startsWith("You sent:")
           ) {
             return parent;
           }
@@ -1736,7 +1752,8 @@
           if (
             text.length > 25 &&
             !cur.querySelector("textarea.ITIRGe") &&
-            !cur.classList.contains("zkL70c")
+            !cur.classList.contains("zkL70c") &&
+            !text.startsWith("You sent:")
           ) {
             return cur;
           }
@@ -1750,6 +1767,16 @@
     getJunkSelectors() {
       return [
         ...super.getJunkSelectors(),
+        'div[data-subtree="aimq"]',
+        'div[aria-label*="You sent" i]',
+        'div[data-xid*="user"]',
+        'div[data-sfc-cp*="user"]',
+        'div:has(> img[alt*="Visually searched" i])',
+        'img[alt*="Visually searched" i]',
+        "div.xU328e",
+        "div.v51B4d",
+        "div.d6P8Be",
+        "div.cUnjbc",
         'div[data-container-id="rhs-col"]',
         'div[data-xid="aim-aside-initial-corroboration-container"]',
         'div[data-xid="Gd7Hsc"]',
