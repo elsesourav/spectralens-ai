@@ -414,10 +414,28 @@ html.dark .spectralens-isolated-response {
    transition: color 0.15s ease, text-decoration 0.15s ease;
 }
 
-.spectralens-isolated-response a:hover,
-.spectralens-isolated-response a *:hover {
-   color: var(--sl-text-link-hover) !important;
-   text-decoration: underline !important;
+.spectralens-isolated-response,
+.spectralens-response-wrapper {
+   overflow-x: hidden !important;
+   max-width: 100% !important;
+   word-break: break-word !important;
+   overflow-wrap: anywhere !important;
+}
+
+.spectralens-isolated-response table,
+.spectralens-response-wrapper table {
+   display: block !important;
+   max-width: 100% !important;
+   overflow-x: auto !important;
+   border-collapse: collapse !important;
+   margin: 8px 0 !important;
+}
+
+.spectralens-isolated-response img,
+.spectralens-response-wrapper img {
+   max-width: 100% !important;
+   height: auto !important;
+   border-radius: 6px !important;
 }
 
 .spectralens-isolated-response pre,

@@ -52,7 +52,7 @@ export default function ChatAiResponseCard({
         {/* Answer Content */}
         {activeAiResponseContent ? (
           <div
-            className="spectralens-response-wrapper text-slate-900 dark:text-slate-100 overflow-x-auto leading-relaxed font-normal select-text cursor-text"
+            className="spectralens-response-wrapper text-slate-900 dark:text-slate-100 overflow-x-hidden break-words leading-relaxed font-normal select-text cursor-text max-w-full"
             dangerouslySetInnerHTML={{
               __html: UTILS.sanitizeHtml(
                 typeof UTILS.markdownToHtml === "function"
