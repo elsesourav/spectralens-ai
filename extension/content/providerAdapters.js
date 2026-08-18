@@ -1125,26 +1125,62 @@
       super("google", "Google AI Overview", /google\.com/);
     }
 
-    /** Find and click Google's in-page dynamic "Generate AI Overview" or "Show AI Overview" button */
+    /** Find and click Google's in-page dynamic "AI Mode" button on google.com homepage */
     async ensureAiMode() {
+      tabLog("GoogleTab", "🔍 Finding and activating Google AI Mode button...");
       try {
-        // Search specifically for in-page dynamic "Generate AI Overview" or "Show AI Overview" buttons
-        const allInteractive = Array.from(
-          document.querySelectorAll("button, [role='button']")
-        );
-        const aiBtn = allInteractive.find((el) => {
-          const txt = (el.textContent || "").trim();
-          const aria = el.getAttribute("aria-label") || "";
-          return (
-            /^(Generate|Show AI Overview|AI Overview)$/i.test(txt) ||
-            /Generate AI Overview/i.test(aria)
-          );
-        });
-        if (aiBtn && aiBtn.offsetParent !== null) {
-          tabLog("GoogleTab", "✨ Found AI Overview button. Clicking to generate overview...");
-          aiBtn.click();
-          await new Promise((r) => setTimeout(r, 400));
+        // 1. Exact Google AI Mode button from DOM
+        const exactAiBtn =
+          document.querySelector('button[jsname="B6rgad"].plR5qb') ||
+          document.querySelector('button[jsname="B6rgad"]') ||
+          document.querySelector('button.plR5qb') ||
+          document.querySelector('button[jscontroller="jNZDL"]');
+
+        if (exactAiBtn) {
+          tabLog("GoogleTab", "✨ Found exact Google AI Mode button (button[jsname='B6rgad'].plR5qb). Clicking to activate AI Mode...");
+          exactAiBtn.focus();
+          exactAiBtn.click();
+          exactAiBtn.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, view: window }));
+          exactAiBtn.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true, view: window }));
+          exactAiBtn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
+          await new Promise((r) => setTimeout(r, 500));
           return true;
+        }
+
+        // 2. Button with span.lTxWLe ("AI Mode")
+        const aiSpan = Array.from(document.querySelectorAll("span.lTxWLe, span")).find(
+          (s) => s.textContent?.trim() === "AI Mode"
+        );
+        if (aiSpan) {
+          const parentBtn = aiSpan.closest("button, [role='link'], [role='button']") || aiSpan;
+          tabLog("GoogleTab", "✨ Found AI Mode span. Clicking parent button...");
+          parentBtn.click();
+          parentBtn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
+          await new Promise((r) => setTimeout(r, 500));
+          return true;
+        }
+
+        // 3. Fallback AI Mode selectors
+        const aiSelectors = [
+          'button[aria-label*="AI Mode" i]',
+          'a[aria-label*="AI Mode" i]',
+          'div[role="button"][aria-label*="AI Mode" i]',
+          'button.SbLVJc',
+          'button.UTNPFf',
+          'button.ONx74b',
+          'a[href*="udm=50"]',
+          'button.Sw4CSc',
+        ];
+
+        for (const sel of aiSelectors) {
+          const el = document.querySelector(sel);
+          if (el && el.offsetParent !== null) {
+            tabLog("GoogleTab", `✨ Found AI Mode element (${sel}). Clicking to activate...`);
+            el.click();
+            el.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
+            await new Promise((r) => setTimeout(r, 500));
+            return true;
+          }
         }
       } catch (e) {
         tabLog("GoogleTab", "Error in ensureAiMode:", e?.message);
@@ -1251,15 +1287,20 @@
     }
 
     findInput() {
+      // If on search page, prioritize the follow-up textarea .ITIRGe
+      if (window.location.pathname.startsWith("/search")) {
+        const followUp = document.querySelector('textarea.ITIRGe, textarea[placeholder*="Ask anything" i], textarea[aria-label*="Ask a follow up" i]');
+        if (followUp) return followUp;
+      }
       return document.querySelector(
-        'textarea.ITIRGe, textarea[placeholder*="Ask anything" i], textarea[aria-label*="Ask a follow up" i], textarea[placeholder*="Ask a follow up" i], textarea[name="q"], input[name="q"], textarea[title="Search"], textarea[aria-label="Search"], [role="combobox"]',
+        'textarea.ITIRGe, textarea[name="q"], input[name="q"], textarea[title="Search"], textarea[aria-label="Search"], [role="combobox"]',
       );
     }
 
     async insertPrompt(text) {
       this._lastPrompt = text;
 
-      // 1. Activate AI Mode first if available
+      // 1. Activate AI Mode first on homepage
       await this.ensureAiMode();
 
       // 2. Find and populate search / follow-up input
@@ -1293,6 +1334,7 @@
         'button.plR5qb',
         'button[aria-label="Google Search"]',
         'input[name="btnK"]',
+        'input[value="Google Search"]',
         'button[type="submit"]',
         'form[role="search"] button',
       ];
@@ -1310,12 +1352,12 @@
     async submit() {
       await new Promise((r) => setTimeout(r, 150));
 
+      const isSearchPage = window.location.pathname.startsWith("/search");
       const input = this.findInput();
-      const isFollowUpInput = input?.classList?.contains("ITIRGe") || input?.placeholder?.toLowerCase().includes("ask");
 
-      // For in-page follow-up chat turns, dispatch Enter keydown
-      if (input) {
-        tabLog("GoogleTab", "↵ Dispatching Enter key to input box...");
+      // Case 1: In-page follow-up conversation turn on /search page
+      if (isSearchPage && input?.classList?.contains("ITIRGe")) {
+        tabLog("GoogleTab", "↵ Dispatching Enter key to follow-up chat box...");
         input.dispatchEvent(
           new KeyboardEvent("keydown", {
             key: "Enter",
@@ -1326,33 +1368,29 @@
             cancelable: true,
           }),
         );
-        input.dispatchEvent(
-          new KeyboardEvent("keyup", {
-            key: "Enter",
-            code: "Enter",
-            keyCode: 13,
-            which: 13,
-            bubbles: true,
-            cancelable: true,
-          }),
-        );
-        await new Promise((r) => setTimeout(r, 300));
+        const sendBtn = this.findSendButton();
+        if (sendBtn) {
+          try {
+            sendBtn.click();
+          } catch {}
+        }
+        return true;
       }
 
+      // Case 2: Google Homepage initial search submission
+      tabLog("GoogleTab", "🚀 Submitting search from Google homepage with AI Mode...");
       const btn = this.findSendButton();
       if (btn) {
-        tabLog("GoogleTab", "🔘 Clicking AI Send button...");
+        tabLog("GoogleTab", "🔘 Clicking Google Search / AI button...");
         try {
           btn.click();
           btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
         } catch {}
-        await new Promise((r) => setTimeout(r, 300));
       }
 
-      // Native browser form submission for initial search
       const form = input ? input.closest("form") : document.querySelector('form[role="search"], form[action="/search"]');
-      if (form && !isFollowUpInput) {
-        tabLog("GoogleTab", "🚀 Executing native form requestSubmit (no human interaction needed)...");
+      if (form) {
+        tabLog("GoogleTab", "📄 Triggering form submit...");
         try {
           if (typeof form.requestSubmit === "function") {
             form.requestSubmit();
@@ -1364,6 +1402,12 @@
           form.submit();
           return true;
         }
+      }
+
+      if (this._lastPrompt) {
+        tabLog("GoogleTab", "🌐 Navigating directly to AI search results...");
+        window.location.href = `https://www.google.com/search?q=${encodeURIComponent(this._lastPrompt)}&hl=en&udm=50`;
+        return true;
       }
 
       return true;
