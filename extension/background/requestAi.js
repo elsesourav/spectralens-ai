@@ -488,6 +488,15 @@ function runTabAdapter(providerId, prompt, image, isReused = false) {
         }
       }
 
+      // For first-time message in newly opened window, let the SPA settle and hydrate gracefully
+      if (!isReused) {
+        console.log(
+          `%c[SpectraLens:Adapter] ⏳ First message in new window for "${providerId}". Allowing page scripts to settle...`,
+          "color: #8b5cf6;",
+        );
+        await new Promise((r) => setTimeout(r, 1200));
+      }
+
       // 1. Locate input editor (up to 20 attempts for first time, up to 10 for reused)
       console.log(
         `%c[SpectraLens:Adapter] ✍️ [ADAPTER 2/4] Locating input editor for "${providerId}"...`,
@@ -495,9 +504,10 @@ function runTabAdapter(providerId, prompt, image, isReused = false) {
       );
       let input = adapter.findInput();
       let attempts = 0;
-      const maxLocateAttempts = isReused ? 10 : 20;
+      const maxLocateAttempts = isReused ? 10 : 25;
+      const locateInterval = isReused ? 300 : 450;
       while (!input && attempts < maxLocateAttempts) {
-        await new Promise((r) => setTimeout(r, 350));
+        await new Promise((r) => setTimeout(r, locateInterval));
         input = adapter.findInput();
         attempts++;
       }
@@ -527,7 +537,8 @@ function runTabAdapter(providerId, prompt, image, isReused = false) {
         );
         if (typeof adapter.attachImage === "function") {
           await adapter.attachImage(image);
-          await new Promise((r) => setTimeout(r, 400));
+          const imageSettleDelay = isReused ? 400 : 800;
+          await new Promise((r) => setTimeout(r, imageSettleDelay));
         }
       }
 
@@ -547,7 +558,9 @@ function runTabAdapter(providerId, prompt, image, isReused = false) {
         return;
       }
 
-      await new Promise((r) => setTimeout(r, 250));
+      // Gentle pause before clicking send (gives send buttons time to enable)
+      const preSubmitDelay = isReused ? 200 : 700;
+      await new Promise((r) => setTimeout(r, preSubmitDelay));
 
       // 4. Submit
       console.log(
@@ -565,6 +578,9 @@ function runTabAdapter(providerId, prompt, image, isReused = false) {
         resolve("__NAVIGATING__");
         return;
       }
+
+      const postSubmitDelay = isReused ? 150 : 400;
+      await new Promise((r) => setTimeout(r, postSubmitDelay));
 
       // 5. Observe and return streaming response (waiting for new content to generate)
       console.log(
