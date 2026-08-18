@@ -136,6 +136,7 @@ function closeProviderTab(providerId) {
   if (entry && entry.tabId) {
     console.log(`[SpectraLens:Pipeline] 🧹 Closing disabled AI provider tab: "${key}" (#${entry.tabId})`);
     chromeTabMediaAccess(entry.tabId, false);
+    removeBackgroundTabNetworkOptimization(entry.tabId);
     chrome.tabs.remove(entry.tabId).catch(() => {});
     persistentProviderTabs.delete(key);
   }
@@ -156,6 +157,7 @@ function resetAllProviderSessions() {
   for (const [providerId, entry] of persistentProviderTabs.entries()) {
     if (entry.tabId) {
       chromeTabMediaAccess(entry.tabId, false);
+      removeBackgroundTabNetworkOptimization(entry.tabId);
       chrome.tabs.remove(entry.tabId).catch(() => {});
     }
   }
@@ -163,6 +165,7 @@ function resetAllProviderSessions() {
 
   activeAiTabs.forEach((id) => {
     chromeTabMediaAccess(id, false);
+    removeBackgroundTabNetworkOptimization(id);
     chrome.tabs.remove(id).catch(() => {});
   });
   activeAiTabs = [];
@@ -172,6 +175,52 @@ function resetAllProviderSessions() {
     workerWindowId = null;
     workerWindowPromise = null;
   }
+}
+
+/**
+ * Enables network optimization rules on background AI worker tabs,
+ * blocking heavy image, video, and media assets to accelerate page load and save bandwidth/RAM.
+ */
+function applyBackgroundTabNetworkOptimization(tabId) {
+  if (!chrome.declarativeNetRequest?.updateSessionRules || !tabId) return;
+  try {
+    const ruleId = 20000 + (tabId % 50000);
+    chrome.declarativeNetRequest.updateSessionRules(
+      {
+        removeRuleIds: [ruleId],
+        addRules: [
+          {
+            id: ruleId,
+            priority: 1,
+            action: { type: "block" },
+            condition: {
+              tabIds: [tabId],
+              resourceTypes: ["image", "media"],
+            },
+          },
+        ],
+      },
+      () => {
+        void chrome.runtime?.lastError;
+      },
+    );
+  } catch {}
+}
+
+/** Removes network optimization rule for a closed background tab */
+function removeBackgroundTabNetworkOptimization(tabId) {
+  if (!chrome.declarativeNetRequest?.updateSessionRules || !tabId) return;
+  try {
+    const ruleId = 20000 + (tabId % 50000);
+    chrome.declarativeNetRequest.updateSessionRules(
+      {
+        removeRuleIds: [ruleId],
+      },
+      () => {
+        void chrome.runtime?.lastError;
+      },
+    );
+  } catch {}
 }
 
 /* --- Error Formatting Helper --- */
@@ -316,6 +365,7 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
       `%c[SpectraLens:Pipeline] 📑 [STEP 3/5] Background Tab #${tabId} ready (Window #${tab.windowId}, reused: ${isReused}). Listening for stream completion...`,
       "color: #10b981; font-weight: bold;",
     );
+    applyBackgroundTabNetworkOptimization(tabId);
     chromeTabMediaAccess(tabId, true);
     injectMainWorldNetworkInterceptor(tabId);
 
