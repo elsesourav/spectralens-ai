@@ -1663,16 +1663,32 @@
     }
 
     findResponseContainer() {
-      // 1. Primary AI Overview text containers in Google AI Search & /async/folif turn containers
+      // 1. Target the LATEST turn's AI content container in the conversation thread
+      const turns = document.querySelectorAll(
+        'div[data-scope-id="turn"], div.CKgc1d[jsname="CS7uPe"], div.CKgc1d',
+      );
+      if (turns.length > 0) {
+        for (let i = turns.length - 1; i >= 0; i--) {
+          const turn = turns[i];
+          const aiContainer = turn.querySelector(
+            'div[data-subtree="aimc"] div[data-container-id="main-col"] .Dn7Fzd, div[data-subtree="aimc"] div[data-container-id="main-col"], div[data-subtree="aimc"] .Dn7Fzd, div[data-subtree="aimc"], div.mZJni.Dn7Fzd, div[data-container-id="main-col"] .Dn7Fzd, div[data-container-id="main-col"], div.mZJni',
+          );
+          if (aiContainer) {
+            const text = (aiContainer.textContent || "").trim();
+            if (text.length > 20 && !text.startsWith("You sent:")) {
+              return aiContainer;
+            }
+          }
+        }
+      }
+
+      // 2. Global AI Overview content selectors on the page (matching newest / last element)
       const selectors = [
         'div[data-subtree="aimc"] div[data-container-id="main-col"] .Dn7Fzd',
         'div[data-subtree="aimc"] div[data-container-id="main-col"]',
         'div[data-subtree="aimc"] .Dn7Fzd',
         'div[data-subtree="aimc"] div.mZJni',
         'div[data-subtree="aimc"]',
-        'div[data-scope-id="turn"]:last-of-type div[data-subtree="aimc"]',
-        'div[data-scope-id="turn"]:last-of-type div.mZJni.Dn7Fzd',
-        'div[data-scope-id="turn"]:last-of-type div[data-container-id="main-col"]',
         "div.mZJni.Dn7Fzd",
         "div.mZJni",
         "div.Dn7Fzd",
@@ -1680,8 +1696,6 @@
         'div[data-container-id="main-col"] div[jsname="N760b"]',
         'div[data-container-id="main-col"] div[data-attrid="wa:/description"]',
         'div[data-container-id="main-col"]',
-        "div.n6owBd.awi2gc",
-        'div[data-target-container-id="5"]',
         'div[data-attrid="wa:/description"]',
         "div.ULSXZd",
         "div.IZ6rdc",
@@ -1693,32 +1707,23 @@
         "div.MjjYud",
         "#rso",
       ];
+
       for (const sel of selectors) {
         try {
           const matched = document.querySelectorAll(sel);
           if (matched.length > 0) {
             const lastEl = matched[matched.length - 1];
             if (lastEl && !lastEl.querySelector("textarea.ITIRGe")) {
-              // If lastEl contains an inner aimc or main-col, prioritize the deeper AI content
-              const innerAi = lastEl.querySelector(
-                'div[data-subtree="aimc"], div.mZJni.Dn7Fzd, div[data-container-id="main-col"]',
-              );
-              const target = innerAi || lastEl;
-              const text = (target.textContent || "").trim();
-              // Exclude containers that only contain the user's prompt or image thumbnail
-              if (
-                text.length > 25 &&
-                !text.startsWith("You sent: 1 image and said:") &&
-                !text.startsWith("You sent:")
-              ) {
-                return target;
+              const text = (lastEl.textContent || "").trim();
+              if (text.length > 25 && !text.startsWith("You sent:")) {
+                return lastEl;
               }
             }
           }
         } catch {}
       }
 
-      // 2. Fallback via Copy button parent (excluding toolbar-only nodes like zkL70c)
+      // 3. Fallback via Copy button parent (from the LAST copy button on the page)
       const copyBtns = Array.from(
         document.querySelectorAll(
           'button[aria-label="Copy text"].bKxaof, button[aria-label*="Copy text" i], button.bKxaof, button[aria-label="Copy text"]',
@@ -1727,8 +1732,6 @@
 
       if (copyBtns.length > 0) {
         const lastCopyBtn = copyBtns[copyBtns.length - 1];
-
-        // Check preceding sibling
         const toolbar = lastCopyBtn.closest(
           '[role="toolbar"], div[jsaction], div.eGAasd, div',
         );
@@ -1743,21 +1746,6 @@
           ) {
             return parent;
           }
-        }
-
-        // Traverse up
-        let cur = lastCopyBtn.parentElement;
-        while (cur && cur !== document.body) {
-          const text = (cur.textContent || "").trim();
-          if (
-            text.length > 25 &&
-            !cur.querySelector("textarea.ITIRGe") &&
-            !cur.classList.contains("zkL70c") &&
-            !text.startsWith("You sent:")
-          ) {
-            return cur;
-          }
-          cur = cur.parentElement;
         }
       }
 
@@ -1809,9 +1797,9 @@
         let idleCount = 0;
         let isDone = false;
 
-        // Record initial count of turns and copy buttons before this turn starts
+        // Record initial state before sending / waiting for the new turn
         const initialTurnCount = document.querySelectorAll(
-          "div.mZJni.Dn7Fzd, div.Dn7Fzd, div.mZJni",
+          'div[data-scope-id="turn"], div.CKgc1d[jsname="CS7uPe"], div.CKgc1d',
         ).length;
         const initialCopyBtnCount = document.querySelectorAll(
           'button[aria-label="Copy text"].bKxaof, button[aria-label*="Copy text" i], button.bKxaof',
@@ -1844,36 +1832,44 @@
           const currentCopyBtnCount = document.querySelectorAll(
             'button[aria-label="Copy text"].bKxaof, button[aria-label*="Copy text" i], button.bKxaof',
           ).length;
+          const currentTurnCount = document.querySelectorAll(
+            'div[data-scope-id="turn"], div.CKgc1d[jsname="CS7uPe"], div.CKgc1d',
+          ).length;
+
           const container = this.findResponseContainer();
 
           if (container) {
             const currentContent = (container.textContent || "").trim();
             const currentLength = currentContent.length;
 
-            // If this is a follow-up turn in an existing thread:
+            // If this is a follow-up turn in an existing multi-turn thread:
+            // Must wait until the NEW turn is created (currentTurnCount > initialTurnCount OR new copy button appeared)
             if (previousContent) {
-              const currentTurnCount = document.querySelectorAll(
-                "div.mZJni.Dn7Fzd, div.Dn7Fzd, div.mZJni",
-              ).length;
-              if (
-                currentTurnCount <= initialTurnCount &&
-                currentContent === previousContent
-              ) {
-                return; // Wait for new turn to be created
+              const hasNewTurnAppeared =
+                currentTurnCount > initialTurnCount ||
+                currentCopyBtnCount > initialCopyBtnCount ||
+                hasReceivedNetChunk;
+
+              if (!hasNewTurnAppeared || currentContent === previousContent) {
+                return; // Still waiting for Google to begin streaming the new turn!
               }
             }
 
             if (currentLength > 25) {
               // Completion signal:
               // Turn 1: any copy button on page OR stable text
-              // Turn 2+: new copy button appeared OR stable text for 3 checks
+              // Turn 2+: new copy button appeared OR text is stable for 3 consecutive checks
               const isTurnFinished = previousContent
-                ? currentCopyBtnCount > initialCopyBtnCount || (hasReceivedNetChunk && idleCount >= 2)
-                : currentCopyBtnCount > 0 || (hasReceivedNetChunk && idleCount >= 2);
+                ? currentCopyBtnCount > initialCopyBtnCount ||
+                  (hasReceivedNetChunk && idleCount >= 2) ||
+                  (currentTurnCount > initialTurnCount && idleCount >= 3)
+                : currentCopyBtnCount > 0 ||
+                  (hasReceivedNetChunk && idleCount >= 2) ||
+                  idleCount >= 3;
 
               if (currentLength === lastTextLength) {
                 idleCount++;
-                if (isTurnFinished || idleCount >= 3) {
+                if (isTurnFinished || idleCount >= 4) {
                   cleanUp();
                   const md = await this.getCurrentResponse();
                   tabLog(
