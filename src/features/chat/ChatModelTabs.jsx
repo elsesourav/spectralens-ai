@@ -14,6 +14,20 @@ export default function ChatModelTabs({
   onSelectProvider,
   moreMenuRef,
 }) {
+  const overflowHasAnswer = overflowProviderTabs.some((provider) => {
+    const isSelected = hasAnyActivity && selectedProvider === provider.id;
+    const provAnswer = answers[provider.id];
+    return (
+      Boolean(
+        provAnswer?.content ||
+          provAnswer?.answer ||
+          (typeof provAnswer === "string" && provAnswer),
+      ) &&
+      !viewedProviders.has(provider.id) &&
+      !isSelected
+    );
+  });
+
   return (
     <div className="flex items-center justify-between gap-1.5 px-3.5 py-2 border-b border-slate-200/50 dark:border-white/[0.06] bg-slate-50/50 dark:bg-black/10 shrink-0">
       {/* Primary Model Tabs */}
@@ -48,10 +62,10 @@ export default function ChatModelTabs({
               <ProviderIcon id={provider.id} className="w-3.5 h-3.5 shrink-0" size={14} />
               <span>{provider.name}</span>
               {hasAnswer && (
-                <span
-                  className="w-2 h-2 rounded-full bg-emerald-500 shadow-xs shadow-emerald-500/50 shrink-0 animate-pulse"
-                  title="New response ready"
-                />
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500 shadow-xs shadow-emerald-500/80"></span>
+                </span>
               )}
             </button>
           );
@@ -65,7 +79,7 @@ export default function ChatModelTabs({
             onClick={() => hasAnyActivity && setIsMoreMenuOpen((prev) => !prev)}
             disabled={!hasAnyActivity}
             title="More AI Models"
-            className={`p-2 rounded-xl transition-all border focus:outline-none ${
+            className={`relative p-2 rounded-xl transition-all border focus:outline-none ${
               hasAnyActivity ? "cursor-pointer" : "opacity-50 cursor-default"
             } ${
               isMoreMenuOpen
@@ -76,6 +90,12 @@ export default function ChatModelTabs({
             }`}
           >
             <ThreeDotsIcon className="w-4 h-4" size={16} />
+            {overflowHasAnswer && (
+              <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 border border-white dark:border-[#181920]"></span>
+              </span>
+            )}
           </button>
 
           {isMoreMenuOpen && (
@@ -110,10 +130,10 @@ export default function ChatModelTabs({
                       <span className="truncate">{provider.name}</span>
                     </div>
                     {hasAnswer && (
-                      <span
-                        className="w-2 h-2 rounded-full bg-emerald-500 shadow-xs shadow-emerald-500/50 shrink-0 animate-pulse"
-                        title="New response ready"
-                      />
+                      <span className="relative flex h-2 w-2 shrink-0">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500 shadow-xs shadow-emerald-500/80"></span>
+                      </span>
                     )}
                   </button>
                 );

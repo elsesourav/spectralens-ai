@@ -426,9 +426,15 @@
         '[role="dialog"]',
         '[role="alert"]',
         '[role="toolbar"]',
+        '[aria-hidden="true"]',
         ".copy-button",
         ".action-button",
-        "svg[aria-hidden='true']",
+        ".screen-reader-only",
+        ".sr-only",
+        '[style*="display: none"]',
+        '[style*="display:none"]',
+        '[style*="visibility: hidden"]',
+        '[style*="visibility:hidden"]',
       ];
     }
 
@@ -787,7 +793,10 @@
             clipboardData: dt,
           });
           input.dispatchEvent(pasteEv);
-          tabLog("ChatGPTTab", "📋 Dispatched synthetic paste event to ChatGPT input!");
+          tabLog(
+            "ChatGPTTab",
+            "📋 Dispatched synthetic paste event to ChatGPT input!",
+          );
           await new Promise((r) => setTimeout(r, 600));
           return true;
         }
@@ -909,7 +918,8 @@
       if (messages.length > 0) {
         for (let i = messages.length - 1; i >= 0; i--) {
           const msg = messages[i];
-          const innerMarkdown = msg.querySelector("div.markdown.prose, div.markdown") || msg;
+          const innerMarkdown =
+            msg.querySelector("div.markdown.prose, div.markdown") || msg;
           const text = (innerMarkdown.textContent || "").trim();
           if (text.length > 10) {
             return innerMarkdown;
@@ -994,7 +1004,13 @@
           if (Date.now() - startTime > timeoutMs) {
             clearInterval(checkInterval);
             const response = await this.getCurrentResponse();
-            resolve(response || formatProviderError(this.id, "No response generated or login required"));
+            resolve(
+              response ||
+                formatProviderError(
+                  this.id,
+                  "No response generated or login required",
+                ),
+            );
           }
         }, 350);
       });
@@ -1071,7 +1087,10 @@
             clipboardData: dt,
           });
           input.dispatchEvent(pasteEv);
-          tabLog("ClaudeTab", "📋 Dispatched synthetic paste event to Claude input!");
+          tabLog(
+            "ClaudeTab",
+            "📋 Dispatched synthetic paste event to Claude input!",
+          );
           await new Promise((r) => setTimeout(r, 600));
           return true;
         }
@@ -1178,7 +1197,10 @@
       if (responses.length > 0) {
         for (let i = responses.length - 1; i >= 0; i--) {
           const resp = responses[i];
-          const innerMarkdown = resp.querySelector("div.standard-markdown, p.font-claude-response-body, div.font-claude-message") || resp;
+          const innerMarkdown =
+            resp.querySelector(
+              "div.standard-markdown, p.font-claude-response-body, div.font-claude-message",
+            ) || resp;
           const text = (innerMarkdown.textContent || "").trim();
           if (text.length > 10) {
             return innerMarkdown;
@@ -1257,7 +1279,13 @@
           if (Date.now() - startTime > timeoutMs) {
             clearInterval(checkInterval);
             const response = await this.getCurrentResponse();
-            resolve(response || formatProviderError(this.id, "No response generated or login required"));
+            resolve(
+              response ||
+                formatProviderError(
+                  this.id,
+                  "No response generated or login required",
+                ),
+            );
           }
         }, 350);
       });
@@ -1326,8 +1354,12 @@
             const dt = new DataTransfer();
             dt.items.add(file);
             fileInput.files = dt.files;
-            fileInput.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
-            fileInput.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+            fileInput.dispatchEvent(
+              new Event("change", { bubbles: true, composed: true }),
+            );
+            fileInput.dispatchEvent(
+              new Event("input", { bubbles: true, composed: true }),
+            );
             tabLog("GeminiTab", "📁 Dispatched image to file input!");
             dispatched = true;
           } catch {}
@@ -1346,7 +1378,10 @@
               clipboardData: dt,
             });
             input.dispatchEvent(pasteEv);
-            tabLog("GeminiTab", "📋 Dispatched synthetic paste event to Gemini input!");
+            tabLog(
+              "GeminiTab",
+              "📋 Dispatched synthetic paste event to Gemini input!",
+            );
             dispatched = true;
           }
         }
@@ -1354,7 +1389,10 @@
         if (!dispatched) return false;
 
         // 3. Wait for Gemini to actually process and upload the image
-        tabLog("GeminiTab", "⏳ Waiting for Gemini to process & upload image...");
+        tabLog(
+          "GeminiTab",
+          "⏳ Waiting for Gemini to process & upload image...",
+        );
         const uploadStart = Date.now();
         const maxWaitMs = 15000;
         let uploadConfirmed = false;
@@ -1370,7 +1408,8 @@
             'img[src*="blob:"], img.uploaded-image',
           ).length;
 
-          const newCardsAppeared = currentUploadCardCount > beforeUploadCardCount;
+          const newCardsAppeared =
+            currentUploadCardCount > beforeUploadCardCount;
           const newImagesAppeared = currentImgCount > beforeImgCount;
 
           // Check if uploading progress indicators are still active
@@ -1412,7 +1451,10 @@
 
         if (!uploadConfirmed) {
           // Fallback: wait a generous fixed delay if detection couldn't confirm
-          tabLog("GeminiTab", "⏱️ Upload detection timed out. Waiting 3s fallback before proceeding...");
+          tabLog(
+            "GeminiTab",
+            "⏱️ Upload detection timed out. Waiting 3s fallback before proceeding...",
+          );
           await new Promise((r) => setTimeout(r, 3000));
         }
 
@@ -1455,22 +1497,25 @@
       input.dispatchEvent(new Event("input", { bubbles: true }));
       input.dispatchEvent(new Event("change", { bubbles: true }));
 
-      tabLog("GeminiTab", `✍️ Prompt inserted into Gemini: "${text.slice(0, 30)}..."`);
+      tabLog(
+        "GeminiTab",
+        `✍️ Prompt inserted into Gemini: "${text.slice(0, 30)}..."`,
+      );
       await new Promise((r) => setTimeout(r, 150));
       return true;
     }
 
     findSendButton() {
       const selectors = [
-        'button.send-button',
+        "button.send-button",
         'button[aria-label*="Send message" i]',
         'button[aria-label*="Submit" i]',
         'button[aria-label*="Send" i]',
         'button[mattooltip*="Send" i]',
-        '.send-button-container button',
+        ".send-button-container button",
         'button[data-test-id="send-button"]',
-        'div.send-button-container button',
-        'button.send-button-wrapper',
+        "div.send-button-container button",
+        "button.send-button-wrapper",
       ];
       for (const sel of selectors) {
         const el = document.querySelector(sel);
@@ -1538,13 +1583,13 @@
       if (modelResponses.length > 0) {
         const latestResp = modelResponses[modelResponses.length - 1];
         const innerContent = latestResp.querySelector(
-          '.model-response-text, .markdown, .response-content, .sparkle-text-output, structured-content-container, .markdown-main-panel',
+          ".model-response-text, .markdown, .response-content, .sparkle-text-output, structured-content-container, .markdown-main-panel",
         );
         return innerContent || latestResp;
       }
 
       return document.querySelector(
-        '.markdown-main-panel, .model-response-text, message-content',
+        ".markdown-main-panel, .model-response-text, message-content",
       );
     }
 
@@ -1557,8 +1602,8 @@
         "source-links",
         'button[aria-label*="Show drafts"]',
         'button[aria-label*="drafts"]',
-        '.model-response-footer',
-        'div.response-footer',
+        ".model-response-footer",
+        "div.response-footer",
         'button[aria-label*="Copy" i]',
         'button[aria-label*="Like" i]',
         'button[aria-label*="Dislike" i]',
@@ -1578,9 +1623,6 @@
         const initialTurnCount = document.querySelectorAll(
           'model-response, message-content, div[data-test-id="model-response"]',
         ).length;
-        const initialCopyBtnCount = document.querySelectorAll(
-          'button[aria-label*="Copy" i], button[data-test-id="copy-button"]',
-        ).length;
 
         // Listen for live network stream chunks from StreamGenerate / BardFrontendService
         let hasReceivedNetChunk = false;
@@ -1598,7 +1640,10 @@
         const cleanUp = () => {
           isDone = true;
           clearInterval(checkInterval);
-          window.removeEventListener("spectralens:network_chunk", netChunkListener);
+          window.removeEventListener(
+            "spectralens:network_chunk",
+            netChunkListener,
+          );
         };
 
         const checkInterval = setInterval(async () => {
@@ -1612,15 +1657,11 @@
           const currentTurnCount = document.querySelectorAll(
             'model-response, message-content, div[data-test-id="model-response"]',
           ).length;
-          const currentCopyBtnCount = document.querySelectorAll(
-            'button[aria-label*="Copy" i], button[data-test-id="copy-button"]',
-          ).length;
 
           // For multi-turn follow-up queries, wait until new turn starts
           if (previousContent) {
             const isNewTurnActive =
               currentTurnCount > initialTurnCount ||
-              currentCopyBtnCount > initialCopyBtnCount ||
               hasSeenStreaming ||
               hasReceivedNetChunk;
 
@@ -1639,16 +1680,11 @@
               return;
             }
 
-            if (currentLength > 0) {
-              const isFinished =
-                !isStreamingNow ||
-                currentCopyBtnCount > initialCopyBtnCount ||
-                (hasReceivedNetChunk && idleCount >= 2) ||
-                idleCount >= 3;
-
+            if (currentLength > 20) {
               if (currentLength === lastTextLength) {
                 idleCount++;
-                if (isFinished || idleCount >= 4) {
+                // Purely generous extra time: wait for >= 7 stable ticks (~2.5s) without any active stop/progress spinner
+                if (!isStreamingNow && idleCount >= 7) {
                   cleanUp();
                   const md = await this.getCurrentResponse();
                   tabLog(
@@ -1673,7 +1709,10 @@
             } else {
               resolve(
                 typeof formatProviderError === "function"
-                  ? formatProviderError(this.id, "No response generated or login required")
+                  ? formatProviderError(
+                      this.id,
+                      "No response generated or login required",
+                    )
                   : "> ⚠️ **Unable to retrieve Gemini response**",
               );
             }
@@ -1688,17 +1727,23 @@
         container?.classList?.contains("processing-state-visible") ||
         document.querySelector("div.response-container-header-processing-state") ||
         document.querySelector("mat-progress-bar") ||
+        document.querySelector("mat-progress-spinner") ||
         document.querySelector("button.stop-button") ||
         document.querySelector('button[aria-label*="Stop response" i]') ||
         document.querySelector('button[aria-label*="Stop generating" i]') ||
+        document.querySelector('button[aria-label*="Stop" i]') ||
+        document.querySelector('button[data-test-id="stop-button"]') ||
         document.querySelector(".sparkle-icon-spinning") ||
-        document.querySelector(".loading-indicator")
+        document.querySelector(".loading-indicator") ||
+        document.querySelector(".loading-spinner"),
       );
     }
 
     isComplete() {
       const hasCompletedFooter = Boolean(
-        document.querySelector("div.response-footer.complete, button[aria-label*='Copy' i]"),
+        document.querySelector(
+          "div.response-footer.complete, button[aria-label*='Copy' i]",
+        ),
       );
       return (
         (hasCompletedFooter || !this.isStreaming()) &&
@@ -1763,7 +1808,10 @@
             clipboardData: dt,
           });
           input.dispatchEvent(pasteEv);
-          tabLog("GrokTab", "📋 Dispatched synthetic paste event to Grok input!");
+          tabLog(
+            "GrokTab",
+            "📋 Dispatched synthetic paste event to Grok input!",
+          );
           await new Promise((r) => setTimeout(r, 600));
           return true;
         }
@@ -1870,7 +1918,10 @@
       if (messages.length > 0) {
         for (let i = messages.length - 1; i >= 0; i--) {
           const msg = messages[i];
-          const innerMarkdown = msg.querySelector("div.response-content-markdown, div.markdown, [dir='auto']") || msg;
+          const innerMarkdown =
+            msg.querySelector(
+              "div.response-content-markdown, div.markdown, [dir='auto']",
+            ) || msg;
           const text = (innerMarkdown.textContent || "").trim();
           if (text.length > 10) {
             return innerMarkdown;
@@ -1951,7 +2002,13 @@
           if (Date.now() - startTime > timeoutMs) {
             clearInterval(checkInterval);
             const response = await this.getCurrentResponse();
-            resolve(response || formatProviderError(this.id, "No response generated or login required"));
+            resolve(
+              response ||
+                formatProviderError(
+                  this.id,
+                  "No response generated or login required",
+                ),
+            );
           }
         }, 350);
       });
@@ -2010,7 +2067,10 @@
           fileInput.files = dt.files;
           fileInput.dispatchEvent(new Event("change", { bubbles: true }));
           fileInput.dispatchEvent(new Event("input", { bubbles: true }));
-          tabLog("PerplexityTab", "📁 Dispatched image to Perplexity file input!");
+          tabLog(
+            "PerplexityTab",
+            "📁 Dispatched image to Perplexity file input!",
+          );
           await new Promise((r) => setTimeout(r, 600));
           return true;
         }
@@ -2026,7 +2086,10 @@
             clipboardData: dt,
           });
           input.dispatchEvent(pasteEv);
-          tabLog("PerplexityTab", "📋 Dispatched synthetic paste event to Perplexity input!");
+          tabLog(
+            "PerplexityTab",
+            "📋 Dispatched synthetic paste event to Perplexity input!",
+          );
           await new Promise((r) => setTimeout(r, 600));
           return true;
         }
@@ -2100,7 +2163,10 @@
 
       const input = this.findInput();
       if (input) {
-        tabLog("PerplexityTab", "↵ Dispatching Enter key to Perplexity input...");
+        tabLog(
+          "PerplexityTab",
+          "↵ Dispatching Enter key to Perplexity input...",
+        );
         input.focus();
         input.dispatchEvent(
           new KeyboardEvent("keydown", {
@@ -2195,7 +2261,13 @@
           if (Date.now() - startTime > timeoutMs) {
             clearInterval(checkInterval);
             const response = await this.getCurrentResponse();
-            resolve(response || formatProviderError(this.id, "No response generated or login required"));
+            resolve(
+              response ||
+                formatProviderError(
+                  this.id,
+                  "No response generated or login required",
+                ),
+            );
           }
         }, 350);
       });
@@ -2843,7 +2915,10 @@
         const cleanUp = () => {
           isDone = true;
           clearInterval(checkInterval);
-          window.removeEventListener("spectralens:network_chunk", netChunkListener);
+          window.removeEventListener(
+            "spectralens:network_chunk",
+            netChunkListener,
+          );
         };
 
         // Activate AI Mode once on homepage if not already active

@@ -1,5 +1,12 @@
 import PropTypes from "prop-types";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   IoTimeOutline,
   IoAdd,
@@ -88,12 +95,9 @@ export default function ChatBot({
   const textareaRef = useRef(null);
   const moreMenuRef = useRef(null);
 
-  const scrollToBottom = useCallback((smooth = true) => {
+  const scrollToBottom = useCallback((smooth = false) => {
     if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTo({
-        top: scrollContainerRef.current.scrollHeight,
-        behavior: smooth ? "smooth" : "auto",
-      });
+      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
     }
   }, []);
 
@@ -231,6 +235,13 @@ export default function ChatBot({
     }
   }, [pendingInput, onConsumePendingInput]);
 
+  // Auto scroll to bottom instantly when switching AI providers
+  useLayoutEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+    }
+  }, [selectedProvider]);
+
   // Mark currently selected provider as viewed
   useEffect(() => {
     if (selectedProvider) {
@@ -238,10 +249,13 @@ export default function ChatBot({
     }
   }, [selectedProvider]);
 
-  // Tab selection helper
+  // Tab selection helper: switch provider, mark as viewed, and scroll to bottom instantly
   const handleSelectProvider = useCallback((providerId) => {
     setSelectedProvider(providerId);
     setViewedProviders((prev) => new Set([...prev, providerId]));
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+    }
   }, []);
 
   // Filter mention options based on query
@@ -852,11 +866,16 @@ export default function ChatBot({
     return list;
   }, [aiProviders, turns]);
 
-  // Combined answers for top model tabs
+  // Combined answers for top model tabs across turns
   const combinedAnswers = useMemo(() => {
     if (turns.length === 0) return {};
-    const lastTurn = turns[turns.length - 1];
-    return lastTurn?.answers || {};
+    const merged = {};
+    for (const turn of turns) {
+      if (turn.answers) {
+        Object.assign(merged, turn.answers);
+      }
+    }
+    return merged;
   }, [turns]);
 
   return (
@@ -927,7 +946,7 @@ export default function ChatBot({
           );
 
           return (
-            <div key={turn.id} className="space-y-3.5">
+            <div key={turn.id} data-turn-id={turn.id} className="space-y-3.5">
               {/* User Question Message Bubble */}
               <ChatMessageBubble
                 lastQuestion={turn.question}
