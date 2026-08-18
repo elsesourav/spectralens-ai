@@ -2035,7 +2035,7 @@
 
     findInput() {
       return document.querySelector(
-        '#ask-input, div[data-lexical-editor="true"], textarea[placeholder*="Ask" i], textarea[placeholder*="follow-up" i]',
+        'textarea[placeholder*="Ask" i], textarea[placeholder*="follow-up" i], textarea[placeholder*="anything" i], textarea[placeholder*="search" i], div[data-lexical-editor="true"], #ask-input, textarea.overflow-hidden, div[role="textbox"]',
       );
     }
 
@@ -2137,7 +2137,7 @@
 
     findSendButton() {
       return document.querySelector(
-        'button[aria-label="Submit" i], button[aria-label*="Search" i], button.reset.interactable',
+        'button[aria-label="Submit" i], button[aria-label*="Submit" i], button[aria-label*="Search" i], button[aria-label*="Send" i], button[data-testid="submit-button"], button.bg-super, button:has(svg.lucide-arrow-right), button.reset.interactable',
       );
     }
 
@@ -2194,7 +2194,7 @@
 
     findResponseContainer() {
       const proseContainers = document.querySelectorAll(
-        "div.prose, #markdown-content-0, div[dir='auto'].prose, div[data-testid='answer-content']",
+        "div[dir='auto'].prose, div.prose, div[data-testid='answer-content'], #markdown-content-0, div[id^='markdown-content'], div.default.font-sans, div.col-start-1.min-w-0, div.answer-content",
       );
       if (proseContainers.length > 0) {
         for (let i = proseContainers.length - 1; i >= 0; i--) {
@@ -2206,7 +2206,7 @@
         }
         return proseContainers[proseContainers.length - 1];
       }
-      return document.querySelector("#markdown-content-0, div.prose");
+      return document.querySelector("div.prose, #markdown-content-0, div[dir='auto']");
     }
 
     getJunkSelectors() {
@@ -2221,14 +2221,19 @@
       ];
     }
 
-    observeResponse(timeoutMs = 25000, previousContent = "") {
+    observeResponse(timeoutMs = 35000, previousContent = "") {
       return new Promise(async (resolve) => {
         const startTime = Date.now();
         let lastTextLength = 0;
         let idleCount = 0;
+        let hasSeenStreaming = false;
 
         const checkInterval = setInterval(async () => {
           const isStreamingNow = this.isStreaming();
+          if (isStreamingNow) {
+            hasSeenStreaming = true;
+          }
+
           const container = this.findResponseContainer();
           if (container) {
             const currentContent = (container.textContent || "").trim();
@@ -2239,11 +2244,11 @@
             }
 
             if (currentLength > 20) {
-              const isFinished = !isStreamingNow || idleCount >= 3;
+              const isFinished = !isStreamingNow && (hasSeenStreaming ? idleCount >= 2 : idleCount >= 4);
 
               if (currentLength === lastTextLength) {
                 idleCount++;
-                if (isFinished || idleCount >= 4) {
+                if (isFinished || idleCount >= 5) {
                   clearInterval(checkInterval);
                   const md = await this.getCurrentResponse();
                   resolve(md);
@@ -2272,13 +2277,12 @@
     }
 
     isStreaming() {
-      const submitBtn = this.findSendButton();
-      const hasSpinner = Boolean(document.querySelector("svg.animate-spin"));
       return Boolean(
-        hasSpinner ||
-        (submitBtn &&
-          (submitBtn.disabled ||
-            submitBtn.getAttribute("aria-disabled") === "true")),
+        document.querySelector('button[aria-label*="Stop" i]') ||
+        document.querySelector('button[data-testid="stop-button"]') ||
+        document.querySelector("svg.animate-spin") ||
+        document.querySelector('div[data-testid="loading-indicator"]') ||
+        document.querySelector("div.animate-pulse"),
       );
     }
 
