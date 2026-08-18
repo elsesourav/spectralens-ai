@@ -1,15 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FiX } from "react-icons/fi";
 import appIconUrl from "../assets/icons/128.png";
 import ChatBot from "../components/ChatBot.jsx";
 import Controls from "../components/Controls.jsx";
 import HistoryView from "../components/HistoryView.jsx";
-import {
-  ChatIcon,
-  DragHandleIcon,
-  ElementSelectorIcon,
-} from "../components/Icons.jsx";
 import Sidebar from "../components/Sidebar.jsx";
+import FloatingPillLauncher from "../features/launcher/FloatingPillLauncher.jsx";
+import WindowHeader from "../features/launcher/WindowHeader.jsx";
 import { useTheme } from "../hooks/useThemeHook.jsx";
 import ES from "./../utils/utilsModule.js";
 
@@ -461,90 +457,18 @@ export default function Menu() {
         {/* ======================================================== */}
         {/* Minimized Pill Mode (Pixel-perfect matching UX design)   */}
         {/* ======================================================== */}
-        <div
-          className={`relative w-full h-full px-2.5 py-1.5 items-center justify-between select-none overflow-visible rounded-[24px] ${
-            isChatOpen ? "hidden" : "flex"
-          }`}
-        >
-          {/* Subtle Ambient right-side glow */}
-          <div className="absolute right-0 top-0 bottom-0 w-1/2 bg-gradient-to-r from-transparent via-[#8b5cf6]/10 dark:via-[#8b5cf6]/15 to-[#3b82f6]/15 dark:to-[#3b82f6]/20 rounded-r-[24px] pointer-events-none" />
-
-          {/* 1. LEFT: Brand Identity (SpectraLens Logo) */}
-          <div
-            className="flex items-center justify-center shrink-0 select-none pointer-events-none"
-            title="SpectraLens AI"
-          >
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500/20 via-indigo-500/20 to-purple-500/20 ring-1.5 ring-blue-400/40 dark:ring-blue-400/50 flex items-center justify-center shadow-xs">
-              {appIconUrl ? (
-                <img
-                  src={appIconUrl}
-                  alt="SpectraLens AI"
-                  className="w-5 h-5 rounded-md object-contain pointer-events-none"
-                />
-              ) : (
-                <div className="w-4 h-4 rounded-full bg-blue-600" />
-              )}
-            </div>
-          </div>
-
-          {/* Hairline Separator 1 */}
-          <div className="w-[1px] h-4 bg-slate-300/40 dark:bg-white/10 shrink-0 pointer-events-none" />
-
-          {/* 2. MIDDLE: Dedicated Drag Handle (6 Dots) */}
-          <div className="relative flex items-center justify-center">
-            <div
-              ref={dragRef}
-              onMouseEnter={() => setDragHover(true)}
-              onMouseLeave={() => setDragHover(false)}
-              onPointerDown={dismissOnboarding}
-              role="button"
-              tabIndex={-1}
-              title="Drag to move"
-              aria-label="Drag SpectraLens AI widget"
-              className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-150 select-none ${
-                isDraggingWidget
-                  ? "cursor-grabbing bg-emerald-500/25 ring-1 ring-emerald-500/60 text-emerald-400 scale-95"
-                  : dragHover
-                    ? "cursor-grab bg-emerald-500/10 dark:bg-emerald-500/15 ring-1 ring-emerald-500/30 text-emerald-500 dark:text-emerald-400 shadow-xs"
-                    : "cursor-grab text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
-              }`}
-            >
-              <DragHandleIcon
-                className="w-4 h-4 transition-colors"
-                size={16}
-              />
-            </div>
-          </div>
-
-          {/* Hairline Separator 2 */}
-          <div className="w-[1px] h-4 bg-slate-300/40 dark:bg-white/10 shrink-0 pointer-events-none" />
-
-          {/* 3. RIGHT: Primary Chat Button (💬) */}
-          <div className="relative flex items-center justify-center">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                dismissOnboarding();
-                toggleChat();
-              }}
-              onMouseEnter={() => setChatHover(true)}
-              onMouseLeave={() => setChatHover(false)}
-              title="Open SpectraLens AI"
-              aria-label="Open SpectraLens AI"
-              className={`w-8 h-8 rounded-full flex items-center justify-center p-1 border transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-purple-400/70 cursor-pointer ${
-                chatHover
-                  ? "bg-gradient-to-tr from-purple-600/30 to-blue-600/30 border-purple-400/60 ring-2 ring-purple-400/40 text-white scale-[1.03] shadow-md shadow-purple-500/20"
-                  : "bg-white/40 dark:bg-white/10 border-slate-300/80 dark:border-white/20 text-slate-800 dark:text-white active:scale-[0.97]"
-              }`}
-            >
-              <ChatIcon
-                className="w-4 h-4 text-slate-800 dark:text-white"
-                size={16}
-              />
-            </button>
-          </div>
-        </div>
+        <FloatingPillLauncher
+          appIconUrl={appIconUrl}
+          isChatOpen={isChatOpen}
+          dragRef={dragRef}
+          isDraggingWidget={isDraggingWidget}
+          dragHover={dragHover}
+          setDragHover={setDragHover}
+          chatHover={chatHover}
+          setChatHover={setChatHover}
+          onDismissOnboarding={dismissOnboarding}
+          onToggleChat={toggleChat}
+        />
 
         {/* ======================================================== */}
         {/* Expanded Multi-AI Window Mode                           */}
@@ -555,55 +479,17 @@ export default function Menu() {
             isChatOpen ? "flex" : "hidden"
           }`}
         >
-            {/* Ambient background glow header aura */}
-            <div className="absolute top-0 left-0 right-0 h-28 bg-gradient-to-b from-blue-600/10 via-purple-600/5 to-transparent pointer-events-none z-0" />
+          {/* Ambient background glow header aura */}
+          <div className="absolute top-0 left-0 right-0 h-28 bg-gradient-to-b from-blue-600/10 via-purple-600/5 to-transparent pointer-events-none z-0" />
 
-            {/* Window Header */}
-            <header
-              ref={headerRef}
-              className="relative flex items-center justify-between px-3.5 py-2.5 border-b border-slate-200/50 dark:border-white/[0.06] shrink-0 z-10 select-none cursor-grab active:cursor-grabbing"
-              title="Drag to reposition window"
-            >
-              {/* Left Brand Badge */}
-              <div className="flex items-center gap-2 pointer-events-none">
-                <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-blue-600/20 to-purple-600/20 border border-blue-500/30 flex items-center justify-center shadow-xs relative">
-                  {appIconUrl ? (
-                    <img
-                      src={appIconUrl}
-                      alt="Logo"
-                      className="size-5 object-contain pointer-events-none"
-                    />
-                  ) : (
-                    <div className="w-3.5 h-3.5 rounded-full bg-blue-600" />
-                  )}
-                  {isAlwaysActive && (
-                    <span
-                      className="absolute -bottom-0.5 -right-0.5 size-2 bg-emerald-500 rounded-full ring-1.5 ring-white dark:ring-[#14161e] shadow-xs"
-                      title="Always Active Tab: Active on this page"
-                    />
-                  )}
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-xs font-bold tracking-tight text-slate-900 dark:text-white leading-none">
-                    SpectraLens AI
-                  </span>
-                  <span className="text-[10px] font-medium text-slate-600 dark:text-slate-300 capitalize leading-tight mt-0.5">
-                    {activeTab}
-                  </span>
-                </div>
-              </div>
-
-              {/* Right Controls - Only Close button */}
-              <div className="flex items-center">
-                <button
-                  onClick={toggleChat}
-                  title="Minimize window"
-                  className="p-1 rounded-lg text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-white/10 transition-colors focus:outline-none cursor-pointer"
-                >
-                  <FiX className="w-4 h-4" />
-                </button>
-              </div>
-            </header>
+          {/* Window Header */}
+          <WindowHeader
+            headerRef={headerRef}
+            appIconUrl={appIconUrl}
+            activeTab={activeTab}
+            isAlwaysActive={isAlwaysActive}
+            onToggleChat={toggleChat}
+          />
 
             {/* Main Window Body (Sidebar + Content View) */}
             <div className="flex-1 flex overflow-hidden relative">

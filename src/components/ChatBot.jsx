@@ -1,20 +1,12 @@
 /* global chrome */
 import PropTypes from "prop-types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  IoCheckmark,
-  IoClose,
-  IoCopyOutline,
-  IoSquare,
-} from "react-icons/io5";
+import ChatAiResponseCard from "../features/chat/ChatAiResponseCard.jsx";
+import ChatMessageBubble from "../features/chat/ChatMessageBubble.jsx";
+import ChatModelTabs from "../features/chat/ChatModelTabs.jsx";
+import ChatPromptInput from "../features/chat/ChatPromptInput.jsx";
 import { useTheme } from "../hooks/useThemeHook.jsx";
 import UTILS from "./../utils/utilsModule.js";
-import {
-  ElementSelectorIcon,
-  ProviderIcon,
-  SendPlaneIcon,
-  ThreeDotsIcon,
-} from "./Icons.jsx";
 
 const MENTION_OPTIONS = [
   {
@@ -828,129 +820,20 @@ export default function ChatBot({
       ref={rootRef}
       className="flex flex-col h-full w-full overflow-hidden text-slate-800 dark:text-slate-200"
     >
-      {/* Provider Pill Bar */}
-      <div className="flex items-center justify-between gap-1.5 px-3.5 py-2 border-b border-slate-200/50 dark:border-white/[0.06] bg-slate-50/50 dark:bg-black/10 shrink-0">
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar flex-1 py-0.5">
-          {primaryProviderTabs.map((provider) => {
-            const isSelected =
-              hasAnyActivity && selectedProvider === provider.id;
-            const pAns = answers[provider.id];
-            const hasAnswer = Boolean(
-              pAns?.content ||
-              pAns?.answer ||
-              (typeof pAns === "string" && pAns),
-            );
-            const hasUnreadAnswer =
-              hasAnswer &&
-              !viewedProviders.has(provider.id) &&
-              !isSelected;
-
-            return (
-              <button
-                key={provider.id}
-                onClick={() => hasAnyActivity && handleSelectProvider(provider.id)}
-                disabled={!hasAnyActivity}
-                className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border shrink-0 focus:outline-none ${
-                  !hasAnyActivity
-                    ? "opacity-50 cursor-default"
-                    : "cursor-pointer"
-                } ${
-                  isSelected
-                    ? "bg-blue-600 text-white border-blue-500 shadow-xs scale-100"
-                    : contrastMode === "solid"
-                      ? "bg-slate-200/80 dark:bg-white/[0.06] text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10 border-slate-200 dark:border-white/[0.06]"
-                      : "bg-white/40 dark:bg-white/[0.05] text-slate-800 dark:text-slate-200 hover:bg-white/60 dark:hover:bg-white/10 border-slate-200/40 dark:border-white/[0.06]"
-                }`}
-              >
-                <ProviderIcon
-                  id={provider.id}
-                  className="w-3.5 h-3.5 shrink-0"
-                  size={14}
-                />
-                <span>{provider.name}</span>
-
-                {hasUnreadAnswer && (
-                  <span
-                    className="w-2 h-2 rounded-full bg-emerald-500 shadow-xs shadow-emerald-500/50 shrink-0 animate-pulse"
-                    title="New response ready"
-                  />
-                )}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Overflow 3-dots Menu for 4+ providers */}
-        {overflowProviderTabs.length > 0 && (
-          <div className="relative shrink-0" ref={moreMenuRef}>
-            <button
-              onClick={() => hasAnyActivity && setIsMoreMenuOpen((v) => !v)}
-              disabled={!hasAnyActivity}
-              title="More AI Models"
-              className={`p-2 rounded-xl transition-all border focus:outline-none ${
-                !hasAnyActivity ? "opacity-50 cursor-default" : "cursor-pointer"
-              } ${
-                isMoreMenuOpen
-                  ? "bg-blue-600 text-white border-blue-500 shadow-xs"
-                  : contrastMode === "solid"
-                    ? "bg-slate-200/80 dark:bg-white/[0.06] text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10 border-slate-200 dark:border-white/[0.06]"
-                    : "bg-white/40 dark:bg-white/[0.05] text-slate-800 dark:text-slate-200 hover:bg-white/60 dark:hover:bg-white/10 border-slate-200/40 dark:border-white/[0.06]"
-              }`}
-            >
-              <ThreeDotsIcon className="w-4 h-4" size={16} />
-            </button>
-
-            {isMoreMenuOpen && (
-              <div className="absolute right-0 top-full mt-1.5 w-44 rounded-xl bg-white dark:bg-[#1a1d26] border border-slate-200 dark:border-white/10 shadow-xl py-1 z-30 animate-fade-in">
-                {overflowProviderTabs.map((provider) => {
-                  const isOverflowSelected =
-                    hasAnyActivity && selectedProvider === provider.id;
-                  const pAns = answers[provider.id];
-                  const hasOverflowAnswer = Boolean(
-                    pAns?.content ||
-                    pAns?.answer ||
-                    (typeof pAns === "string" && pAns),
-                  );
-                  const hasUnreadOverflow =
-                    hasOverflowAnswer &&
-                    !viewedProviders.has(provider.id) &&
-                    !isOverflowSelected;
-
-                  return (
-                    <button
-                      key={provider.id}
-                      onClick={() => {
-                        handleSelectProvider(provider.id);
-                        setIsMoreMenuOpen(false);
-                      }}
-                      className={`w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-left transition-colors focus:outline-none cursor-pointer ${
-                        isOverflowSelected
-                          ? "bg-blue-600/15 text-blue-600 dark:text-blue-400 font-bold"
-                          : "text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <ProviderIcon
-                          id={provider.id}
-                          className="w-4 h-4 shrink-0"
-                          size={16}
-                        />
-                        <span className="truncate">{provider.name}</span>
-                      </div>
-                      {hasUnreadOverflow && (
-                        <span
-                          className="w-2 h-2 rounded-full bg-emerald-500 shadow-xs shadow-emerald-500/50 shrink-0 animate-pulse"
-                          title="New response ready"
-                        />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+      {/* Top Model Tabs & Overflow Switcher */}
+      <ChatModelTabs
+        primaryProviderTabs={primaryProviderTabs}
+        overflowProviderTabs={overflowProviderTabs}
+        selectedProvider={selectedProvider}
+        viewedProviders={viewedProviders}
+        answers={answers}
+        hasAnyActivity={hasAnyActivity}
+        contrastMode={contrastMode}
+        isMoreMenuOpen={isMoreMenuOpen}
+        setIsMoreMenuOpen={setIsMoreMenuOpen}
+        onSelectProvider={handleSelectProvider}
+        moreMenuRef={moreMenuRef}
+      />
 
       {/* Main Messages Scroll Area */}
       <div
@@ -982,377 +865,53 @@ export default function ChatBot({
           </div>
         )}
 
-        {/* User Message Bubble */}
-        {lastQuestion && (
-          <div className="flex flex-col items-end gap-1 animate-fade-in group">
-            <div className="user-message-bubble relative max-w-[85%] px-3.5 py-2.5 rounded-2xl rounded-tr-xs bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs select-text">
-              {/* Attached Screen / Top Section Preview Thumbnail inside Message Bubble */}
-              {lastQuestionImage && (
-                <div className="mb-2 rounded-xl overflow-hidden border border-white/20 shadow-xs max-h-36 bg-black/20">
-                  <img
-                    src={lastQuestionImage}
-                    alt="Attached page preview"
-                    className="w-full h-auto max-h-36 object-contain cursor-pointer hover:opacity-95 transition-opacity"
-                    onClick={() => {
-                      try {
-                        const win = window.open();
-                        win?.document.write(
-                          `<html style="background:#0b0d13;display:flex;align-items:center;justify-content:center;height:100%;"><body style="margin:0;"><img src="${lastQuestionImage}" style="max-width:95vw;max-height:95vh;border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,0.5);" /></body></html>`,
-                        );
-                      } catch {}
-                    }}
-                    title="Click to view full screenshot"
-                  />
-                </div>
-              )}
-
-              {/* Sleek Attached Page Context Card inside Message Bubble */}
-              {lastQuestionPage && (
-                <div className="flex items-center gap-2.5 mb-2 px-3 py-1.5 rounded-xl bg-white/15 border border-white/20 text-white select-none backdrop-blur-xs">
-                  {lastQuestionPage.favicon ? (
-                    <img
-                      src={lastQuestionPage.favicon}
-                      alt=""
-                      className="w-4 h-4 rounded-xs shrink-0 object-contain bg-white/20 p-0.5"
-                      onError={(e) => {
-                        e.target.style.display = "none";
-                      }}
-                    />
-                  ) : (
-                    <span className="text-sm shrink-0">📄</span>
-                  )}
-                  <div className="flex flex-col min-w-0 flex-1">
-                    <span className="text-[11px] font-semibold truncate leading-tight">
-                      {lastQuestionPage.title || "Web Page"}
-                    </span>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className="text-[9px] text-blue-100/90 font-medium truncate">
-                        {lastQuestionPage.hostname || "Page Link"}
-                      </span>
-                      <span className="text-[9px] text-blue-200/50">•</span>
-                      <span className="text-[9px] text-blue-200/80">
-                        {lastQuestionPage.wordCount || 0} words
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <p
-                className="text-xs leading-relaxed font-normal whitespace-pre-wrap break-words max-h-[7.2em] overflow-y-auto custom-scrollbar pr-1 select-text cursor-text"
-                title={lastQuestion}
-              >
-                {lastQuestion}
-              </p>
-              <div className="flex items-center justify-between gap-4 mt-2 pt-1.5 border-t border-white/15 text-[10px] text-blue-100 font-medium select-none">
-                {/* Copy User Question Button */}
-                <button
-                  type="button"
-                  onClick={handleCopyUserQuestion}
-                  className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white/15 hover:bg-white/25 active:scale-95 transition-all text-white cursor-pointer focus:outline-none"
-                  title="Copy sent message"
-                >
-                  {isUserCopied ? (
-                    <>
-                      <IoCheckmark className="w-3 h-3 text-emerald-300" />
-                      <span className="text-emerald-200 text-[10px] font-semibold">Copied</span>
-                    </>
-                  ) : (
-                    <>
-                      <IoCopyOutline className="w-3 h-3 text-blue-100" />
-                      <span>Copy</span>
-                    </>
-                  )}
-                </button>
-                <span>{messageTime || getFormattedTimeBadge()}</span>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* User Question Message Bubble */}
+        <ChatMessageBubble
+          lastQuestion={lastQuestion}
+          lastQuestionImage={lastQuestionImage}
+          lastQuestionPage={lastQuestionPage}
+          messageTime={messageTime || getFormattedTimeBadge()}
+          isUserCopied={isUserCopied}
+          onCopyUserQuestion={handleCopyUserQuestion}
+        />
 
         {/* AI Response Card */}
-        {(activeAiResponseContent || (isLoading && !activeAiResponseContent)) && (
-          <div className="flex flex-col gap-2 animate-fade-in">
-            <div
-              className={`p-4 rounded-2xl border shadow-xs space-y-3 ${
-                contrastMode === "solid"
-                  ? "bg-white dark:bg-[#181920] border-slate-200/90 dark:border-white/[0.08]"
-                  : contrastMode === "medium"
-                    ? "bg-white/70 dark:bg-[#181920]/70 backdrop-blur-md border-slate-200/60 dark:border-white/[0.07]"
-                    : "bg-white/30 dark:bg-white/[0.05] backdrop-blur-sm border-slate-200/30 dark:border-white/[0.05]"
-              }`}
-            >
-              {/* Provider Header Badge & Copy Button */}
-              <div className="flex items-center justify-between pb-1.5 border-b border-slate-100 dark:border-white/[0.04]">
-                <div className="flex items-center gap-2">
-                  <ProviderIcon
-                    id={activeAiProviderMetadata.id}
-                    className="w-4 h-4 shrink-0"
-                    size={18}
-                  />
-                  <span className="text-xs font-bold text-slate-900 dark:text-white">
-                    {activeAiProviderMetadata.name}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {isLoading && !activeAiResponseContent && (
-                    <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold animate-pulse">
-                      Generating answer...
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Response Content Body */}
-              {activeAiResponseContent ? (
-                <div
-                  className="spectralens-response-wrapper text-slate-900 dark:text-slate-100 overflow-x-auto leading-relaxed font-normal select-text cursor-text"
-                  dangerouslySetInnerHTML={{
-                    __html: UTILS.sanitizeHtml(
-                      typeof UTILS.markdownToHtml === "function"
-                        ? UTILS.markdownToHtml(activeAiResponseContent)
-                        : activeAiResponseContent,
-                    ),
-                  }}
-                />
-              ) : (
-                /* Skeleton Loading Dots */
-                <div className="flex items-center gap-2 py-3">
-                  <div
-                    className="w-2 h-2 rounded-full bg-blue-500 animate-bounce"
-                    style={{ animationDelay: "0ms" }}
-                  />
-                  <div
-                    className="w-2 h-2 rounded-full bg-blue-500 animate-bounce"
-                    style={{ animationDelay: "150ms" }}
-                  />
-                  <div
-                    className="w-2 h-2 rounded-full bg-blue-500 animate-bounce"
-                    style={{ animationDelay: "300ms" }}
-                  />
-                </div>
-              )}
-
-              {/* Footer with Timestamp and Action */}
-              {activeAiResponseContent && (
-                <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-white/[0.04] text-[10px] text-slate-500 dark:text-slate-400 font-medium">
-                  <button
-                    type="button"
-                    onClick={handleCopyAiResponse}
-                    className="flex items-center gap-1.5 px-2 py-0.5 rounded-md hover:bg-slate-100 dark:hover:bg-white/[0.08] hover:text-blue-600 dark:hover:text-blue-400 transition-all cursor-pointer focus:outline-none"
-                    title="Copy answer"
-                  >
-                    {copiedProviderId === selectedProvider ? (
-                      <>
-                        <IoCheckmark className="w-3.5 h-3.5 text-emerald-500" />
-                        <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
-                          Copied
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <IoCopyOutline className="w-3.5 h-3.5" />
-                        <span>Copy</span>
-                      </>
-                    )}
-                  </button>
-                  <span>{messageTime || getFormattedTimeBadge()}</span>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+        <ChatAiResponseCard
+          activeAiResponseContent={activeAiResponseContent}
+          isLoading={isLoading}
+          activeAiProviderMetadata={activeAiProviderMetadata}
+          copiedProviderId={copiedProviderId}
+          selectedProvider={selectedProvider}
+          messageTime={messageTime || getFormattedTimeBadge()}
+          contrastMode={contrastMode}
+          onCopyAiResponse={handleCopyAiResponse}
+        />
       </div>
 
       {/* Bottom Input Dock Bar */}
-      <div
-        className={`p-2.5 border-t shrink-0 relative ${
-          contrastMode === "solid"
-            ? "bg-slate-100 dark:bg-[#14161e] border-slate-200/90 dark:border-white/[0.08]"
-            : "bg-transparent border-slate-200/50 dark:border-white/[0.06]"
-        }`}
-      >
-        {/* Floating '@' Mention Autocomplete Popover */}
-        {showMentionMenu && filteredMentionOptions.length > 0 && (
-          <div
-            ref={mentionMenuRef}
-            className="absolute bottom-full left-3 right-3 mb-2 bg-white/95 dark:bg-[#181b24]/95 backdrop-blur-xl border border-slate-200/90 dark:border-white/[0.12] rounded-2xl shadow-xl overflow-hidden z-50 p-1.5 animate-in slide-in-from-bottom-2 duration-150"
-          >
-            <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-              Attach Context
-            </div>
-            <div className="flex flex-col gap-0.5">
-              {filteredMentionOptions.map((opt, idx) => (
-                <button
-                  key={opt.id}
-                  onClick={() => handleSelectMention(opt)}
-                  className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-left transition-all cursor-pointer ${
-                    idx === mentionSelectedIndex
-                      ? "bg-blue-50 dark:bg-blue-500/15 text-blue-600 dark:text-blue-400 font-medium"
-                      : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.06]"
-                  }`}
-                >
-                  <span className="text-sm">{opt.icon}</span>
-                  <div className="flex flex-col flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-semibold">{opt.cmd}</span>
-                      <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-slate-200/60 dark:bg-white/10 text-slate-600 dark:text-slate-300 font-medium">
-                        {opt.badge}
-                      </span>
-                    </div>
-                    <span className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
-                      {opt.desc}
-                    </span>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Attached Screen Thumbnail Chip */}
-        {attachedImage && (
-          <div className="flex items-center gap-2 px-3 py-1.5 mb-2 bg-white dark:bg-[#191c25] border border-blue-500/30 dark:border-blue-500/25 rounded-xl shadow-xs animate-in fade-in duration-200">
-            <div className="relative w-8 h-6 rounded overflow-hidden border border-slate-300 dark:border-white/10 shrink-0 bg-slate-200 dark:bg-black/30">
-              <img src={attachedImage} alt="Screen attachment" className="w-full h-full object-cover" />
-            </div>
-            <div className="flex flex-col min-w-0 flex-1">
-              <span className="text-[11px] font-semibold text-slate-800 dark:text-slate-200 truncate">
-                Screen Attached
-              </span>
-              <span className="text-[9px] text-slate-400 dark:text-slate-500">
-                Visual image will be sent to AI
-              </span>
-            </div>
-            <button
-              onClick={() => {
-                setAttachedImage(null);
-                setAttachedContextType(null);
-              }}
-              className="w-5 h-5 rounded-full flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
-              title="Remove attachment"
-            >
-              <IoClose className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        )}
-
-        {/* Attached Page Text & Screenshot Context Chip */}
-        {attachedPage && (
-          <div className="flex items-center gap-2.5 px-3 py-1.5 mb-2 bg-white dark:bg-[#191c25] border border-blue-500/30 dark:border-blue-500/25 rounded-xl shadow-xs animate-in fade-in duration-200">
-            {attachedPage.image ? (
-              <div className="relative w-10 h-7 rounded overflow-hidden border border-slate-300 dark:border-white/10 shrink-0 bg-slate-200 dark:bg-black/30">
-                <img src={attachedPage.image} alt="Page screenshot" className="w-full h-full object-cover" />
-              </div>
-            ) : attachedPage.favicon ? (
-              <img src={attachedPage.favicon} alt="" className="w-5 h-5 rounded-xs shrink-0 object-contain" />
-            ) : (
-              <div className="w-8 h-7 rounded-lg bg-blue-50 dark:bg-blue-500/15 border border-blue-500/20 flex items-center justify-center shrink-0 text-sm">
-                📄
-              </div>
-            )}
-            <div className="flex flex-col min-w-0 flex-1">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] font-semibold text-slate-800 dark:text-slate-200 truncate">
-                  {attachedPage.title}
-                </span>
-                <span className="text-[9px] px-1.5 py-0.2 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold shrink-0">
-                  {attachedPage.wordCount} words
-                </span>
-              </div>
-              <span className="text-[9px] text-slate-400 dark:text-slate-500 truncate">
-                {attachedPage.hostname || "Page link & screenshot attached"}
-              </span>
-            </div>
-            <button
-              onClick={() => {
-                setAttachedPage(null);
-                setAttachedContextType(null);
-              }}
-              className="w-5 h-5 rounded-full flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
-              title="Remove page context"
-            >
-              <IoClose className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        )}
-
-        <div
-          className={`relative flex ${
-            isMultiLineInput ? "items-end py-2" : "items-center py-1.5"
-          } w-full pl-3 pr-2 min-h-[44px] rounded-2xl border focus-within:border-blue-500 dark:focus-within:border-blue-500/80 focus-within:ring-1 focus-within:ring-blue-500/50 shadow-xs transition-all ${
-            contrastMode === "solid"
-              ? "bg-white dark:bg-[#191c25] border-slate-200/90 dark:border-white/[0.09]"
-              : contrastMode === "medium"
-                ? "bg-white/70 dark:bg-[#191c25]/70 backdrop-blur-md border-slate-200/60 dark:border-white/[0.08]"
-                : "bg-white/30 dark:bg-white/[0.06] backdrop-blur-sm border-slate-200/30 dark:border-white/[0.05]"
-          }`}
-        >
-          <textarea
-            ref={textareaRef}
-            rows={1}
-            value={input}
-            onChange={handleInputChange}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask anything... (type @ for screen)"
-            className="flex-1 bg-transparent text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 border-0 outline-none pr-1 resize-none custom-scrollbar leading-[20px] py-0 my-auto"
-            style={{ minHeight: "20px", maxHeight: "120px", height: "20px" }}
-          />
-
-          {input && (
-            <button
-              onClick={() => setInput("")}
-              className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors focus:outline-none cursor-pointer mr-1 shrink-0"
-              title="Clear text"
-            >
-              <IoClose className="w-3.5 h-3.5" />
-            </button>
-          )}
-
-          {/* Clean Vertical Divider */}
-          <div className="w-[1px] h-5 bg-slate-200 dark:bg-white/10 mx-1.5 shrink-0" />
-
-          {/* Action Buttons: Element Selector Shortcut & Send (Stacked vertically when 3+ lines for extra text width) */}
-          <div
-            className={`flex ${
-              isMultiLineInput ? "flex-col items-center gap-1.5 justify-end" : "flex-row items-center gap-1"
-            } shrink-0 transition-all duration-200`}
-          >
-            <button
-              onClick={onOpenSelector}
-              title="Inspect & Select Page Element"
-              className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-all focus:outline-none cursor-pointer"
-            >
-              <ElementSelectorIcon className="w-4 h-4" size={16} />
-            </button>
-
-            {/* Send / Stop Button */}
-            {isLoading ? (
-              <button
-                onClick={handleStopFetch}
-                title="Stop Fetching"
-                className="w-7 h-7 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white flex items-center justify-center shadow-xs transition-all focus:outline-none cursor-pointer"
-              >
-                <IoSquare className="w-3 h-3 text-white fill-current animate-pulse" />
-              </button>
-            ) : (
-              <button
-                onClick={() => handleSendMessage()}
-                disabled={input.trim() === "" && !attachedImage}
-                title="Send Prompt"
-                className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all focus:outline-none ${
-                  input.trim() === "" && !attachedImage
-                    ? "bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-slate-500 cursor-not-allowed"
-                    : "bg-blue-600 hover:bg-blue-700 active:scale-95 text-white shadow-xs cursor-pointer"
-                }`}
-              >
-                <SendPlaneIcon className="w-3.5 h-3.5" size={14} />
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
+      <ChatPromptInput
+        input={input}
+        setInput={setInput}
+        isLoading={isLoading}
+        attachedImage={attachedImage}
+        setAttachedImage={setAttachedImage}
+        attachedPage={attachedPage}
+        setAttachedPage={setAttachedPage}
+        setAttachedContextType={setAttachedContextType}
+        showMentionMenu={showMentionMenu}
+        filteredMentionOptions={filteredMentionOptions}
+        mentionSelectedIndex={mentionSelectedIndex}
+        mentionMenuRef={mentionMenuRef}
+        textareaRef={textareaRef}
+        isMultiLineInput={isMultiLineInput}
+        contrastMode={contrastMode}
+        onKeyDown={handleKeyDown}
+        onChangeInput={handleInputChange}
+        onSelectMention={handleSelectMention}
+        onOpenSelector={onOpenSelector}
+        onStopFetching={handleStopFetch}
+        onSendMessage={handleSendMessage}
+      />
     </div>
   );
 }
