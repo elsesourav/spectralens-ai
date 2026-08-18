@@ -898,6 +898,22 @@ try {
         }
       });
   }
+  // Close AI worker window and sessions whenever host page reloads or unloads (skip on AI provider pages)
+  const isAiProviderDomain = /google\.com|chatgpt\.com|claude\.ai|gemini\.google\.com|perplexity\.ai|grok\.com|bing\.com/i.test(
+    window.location.hostname,
+  );
+  if (!isAiProviderDomain) {
+    window.addEventListener("beforeunload", () => {
+      try {
+        runtimeSendMessage("IF_B_PAGE_RELOADED");
+      } catch {}
+    });
+    window.addEventListener("pagehide", () => {
+      try {
+        runtimeSendMessage("IF_B_PAGE_RELOADED");
+      } catch {}
+    });
+  }
 } catch {
   // ignore
 }

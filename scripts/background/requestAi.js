@@ -71,7 +71,7 @@ async function openOrReuseProviderTab(providerId, url) {
     }
   }
 
-  // 3. No worker window exists yet: create window directly with url (NO extra blank tab!)
+  // 3. No worker window exists yet: create compact popup window directly with url (NO extra blank tab!)
   return new Promise((resolve) => {
     if (typeof chrome === "undefined" || !chrome.windows?.create) {
       chrome.tabs.create({ url, active: false }, (tab) => {
@@ -80,78 +80,44 @@ async function openOrReuseProviderTab(providerId, url) {
       return;
     }
 
-    // Strategy 1: Minimized normal window created directly with the AI provider's URL
+    // Create worker window (width: 500px, height: max)
+    const maxHeight = typeof screen !== "undefined" && screen.availHeight ? screen.availHeight : 950;
     chrome.windows.create(
       {
         url,
         focused: false,
-        state: "minimized",
+        type: "popup",
+        width: 500,
+        height: maxHeight,
       },
-      (win1) => {
-        if (!chrome.runtime?.lastError && win1 && win1.id) {
-          workerWindowId = win1.id;
+      (win) => {
+        if (!chrome.runtime?.lastError && win && win.id) {
+          workerWindowId = win.id;
           console.log(
-            `%c[SpectraLens:Pipeline] 🪟 Created Minimized Worker Window #${workerWindowId} directly with "${providerId}" URL`,
+            `%c[SpectraLens:Pipeline] 🪟 Created Worker Window #${workerWindowId} (width: 500px, height: ${maxHeight}px) directly with "${providerId}" URL`,
             "color: #8b5cf6; font-weight: bold;",
           );
-          const tab = win1.tabs?.[0] || null;
+          const tab = win.tabs?.[0] || null;
           if (tab) {
             resolve({ tab, isReused: false });
             return;
           }
-          chrome.tabs.query({ windowId: win1.id }, (tabs) => {
+          chrome.tabs.query({ windowId: win.id }, (tabs) => {
             resolve({ tab: tabs?.[0] || null, isReused: false });
           });
           return;
         }
 
         console.warn(
-          "[SpectraLens:Pipeline] Strategy 1 (minimized) failed:",
+          "[SpectraLens:Pipeline] Popup window creation failed, fallback to normal window:",
           chrome.runtime?.lastError?.message,
-          "- trying Strategy 2 (off-screen popup)...",
         );
 
-        // Strategy 2: Off-screen popup window created directly with the AI provider's URL
-        chrome.windows.create(
-          {
-            url,
-            focused: false,
-            left: 25000,
-            top: 25000,
-            width: 320,
-            height: 240,
-            type: "popup",
-          },
-          (win2) => {
-            if (!chrome.runtime?.lastError && win2 && win2.id) {
-              workerWindowId = win2.id;
-              console.log(
-                `%c[SpectraLens:Pipeline] 🪟 Created Off-screen Worker Window #${workerWindowId} directly with "${providerId}" URL`,
-                "color: #8b5cf6; font-weight: bold;",
-              );
-              const tab = win2.tabs?.[0] || null;
-              if (tab) {
-                resolve({ tab, isReused: false });
-                return;
-              }
-              chrome.tabs.query({ windowId: win2.id }, (tabs) => {
-                resolve({ tab: tabs?.[0] || null, isReused: false });
-              });
-              return;
-            }
-
-            console.warn(
-              "[SpectraLens:Pipeline] Strategy 2 (offscreen) failed:",
-              chrome.runtime?.lastError?.message,
-              "- fallback to regular tab creation...",
-            );
-
-            // Fallback: standard tab in current window
-            chrome.tabs.create({ url, active: false }, (tab3) => {
-              resolve({ tab: tab3 || null, isReused: false });
-            });
-          },
-        );
+        // Fallback: normal window
+        chrome.windows.create({ url, focused: false, width: 500, height: maxHeight }, (winFallback) => {
+          if (winFallback?.id) workerWindowId = winFallback.id;
+          resolve({ tab: winFallback?.tabs?.[0] || null, isReused: false });
+        });
       },
     );
   });
@@ -426,25 +392,7 @@ function runTabAdapter(providerId, prompt, image = null) {
         return;
       }
 
-      // 1. If already on search results page for THIS exact query (initial search), observe directly without re-typing
-      const isSearchPage = window.location.pathname.startsWith("/search");
-      if (isSearchPage) {
-        const urlParams = new URLSearchParams(window.location.search);
-        const urlQuery = (urlParams.get("q") || "").trim().toLowerCase();
-        const promptQuery = (prompt || "").trim().toLowerCase();
-
-        if (urlQuery && (urlQuery === promptQuery || promptQuery.startsWith(urlQuery) || urlQuery.startsWith(promptQuery))) {
-          console.log(
-            `%c[SpectraLens:Adapter] 🎯 Search page already executing query ("${prompt.slice(0, 25)}..."). Observing AI stream directly...`,
-            "color: #10b981; font-weight: bold;",
-          );
-          const answer = await adapter.observeResponse(22000);
-          resolve(answer || getShortError(providerId, "No response generated"));
-          return;
-        }
-      }
-
-      // 2. Locate input editor (or wait up to 20 attempts)
+      // 1. Locate input editor (up to 20 attempts)
       console.log(
         `%c[SpectraLens:Adapter] ✍️ [ADAPTER 2/4] Locating input editor for "${providerId}"...`,
         "color: #f59e0b;",
@@ -452,24 +400,9 @@ function runTabAdapter(providerId, prompt, image = null) {
       let input = adapter.findInput();
       let attempts = 0;
       while (!input && attempts < 20) {
-        if (isSearchPage && adapter.findResponseContainer()?.textContent?.trim()?.length > 25) {
-          const answer = await adapter.observeResponse(15000);
-          resolve(answer || getShortError(providerId, "Empty response"));
-          return;
-        }
         await new Promise((r) => setTimeout(r, 350));
         input = adapter.findInput();
         attempts++;
-      }
-
-      // If on search page and response already exists
-      if (!input && isSearchPage) {
-        const finalCheck = adapter.findResponseContainer();
-        if (finalCheck && (finalCheck.textContent || "").trim().length > 25) {
-          const answer = await adapter.observeResponse(15000);
-          resolve(answer || getShortError(providerId, "Empty response"));
-          return;
-        }
       }
 
       if (!input) {
@@ -481,7 +414,7 @@ function runTabAdapter(providerId, prompt, image = null) {
         return;
       }
 
-      // 3. Attach image file if present
+      // 2. Attach image file if present
       if (image) {
         console.log(
           `%c[SpectraLens:Adapter] 🖼️ Attaching image file to "${providerId}" editor...`,

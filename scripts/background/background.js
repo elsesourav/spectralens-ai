@@ -150,8 +150,19 @@ const cleanupAlwaysActiveHosts = () => {
   });
 };
 
+// Backend tracking: Set of tab IDs where Floating AI Widget is active
+const floatingWidgetHostTabs = new Set();
+
 chrome.tabs.onRemoved.addListener(async (tabId) => {
   cleanupAlwaysActiveHosts();
+  if (floatingWidgetHostTabs.has(tabId)) {
+    console.log(`[SpectraLens:Background] 🚪 Tracked Floating AI Widget page #${tabId} was closed. Closing its open AI window...`);
+    floatingWidgetHostTabs.delete(tabId);
+    if (typeof resetAllProviderSessions === "function") {
+      resetAllProviderSessions();
+    }
+  }
+
   try {
     const tabs = await getTabs();
     const remainingWebTabs = (tabs || []).filter(
@@ -172,6 +183,37 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.url || tab?.url) {
     cleanupAlwaysActiveHosts();
     updateAlwaysActiveBadge(tabId, changeInfo.url || tab?.url);
+  }
+
+  // Backend tracking: ONLY if a tracked Floating AI Widget host page reloads or navigates, close the open AI worker window
+  if (floatingWidgetHostTabs.has(tabId) && (changeInfo.status === "loading" || changeInfo.url)) {
+    console.log(`[SpectraLens:Background] 🔄 Tracked Floating AI Widget page #${tabId} reloaded or navigated. Closing its open AI window...`);
+    floatingWidgetHostTabs.delete(tabId);
+    if (typeof resetAllProviderSessions === "function") {
+      resetAllProviderSessions();
+    }
+  }
+});
+
+// Explicit reload/pagehide notification from chat widget host page
+runtimeOnMessage("IF_B_PAGE_RELOADED", (_, sender) => {
+  const senderTabId = sender?.tab?.id;
+  if (!senderTabId) return;
+
+  // Never reset if the reload event came from an internal AI worker tab
+  const isAiTab =
+    (typeof activeAiTabs !== "undefined" && activeAiTabs.includes(senderTabId)) ||
+    (typeof persistentProviderTabs !== "undefined" &&
+      Array.from(persistentProviderTabs.values()).some((e) => e.tabId === senderTabId));
+
+  if (isAiTab) return;
+
+  if (floatingWidgetHostTabs.has(senderTabId)) {
+    floatingWidgetHostTabs.delete(senderTabId);
+    console.log(`[SpectraLens:Background] 🔄 Tracked host page #${senderTabId} beforeunload/pagehide received. Resetting AI worker window...`);
+    if (typeof resetAllProviderSessions === "function") {
+      resetAllProviderSessions();
+    }
   }
 });
 
