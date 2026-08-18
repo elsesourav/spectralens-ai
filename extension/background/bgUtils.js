@@ -15,9 +15,9 @@ async function ensureOffscreen() {
    }
 }
 
-/* ---------------- offscreen ---------------- */
-async function __OCR__(imageData, rectInfo) {
-   console.log("[Background] __OCR__ initializing offscreen document...");
+/* ---------------- offscreen OCR engine ---------------- */
+async function performOcrExtraction(imageData, rectInfo) {
+   console.log("[Background] performOcrExtraction initializing offscreen document...");
    await ensureOffscreen();
    await wait(120);
 
@@ -34,9 +34,10 @@ async function __OCR__(imageData, rectInfo) {
       });
    });
 }
+const __OCR__ = performOcrExtraction;
 
-/* ---------------- injects content script ---------------- */
-function __SELECT__(tabId) {
+/* ---------------- injects screen selector ---------------- */
+function injectScreenSelector(tabId) {
    executeScript(
       tabId,
       () => {
@@ -75,13 +76,15 @@ function __SELECT__(tabId) {
       tabId
    );
 }
+const __SELECT__ = injectScreenSelector;
 
-function __PUSH_MENU__(tabId) {
+/* ---------------- injects floating menu widget ---------------- */
+function injectFloatingMenuWidget(tabId) {
    executeScript(
       tabId,
       () => {
-         const existingMWF = document.getElementById("__menuWindowIframe");
-         const existingMWB = document.getElementById("__menuWindowBack");
+         const existingMWF = document.getElementById("spectralensWidgetIframe");
+         const existingMWB = document.getElementById("spectralensWidgetBack");
 
          if (!existingMWF) {
             /* ---------------- theme detection ---------------- */
@@ -184,7 +187,7 @@ function __PUSH_MENU__(tabId) {
             const currentTheme = detectPageTheme();
 
             const frame = document.createElement("iframe");
-            frame.setAttribute("id", "__menuWindowIframe");
+            frame.setAttribute("id", "spectralensWidgetIframe");
             frame.setAttribute("frameborder", "0");
             frame.setAttribute("allowtransparency", "true");
             frame.setAttribute("allow", "clipboard-write; clipboard-read");
@@ -196,7 +199,7 @@ function __PUSH_MENU__(tabId) {
 
             const style = document.createElement("style");
             style.textContent = `
-               #__menuWindowIframe {
+               #spectralensWidgetIframe {
                   position: fixed;
                   top: 0px;
                   left: 0px;
@@ -222,7 +225,7 @@ function __PUSH_MENU__(tabId) {
 
          if (!existingMWB) {
             const back = document.createElement("div");
-            back.setAttribute("id", "__menuWindowBack");
+            back.setAttribute("id", "spectralensWidgetBack");
             const defaultLeft = window.innerWidth - 180;
             back.setAttribute(
                "style",
@@ -252,6 +255,7 @@ function __PUSH_MENU__(tabId) {
       tabId
    );
 }
+const __PUSH_MENU__ = injectFloatingMenuWidget;
 
 function chromeTabMediaAccess(tabId, isBlocked = false) {
    if (!isBlocked) {

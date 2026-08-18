@@ -91,7 +91,7 @@ LIMITATIONS
   - 48x48: `assets/icons/48.png`
   - 128x128: `assets/icons/128.png`
 - **Store Screenshots Required (1280x800 or 640x400 PNG/JPEG):**
-  - Screenshot 1: Floating AI Display window comparing answers from multiple AI engines.
+  - Screenshot 1: Floating SpectraLens AI window comparing answers from multiple AI engines.
   - Screenshot 2: Area OCR tool selecting on-screen text and converting it into a search query.
   - Screenshot 3: Extension popup with provider switches, concurrency slider, and copy unblocker.
   - Screenshot 4: Local chat history panel with search entries.
@@ -102,7 +102,7 @@ LIMITATIONS
 ## Reviewer Instructions
 1. Install and enable the extension.
 2. Open any standard webpage (e.g., https://en.wikipedia.org/wiki/Artificial_intelligence).
-3. Click the floating AI Display widget at the top-right corner to open the in-page chat window.
+3. Click the floating SpectraLens AI widget at the top-right corner to open the in-page chat window.
 4. Type any question (e.g. "What is Machine Learning?") and click Send. Answers from enabled providers will load concurrently.
 5. Click the OCR Area Selector icon on the floating menu, drag a bounding box over any text on the page, and observe the extracted text populated in the chat input.
 6. Click the extension toolbar icon to open the popup, configure active AI engines, or toggle the dark/light theme.
@@ -110,19 +110,19 @@ LIMITATIONS
 
 ## Support
 - **Homepage:** https://elsesourav.web.app
-- **Support:** https://github.com/elsesourav/ai-display/issues
+- **Support:** https://github.com/elsesourav/spectralens-ai/issues
 - **Contact Email:** elsesourav.auth@gmail.com
 - **Privacy Policy:** https://elsesourav.web.app/privacy-policy.html
 
 ## Final Technical Checks
 - **Manifest V3:** Verified compliant.
 - **Build:** Verified deterministic Vite production build (`extension/`).
-- **Tests:** 32 / 32 automated tests passing (`npm test`).
+- **Tests:** 58 / 58 automated tests passing (`npm test`).
 - **Security:** Strict `DOMParser` HTML sanitization, 0 inline script execution, 0 `eval()`.
 - **Remote Code:** Zero remote JavaScript or dynamic script loading.
 - **Secrets:** Zero hard-coded API keys, tokens, or credentials.
 - **Permissions:** All 6 permissions are strictly necessary and justified.
 
 ## BLOCKERS
-- **None (Code & Package Ready):** The production zip package `ai-display-extension.zip` is complete and passes all automated checks.
+- **None (Code & Package Ready):** The production zip package `spectralens-ai-extension.zip` is complete and passes all automated checks.
 - **Pre-Submission Manual Action:** Ensure `privacy-policy.html` is uploaded to `https://elsesourav.web.app/privacy-policy.html` (or your chosen hosting) before submitting the URL in the Developer Console.

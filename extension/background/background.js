@@ -273,7 +273,7 @@ runtimeOnMessage("P_B_TOGGLE", async (_, __, sendResponse) => {
       // Toggle on for this site
       hosts.push(hostname);
       chromeStorageSetLocal(KEYS.MENU_HOSTS, hosts, () => {
-        __PUSH_MENU__(tab.id);
+        injectFloatingMenuWidget(tab.id);
         chromeStorageSetLocal(KEYS.SETTINGS, { enable: true, menuHosts: hosts });
       });
     }
@@ -315,13 +315,13 @@ runtimeOnMessage("C_B_ON_LOAD", (_, sender, sendResponse) => {
     if (!Array.isArray(hosts)) hosts = [];
 
     if (hosts.includes(hostname) || hosts.includes("*")) {
-      __PUSH_MENU__(tab.id);
+      injectFloatingMenuWidget(tab.id);
     }
   });
 });
 
 runtimeOnMessage("C_B_SELECT_TEXT", (_, { tab }, sendResponse) => {
-  __SELECT__(tab.id);
+  injectScreenSelector(tab.id);
   sendResponse("ok");
 });
 
@@ -368,7 +368,7 @@ runtimeOnMessage(
     const onImageCaptured = async (img) => {
       if (!img) return;
       try {
-        const data = await __OCR__(img, rect);
+        const data = await performOcrExtraction(img, rect);
         if (data?.success && data?.result) {
           const text = (data.result.text || "").trim();
           tabSendMessage(tabId, "B_C_OCR_RESULT", {

@@ -50,7 +50,7 @@
 ## 3. QA Test Matrix
 
 ### 3.1 Functional Journey
-1. **Clean Installation**: Extension loads unpacked from `extension/` or from unzipped `ai-display-extension.zip` without errors.
+1. **Clean Installation**: Extension loads unpacked from `extension/` or from unzipped `spectralens-ai-extension.zip` without errors.
 2. **Popup Launch**: Instant (<100ms) open with zero layout shift or skeleton delay.
 3. **Floating Menu Widget**: Injects smoothly on web pages, draggable, resizable, and responsive to light/dark page backgrounds.
 4. **On-Device OCR**: Area selection canvas captures screen regions and parses text locally via sandboxed offscreen Tesseract worker.

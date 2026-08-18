@@ -91,8 +91,8 @@
 
 ## 6. Privacy Policy & Hosting
 
-- **Markdown Source**: [`PRIVACY_POLICY.md`](file:///Users/sourav/Developer/WEB/EXTENSIONS/for-ever/ai-display/PRIVACY_POLICY.md)
-- **Web-Ready HTML Document**: [`privacy-policy.html`](file:///Users/sourav/Developer/WEB/EXTENSIONS/for-ever/ai-display/privacy-policy.html) (Ready for hosting at `https://elsesourav.web.app/privacy-policy.html` or GitHub Pages).
+- **Markdown Source**: [`PRIVACY_POLICY.md`](file:///Users/sourav/Developer/WEB/EXTENSIONS/for-ever/spectralens-ai/PRIVACY_POLICY.md)
+- **Web-Ready HTML Document**: [`privacy-policy.html`](file:///Users/sourav/Developer/WEB/EXTENSIONS/for-ever/spectralens-ai/privacy-policy.html) (Ready for hosting at `https://elsesourav.web.app/privacy-policy.html` or GitHub Pages).
 
 ---
 

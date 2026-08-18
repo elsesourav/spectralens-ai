@@ -43,7 +43,7 @@ export default function HistoryView({ onLoadQuery, isMenuOpen = true }) {
     setShowConfirmClear(false);
   };
 
-  const formatDateTime = (timestamp) => {
+  const formatDateTimeBadge = (timestamp) => {
     if (!timestamp) return "";
     try {
       const date = new Date(timestamp);
@@ -138,7 +138,7 @@ export default function HistoryView({ onLoadQuery, isMenuOpen = true }) {
                 </span>
                 <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1">
                   <IoTimeOutline className="w-3 h-3 shrink-0" />
-                  <span>{formatDateTime(item.timestamp || item.date)}</span>
+                  <span>{formatDateTimeBadge(item.timestamp || item.date)}</span>
                 </span>
               </div>
               <IoChevronForward className="w-4 h-4 text-slate-500 group-hover:text-blue-500 group-hover:translate-x-0.5 transition-all shrink-0" />

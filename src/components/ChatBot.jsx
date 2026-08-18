@@ -115,25 +115,25 @@ export default function ChatBot({
     [lastQuestion],
   );
 
-  const selectedAnswerContent = useMemo(() => {
+  const activeAiResponseContent = useMemo(() => {
     if (!selectedProvider) return "";
     const pAns = answers[selectedProvider];
     return pAns?.content || pAns?.answer || (typeof pAns === "string" ? pAns : "");
   }, [answers, selectedProvider]);
 
-  const handleCopyAiAnswer = useCallback(
+  const handleCopyAiResponse = useCallback(
     (e) => {
       e?.stopPropagation();
-      if (!selectedAnswerContent) return;
+      if (!activeAiResponseContent) return;
       
-      let cleanText = selectedAnswerContent;
-      if (typeof selectedAnswerContent === "string" && /<[a-z][\s\S]*>/i.test(selectedAnswerContent)) {
+      let cleanText = activeAiResponseContent;
+      if (typeof activeAiResponseContent === "string" && /<[a-z][\s\S]*>/i.test(activeAiResponseContent)) {
         try {
           const tempEl = document.createElement("div");
-          tempEl.innerHTML = selectedAnswerContent;
+          tempEl.innerHTML = activeAiResponseContent;
           cleanText = (tempEl.innerText || tempEl.textContent || "").trim();
         } catch {
-          cleanText = selectedAnswerContent;
+          cleanText = activeAiResponseContent;
         }
       }
 
@@ -175,7 +175,7 @@ export default function ChatBot({
         fallbackCopy(cleanText);
       }
     },
-    [selectedAnswerContent, selectedProvider],
+    [activeAiResponseContent, selectedProvider],
   );
 
   const appIconUrl =
@@ -331,7 +331,7 @@ export default function ChatBot({
   }, []);
 
   // Format date & time (e.g. 4:15 PM • 18 Aug)
-  const formatDateTime = (timestamp) => {
+  const formatDateTimeBadge = (timestamp) => {
     if (!timestamp) return "";
     try {
       const date = new Date(timestamp);
@@ -356,7 +356,7 @@ export default function ChatBot({
     }
   };
 
-  const getFormattedTime = () => formatDateTime(new Date());
+  const getFormattedTimeBadge = () => formatDateTimeBadge(new Date());
 
   // Load history item if requested from outside
   useEffect(() => {
@@ -370,7 +370,7 @@ export default function ChatBot({
         new Set(Object.keys(initialHistoryItem.answers || {})),
       );
       if (initialHistoryItem.timestamp) {
-        setMessageTime(formatDateTime(initialHistoryItem.timestamp));
+        setMessageTime(formatDateTimeBadge(initialHistoryItem.timestamp));
       }
       const availableProviders = Object.keys(initialHistoryItem.answers || {});
       if (availableProviders.length > 0) {
@@ -458,7 +458,7 @@ export default function ChatBot({
   }, [selectedProvider]);
 
   // Get answer from background script
-  const getAnswerFromBackground = async (
+  const dispatchAiRequestToBackground = async (
     question,
     provider = "google",
     requestId,
@@ -473,13 +473,13 @@ export default function ChatBot({
   };
 
   // Concurrent provider loading
-  const loadProvidersWithConcurrency = useCallback(
+  const fetchAiResponsesWithConcurrency = useCallback(
     async (question, requestId, image = null) => {
       const providersToProcess = [...aiProviders];
       const activeRequests = new Map();
 
       const startProviderRequest = (provider) => {
-        getAnswerFromBackground(question, provider.id, requestId, image);
+        dispatchAiRequestToBackground(question, provider.id, requestId, image);
 
         const promise = new Promise((resolve) => {
           const checkAnswer = () => {
@@ -529,7 +529,7 @@ export default function ChatBot({
   );
 
   // Combine active providers with historical answers
-  const displayedProviders = useMemo(() => {
+  const availableProviderTabs = useMemo(() => {
     const combined = [...aiProviders];
     const existingIds = new Set(aiProviders.map((p) => p.id));
 
@@ -554,8 +554,8 @@ export default function ChatBot({
   }, [aiProviders, answers]);
 
   // Providers shown as primary pills (first 3) vs overflow menu
-  const primaryPills = displayedProviders.slice(0, 3);
-  const overflowProviders = displayedProviders.slice(3);
+  const primaryProviderTabs = availableProviderTabs.slice(0, 3);
+  const overflowProviderTabs = availableProviderTabs.slice(3);
 
   const handleSendMessage = useCallback(
     async (messageInput = null) => {
@@ -568,7 +568,7 @@ export default function ChatBot({
       const targetProvider =
         selectedProvider ||
         aiProviders.find((p) => p.enabled)?.id ||
-        displayedProviders[0]?.id ||
+        availableProviderTabs[0]?.id ||
         "google";
 
       setSelectedProvider(targetProvider);
@@ -608,7 +608,7 @@ export default function ChatBot({
       setLastQuestionImage(currentImage);
       setLastQuestionPage(attachedPage);
 
-      setMessageTime(getFormattedTime());
+      setMessageTime(getFormattedTimeBadge());
       setInput("");
       setAttachedImage(null);
       setAttachedPage(null);
@@ -626,16 +626,16 @@ export default function ChatBot({
       setTimeout(() => scrollToBottom(true), 50);
       setTimeout(() => scrollToBottom(true), 200);
 
-      loadProvidersWithConcurrency(sentQuestion, requestId, currentImage);
+      fetchAiResponsesWithConcurrency(sentQuestion, requestId, currentImage);
     },
     [
       input,
       attachedImage,
       attachedPage,
-      loadProvidersWithConcurrency,
+      fetchAiResponsesWithConcurrency,
       selectedProvider,
       aiProviders,
-      displayedProviders,
+      availableProviderTabs,
       scrollToBottom,
     ],
   );
@@ -810,7 +810,7 @@ export default function ChatBot({
     return list;
   }, [aiProviders, answers]);
 
-  const activeProviderObj = useMemo(() => {
+  const activeAiProviderMetadata = useMemo(() => {
     return (
       allProvidersList.find((p) => p.id === selectedProvider) || {
         id: selectedProvider || "google",
@@ -831,7 +831,7 @@ export default function ChatBot({
       {/* Provider Pill Bar */}
       <div className="flex items-center justify-between gap-1.5 px-3.5 py-2 border-b border-slate-200/50 dark:border-white/[0.06] bg-slate-50/50 dark:bg-black/10 shrink-0">
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar flex-1 py-0.5">
-          {primaryPills.map((provider) => {
+          {primaryProviderTabs.map((provider) => {
             const isSelected =
               hasAnyActivity && selectedProvider === provider.id;
             const pAns = answers[provider.id];
@@ -881,7 +881,7 @@ export default function ChatBot({
         </div>
 
         {/* Overflow 3-dots Menu for 4+ providers */}
-        {overflowProviders.length > 0 && (
+        {overflowProviderTabs.length > 0 && (
           <div className="relative shrink-0" ref={moreMenuRef}>
             <button
               onClick={() => hasAnyActivity && setIsMoreMenuOpen((v) => !v)}
@@ -902,7 +902,7 @@ export default function ChatBot({
 
             {isMoreMenuOpen && (
               <div className="absolute right-0 top-full mt-1.5 w-44 rounded-xl bg-white dark:bg-[#1a1d26] border border-slate-200 dark:border-white/10 shadow-xl py-1 z-30 animate-fade-in">
-                {overflowProviders.map((provider) => {
+                {overflowProviderTabs.map((provider) => {
                   const isOverflowSelected =
                     hasAnyActivity && selectedProvider === provider.id;
                   const pAns = answers[provider.id];
@@ -1064,14 +1064,14 @@ export default function ChatBot({
                     </>
                   )}
                 </button>
-                <span>{messageTime || getFormattedTime()}</span>
+                <span>{messageTime || getFormattedTimeBadge()}</span>
               </div>
             </div>
           </div>
         )}
 
         {/* AI Response Card */}
-        {(selectedAnswerContent || (isLoading && !selectedAnswerContent)) && (
+        {(activeAiResponseContent || (isLoading && !activeAiResponseContent)) && (
           <div className="flex flex-col gap-2 animate-fade-in">
             <div
               className={`p-4 rounded-2xl border shadow-xs space-y-3 ${
@@ -1086,17 +1086,17 @@ export default function ChatBot({
               <div className="flex items-center justify-between pb-1.5 border-b border-slate-100 dark:border-white/[0.04]">
                 <div className="flex items-center gap-2">
                   <ProviderIcon
-                    id={activeProviderObj.id}
+                    id={activeAiProviderMetadata.id}
                     className="w-4 h-4 shrink-0"
                     size={18}
                   />
                   <span className="text-xs font-bold text-slate-900 dark:text-white">
-                    {activeProviderObj.name}
+                    {activeAiProviderMetadata.name}
                   </span>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {isLoading && !selectedAnswerContent && (
+                  {isLoading && !activeAiResponseContent && (
                     <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold animate-pulse">
                       Generating answer...
                     </span>
@@ -1105,14 +1105,14 @@ export default function ChatBot({
               </div>
 
               {/* Response Content Body */}
-              {selectedAnswerContent ? (
+              {activeAiResponseContent ? (
                 <div
                   className="spectralens-response-wrapper text-slate-900 dark:text-slate-100 overflow-x-auto leading-relaxed font-normal select-text cursor-text"
                   dangerouslySetInnerHTML={{
                     __html: UTILS.sanitizeHtml(
                       typeof UTILS.markdownToHtml === "function"
-                        ? UTILS.markdownToHtml(selectedAnswerContent)
-                        : selectedAnswerContent,
+                        ? UTILS.markdownToHtml(activeAiResponseContent)
+                        : activeAiResponseContent,
                     ),
                   }}
                 />
@@ -1135,11 +1135,11 @@ export default function ChatBot({
               )}
 
               {/* Footer with Timestamp and Action */}
-              {selectedAnswerContent && (
+              {activeAiResponseContent && (
                 <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-white/[0.04] text-[10px] text-slate-500 dark:text-slate-400 font-medium">
                   <button
                     type="button"
-                    onClick={handleCopyAiAnswer}
+                    onClick={handleCopyAiResponse}
                     className="flex items-center gap-1.5 px-2 py-0.5 rounded-md hover:bg-slate-100 dark:hover:bg-white/[0.08] hover:text-blue-600 dark:hover:text-blue-400 transition-all cursor-pointer focus:outline-none"
                     title="Copy answer"
                   >
@@ -1157,7 +1157,7 @@ export default function ChatBot({
                       </>
                     )}
                   </button>
-                  <span>{messageTime || getFormattedTime()}</span>
+                  <span>{messageTime || getFormattedTimeBadge()}</span>
                 </div>
               )}
             </div>

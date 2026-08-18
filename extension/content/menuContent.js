@@ -2,29 +2,29 @@ if (window !== window.top) {
   // Floating menu only operates on top-level browsing context
   // Subframes (like analytics, ads, style_engines) must not mount duplicate menu listeners
 } else {
-const __iframeSize = { width: "154px", height: "48px" };
-let __spacing = 0;
-let __isDragging = false;
-const __pointerOffset = { x: 0, y: 0 };
-let __main_menu__ = null;
-let __menu_back__ = null;
-let __isFirstSetup = true;
-let __isNoMoveOpenToClose = false;
-const __lastLocation = { x: 0, y: 0 };
+const widgetIframeSize = { width: "154px", height: "48px" };
+let widgetSpacing = 0;
+let isWidgetDragging = false;
+const dragPointerOffset = { x: 0, y: 0 };
+let widgetIframeElement = null;
+let widgetBackElement = null;
+let isFirstWidgetSetup = true;
+let isRestoringClosedPosition = false;
+const lastClosedWidgetPosition = { x: 0, y: 0 };
 
-// Collision detection function to keep back within viewport bounds
-const __applyCollisionDetection__ = (left, top) => {
-  const menuWidth = parseInt(__iframeSize.width) || 154;
-  const menuHeight = parseInt(__iframeSize.height) || 48;
+// Collision detection function to keep floating widget within viewport bounds
+const applyViewportBoundaryConstraint = (left, top) => {
+  const menuWidth = parseInt(widgetIframeSize.width) || 154;
+  const menuHeight = parseInt(widgetIframeSize.height) || 48;
   const margin = 12;
 
   // Get viewport dimensions
-  const VW = window.innerWidth;
-  const VH = window.innerHeight;
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
 
   // Constrain position to viewport bounds with safe margin
-  const maxLeft = Math.max(0, VW - menuWidth - margin);
-  const maxTop = Math.max(0, VH - menuHeight - margin);
+  const maxLeft = Math.max(0, viewportWidth - menuWidth - margin);
+  const maxTop = Math.max(0, viewportHeight - menuHeight - margin);
   const constrainedLeft = Math.max(margin, Math.min(left, maxLeft));
   const constrainedTop = Math.max(margin, Math.min(top, maxTop));
 
@@ -238,88 +238,88 @@ function checkAndShowDailyIntro(left, top) {
   });
 }
 
-function __pointerenter__() {
-  __menu_back__ = document.getElementById("__menuWindowBack");
-  __main_menu__ = document.getElementById("__menuWindowIframe");
-  const menuFrame = document.getElementById("__menuWindowIframe");
+function handleWidgetPointerEnter() {
+  widgetBackElement = document.getElementById("spectralensWidgetBack");
+  widgetIframeElement = document.getElementById("spectralensWidgetIframe");
+  const menuFrame = document.getElementById("spectralensWidgetIframe");
   pagePostMessage("C_IF_MENU_WINDOW_DRAG_START", {}, menuFrame?.contentWindow);
   pagePostMessage("C_IF_ACTIVITY", {}, menuFrame?.contentWindow);
 }
 
 // Throttled user activity forwarding to wake up minimized widget
-let __lastActivityNotify = 0;
-function __notifyActivity__() {
+let lastUserActivityTimestamp = 0;
+function notifyUserActivity() {
   const now = Date.now();
-  if (now - __lastActivityNotify > 1000) {
-    __lastActivityNotify = now;
-    const iframe = document.getElementById("__menuWindowIframe");
+  if (now - lastUserActivityTimestamp > 1000) {
+    lastUserActivityTimestamp = now;
+    const iframe = document.getElementById("spectralensWidgetIframe");
     if (iframe?.contentWindow) {
       pagePostMessage("C_IF_ACTIVITY", {}, iframe.contentWindow);
     }
   }
 }
 
-window.addEventListener("mousemove", __notifyActivity__, { passive: true });
-window.addEventListener("pointerdown", __notifyActivity__, { passive: true });
-window.addEventListener("keydown", __notifyActivity__, { passive: true });
-window.addEventListener("scroll", __notifyActivity__, { passive: true });
+window.addEventListener("mousemove", notifyUserActivity, { passive: true });
+window.addEventListener("pointerdown", notifyUserActivity, { passive: true });
+window.addEventListener("keydown", notifyUserActivity, { passive: true });
+window.addEventListener("scroll", notifyUserActivity, { passive: true });
 
-function __pointerleave__() {
-  __isDragging = false;
-  const menuFrame = document.getElementById("__menuWindowIframe");
+function handleWidgetPointerLeave() {
+  isWidgetDragging = false;
+  const menuFrame = document.getElementById("spectralensWidgetIframe");
   pagePostMessage("C_IF_MENU_WINDOW_DRAG_END", {}, menuFrame?.contentWindow);
 }
 
-function __pointerdown__(e) {
+function handleWidgetPointerDown(e) {
   removeIntroOverlay();
-  __isDragging = true;
-  const rect = __menu_back__?.getBoundingClientRect();
-  __pointerOffset.x = e.clientX - rect.left;
-  __pointerOffset.y = e.clientY - rect.top;
+  isWidgetDragging = true;
+  const rect = widgetBackElement?.getBoundingClientRect();
+  dragPointerOffset.x = e.clientX - rect.left;
+  dragPointerOffset.y = e.clientY - rect.top;
 
-  if (__menu_back__?.setPointerCapture)
-    __menu_back__.setPointerCapture(e.pointerId);
+  if (widgetBackElement?.setPointerCapture)
+    widgetBackElement.setPointerCapture(e.pointerId);
 }
 
-function __pointermove__(e) {
-  if (!__isDragging) return;
-  __isNoMoveOpenToClose = false;
-  const newLeft = e.clientX - __pointerOffset.x;
-  const newTop = e.clientY - __pointerOffset.y;
+function handleWidgetPointerMove(e) {
+  if (!isWidgetDragging) return;
+  isRestoringClosedPosition = false;
+  const newLeft = e.clientX - dragPointerOffset.x;
+  const newTop = e.clientY - dragPointerOffset.y;
 
-  // Apply collision detection to keep __menu_back__ within viewport
-  const constrainedPosition = __applyCollisionDetection__(
-    newLeft - __spacing,
+  // Apply collision detection to keep widget within viewport
+  const constrainedPosition = applyViewportBoundaryConstraint(
+    newLeft - widgetSpacing,
     newTop,
   );
 
-  __menu_back__.style.left = `${constrainedPosition.x + __spacing}px`;
-  __menu_back__.style.top = `${constrainedPosition.y}px`;
+  widgetBackElement.style.left = `${constrainedPosition.x + widgetSpacing}px`;
+  widgetBackElement.style.top = `${constrainedPosition.y}px`;
 
-  __main_menu__.style.left = `${constrainedPosition.x}px`;
-  __main_menu__.style.top = `${constrainedPosition.y}px`;
+  widgetIframeElement.style.left = `${constrainedPosition.x}px`;
+  widgetIframeElement.style.top = `${constrainedPosition.y}px`;
 }
 
-function __pointerup__(e) {
-  if (!__isDragging) return;
-  __isDragging = false;
+function handleWidgetPointerUp(e) {
+  if (!isWidgetDragging) return;
+  isWidgetDragging = false;
 
-  if (__menu_back__?.releasePointerCapture)
-    __menu_back__.releasePointerCapture(e.pointerId);
+  if (widgetBackElement?.releasePointerCapture)
+    widgetBackElement.releasePointerCapture(e.pointerId);
 
-  const left = Number.parseFloat(__menu_back__?.style.left) || 0;
-  const top = Number.parseFloat(__menu_back__?.style.top) || 0;
+  const left = Number.parseFloat(widgetBackElement?.style.left) || 0;
+  const top = Number.parseFloat(widgetBackElement?.style.top) || 0;
 
   // Apply collision detection to final position
-  const constrainedPosition = __applyCollisionDetection__(
-    left - __spacing,
+  const constrainedPosition = applyViewportBoundaryConstraint(
+    left - widgetSpacing,
     top,
   );
-  __menu_back__.style.left = `${constrainedPosition.x + __spacing}px`;
-  __menu_back__.style.top = `${constrainedPosition.y}px`;
+  widgetBackElement.style.left = `${constrainedPosition.x + widgetSpacing}px`;
+  widgetBackElement.style.top = `${constrainedPosition.y}px`;
 
-  __main_menu__.style.left = `${constrainedPosition.x}px`;
-  __main_menu__.style.top = `${constrainedPosition.y}px`;
+  widgetIframeElement.style.left = `${constrainedPosition.x}px`;
+  widgetIframeElement.style.top = `${constrainedPosition.y}px`;
 }
 
 function detectPageTheme() {
@@ -405,21 +405,21 @@ function detectPageTheme() {
 pageOnMessage("IF_C_MENU_WINDOW_MOVE", async (data) => {
   removeIntroOverlay();
   const { deltaX, deltaY } = data || {};
-  __isNoMoveOpenToClose = false;
-  __menu_back__ = document.getElementById("__menuWindowBack");
-  __main_menu__ = document.getElementById("__menuWindowIframe");
-  if (__main_menu__ && deltaX !== undefined && deltaY !== undefined) {
-    const curLeft = Number.parseFloat(__main_menu__.style.left) || 0;
-    const curTop = Number.parseFloat(__main_menu__.style.top) || 0;
-    const constrainedPosition = __applyCollisionDetection__(
+  isRestoringClosedPosition = false;
+  widgetBackElement = document.getElementById("spectralensWidgetBack");
+  widgetIframeElement = document.getElementById("spectralensWidgetIframe");
+  if (widgetIframeElement && deltaX !== undefined && deltaY !== undefined) {
+    const curLeft = Number.parseFloat(widgetIframeElement.style.left) || 0;
+    const curTop = Number.parseFloat(widgetIframeElement.style.top) || 0;
+    const constrainedPosition = applyViewportBoundaryConstraint(
       curLeft + deltaX,
       curTop + deltaY,
     );
-    __main_menu__.style.left = `${constrainedPosition.x}px`;
-    __main_menu__.style.top = `${constrainedPosition.y}px`;
-    if (__menu_back__) {
-      __menu_back__.style.left = `${constrainedPosition.x + __spacing}px`;
-      __menu_back__.style.top = `${constrainedPosition.y}px`;
+    widgetIframeElement.style.left = `${constrainedPosition.x}px`;
+    widgetIframeElement.style.top = `${constrainedPosition.y}px`;
+    if (widgetBackElement) {
+      widgetBackElement.style.left = `${constrainedPosition.x + widgetSpacing}px`;
+      widgetBackElement.style.top = `${constrainedPosition.y}px`;
     }
   }
 });
@@ -430,61 +430,61 @@ pageOnMessage("IF_C_MENU_WINDOW_RESIZE", async (data) => {
     removeIntroOverlay();
   }
 
-  __menu_back__ = document.getElementById("__menuWindowBack");
-  __main_menu__ = document.getElementById("__menuWindowIframe");
+  widgetBackElement = document.getElementById("spectralensWidgetBack");
+  widgetIframeElement = document.getElementById("spectralensWidgetIframe");
 
-  __iframeSize.width = width;
-  __iframeSize.height = height;
+  widgetIframeSize.width = width;
+  widgetIframeSize.height = height;
 
-  if (__main_menu__) {
-    __main_menu__.style.borderRadius = isOpen ? "16px" : "9999px";
+  if (widgetIframeElement) {
+    widgetIframeElement.style.borderRadius = isOpen ? "16px" : "9999px";
   }
 
   const w = parseInt(width) || 440;
-  __spacing = 0;
+  widgetSpacing = 0;
   const newBackWidth = isOpen ? w - 44 : 96;
   const newBackHeight = isOpen ? 44 : 48;
-  if (__menu_back__) {
-    __menu_back__.style.width = `${newBackWidth}px`;
-    __menu_back__.style.height = `${newBackHeight}px`;
+  if (widgetBackElement) {
+    widgetBackElement.style.width = `${newBackWidth}px`;
+    widgetBackElement.style.height = `${newBackHeight}px`;
   }
 
-  const rect = __menu_back__.getBoundingClientRect();
+  const rect = widgetBackElement.getBoundingClientRect();
 
   // If opening: remember closed position before expanding
-  if (isOpen && !__isNoMoveOpenToClose) {
-    __lastLocation.x = parseInt(rect.left);
-    __lastLocation.y = parseInt(rect.top);
-    __isNoMoveOpenToClose = true;
+  if (isOpen && !isRestoringClosedPosition) {
+    lastClosedWidgetPosition.x = parseInt(rect.left);
+    lastClosedWidgetPosition.y = parseInt(rect.top);
+    isRestoringClosedPosition = true;
   }
 
   // Calculate constrained position ensuring full window stays inside viewport
   const targetX = isOpen
-    ? rect.left - __spacing
-    : (__isNoMoveOpenToClose ? __lastLocation.x - __spacing : rect.left - __spacing);
+    ? rect.left - widgetSpacing
+    : (isRestoringClosedPosition ? lastClosedWidgetPosition.x - widgetSpacing : rect.left - widgetSpacing);
   const targetY = isOpen
     ? rect.top
-    : (__isNoMoveOpenToClose ? __lastLocation.y : rect.top);
+    : (isRestoringClosedPosition ? lastClosedWidgetPosition.y : rect.top);
 
-  const constrainedPosition = __applyCollisionDetection__(targetX, targetY);
+  const constrainedPosition = applyViewportBoundaryConstraint(targetX, targetY);
 
-  if (!isOpen && __isNoMoveOpenToClose) {
-    __isNoMoveOpenToClose = false;
+  if (!isOpen && isRestoringClosedPosition) {
+    isRestoringClosedPosition = false;
   }
 
-  __pointerOffset.x = constrainedPosition.x + __spacing;
-  __pointerOffset.y = constrainedPosition.y;
-  __menu_back__.style.left = `${constrainedPosition.x + __spacing}px`;
-  __menu_back__.style.top = `${constrainedPosition.y}px`;
-  __main_menu__.style.left = `${constrainedPosition.x}px`;
-  __main_menu__.style.top = `${constrainedPosition.y}px`;
+  dragPointerOffset.x = constrainedPosition.x + widgetSpacing;
+  dragPointerOffset.y = constrainedPosition.y;
+  widgetBackElement.style.left = `${constrainedPosition.x + widgetSpacing}px`;
+  widgetBackElement.style.top = `${constrainedPosition.y}px`;
+  widgetIframeElement.style.left = `${constrainedPosition.x}px`;
+  widgetIframeElement.style.top = `${constrainedPosition.y}px`;
 
   // for first time remove transition
-  if (!__isFirstSetup) {
-    __main_menu__.style.transition =
+  if (!isFirstWidgetSetup) {
+    widgetIframeElement.style.transition =
       "left 300ms cubic-bezier(0.16, 1, 0.3, 1), top 300ms cubic-bezier(0.16, 1, 0.3, 1), width 300ms cubic-bezier(0.16, 1, 0.3, 1), height 300ms cubic-bezier(0.16, 1, 0.3, 1), border-radius 300ms cubic-bezier(0.16, 1, 0.3, 1)";
   } else {
-    __isFirstSetup = false;
+    isFirstWidgetSetup = false;
     if (!isOpen) {
       setTimeout(() => {
         checkAndShowDailyIntro(constrainedPosition.x, constrainedPosition.y);
@@ -492,12 +492,12 @@ pageOnMessage("IF_C_MENU_WINDOW_RESIZE", async (data) => {
     }
   }
 
-  __main_menu__.style.borderRadius = isOpen ? "20px" : "24px";
-  __main_menu__.style.width = __iframeSize.width;
-  __main_menu__.style.height = __iframeSize.height;
+  widgetIframeElement.style.borderRadius = isOpen ? "20px" : "24px";
+  widgetIframeElement.style.width = widgetIframeSize.width;
+  widgetIframeElement.style.height = widgetIframeSize.height;
 
   setTimeout(() => {
-    __main_menu__.style.transition = "";
+    widgetIframeElement.style.transition = "";
   }, 320);
 });
 
@@ -508,8 +508,8 @@ runtimeSendMessage("C_B_ON_LOAD", async (r) => {
 pageOnMessage("IF_C_SELECT_COORDS", async (data) => {
   const coordinates = data?.coordinates || data;
   document.getElementById("screenSelectorIframe")?.remove();
-  const menuFrame = document.getElementById("__menuWindowIframe");
-  const menuBack = document.getElementById("__menuWindowBack");
+  const menuFrame = document.getElementById("spectralensWidgetIframe");
+  const menuBack = document.getElementById("spectralensWidgetBack");
   if (menuFrame) {
     menuFrame.style.display = "block";
     pagePostMessage("C_IF_VISIBLE", {}, menuFrame.contentWindow);
@@ -530,8 +530,8 @@ runtimeOnMessage("B_C_OCR_RESULT", async (data, _, sendResponse) => {
   const { text, image } = data || {};
   sendResponse && sendResponse({ success: true });
 
-  const menuFrame = document.getElementById("__menuWindowIframe");
-  const menuBack = document.getElementById("__menuWindowBack");
+  const menuFrame = document.getElementById("spectralensWidgetIframe");
+  const menuBack = document.getElementById("spectralensWidgetBack");
   if (menuFrame) {
     menuFrame.style.display = "block";
     pagePostMessage("C_IF_OPEN_CHAT", {}, menuFrame.contentWindow);
@@ -557,8 +557,8 @@ runtimeOnMessage("B_C_OCR_RESULT", async (data, _, sendResponse) => {
 
 pageOnMessage("IF_C_SELECT_CANCEL", async () => {
   document.getElementById("screenSelectorIframe")?.remove();
-  const menuFrame = document.getElementById("__menuWindowIframe");
-  const menuBack = document.getElementById("__menuWindowBack");
+  const menuFrame = document.getElementById("spectralensWidgetIframe");
+  const menuBack = document.getElementById("spectralensWidgetBack");
   if (menuFrame) {
     menuFrame.style.display = "block";
     pagePostMessage("IF_C_SELECT_CANCEL", {}, menuFrame.contentWindow);
@@ -571,8 +571,8 @@ pageOnMessage("IF_C_SELECT_CANCEL", async () => {
 });
 
 pageOnMessage("IF_C_SELECT_TEXT", () => {
-  const menuFrame = document.getElementById("__menuWindowIframe");
-  const menuBack = document.getElementById("__menuWindowBack");
+  const menuFrame = document.getElementById("spectralensWidgetIframe");
+  const menuBack = document.getElementById("spectralensWidgetBack");
   if (menuFrame) {
     menuFrame.style.display = "none";
   }
@@ -588,31 +588,31 @@ pageOnMessage("IF_C_SELECT_TEXT", () => {
 
 runtimeOnMessage("B_C_CLOSE_MENU", async (_, __, sendResponse) => {
   console.log("Close Menu");
-  __isFirstSetup = true;
+  isFirstWidgetSetup = true;
   sendResponse("ok");
-  document.getElementById("__menuWindowIframe")?.remove();
-  const back = document.getElementById("__menuWindowBack");
+  document.getElementById("spectralensWidgetIframe")?.remove();
+  const back = document.getElementById("spectralensWidgetBack");
 
   if (back) {
-    back.removeEventListener("pointerenter", __pointerenter__);
-    back.removeEventListener("pointerleave", __pointerleave__);
-    back.removeEventListener("pointerdown", __pointerdown__);
-    window.removeEventListener("pointermove", __pointermove__);
-    back.removeEventListener("pointerup", __pointerup__);
+    back.removeEventListener("pointerenter", handleWidgetPointerEnter);
+    back.removeEventListener("pointerleave", handleWidgetPointerLeave);
+    back.removeEventListener("pointerdown", handleWidgetPointerDown);
+    window.removeEventListener("pointermove", handleWidgetPointerMove);
+    back.removeEventListener("pointerup", handleWidgetPointerUp);
     back.remove();
   }
 });
 
 runtimeOnMessage("B_C_RESET_POSITION", async (_, __, sendResponse) => {
-  __menu_back__ = document.getElementById("__menuWindowBack");
-  __main_menu__ = document.getElementById("__menuWindowIframe");
-  if (__main_menu__ && __menu_back__) {
+  widgetBackElement = document.getElementById("spectralensWidgetBack");
+  widgetIframeElement = document.getElementById("spectralensWidgetIframe");
+  if (widgetIframeElement && widgetBackElement) {
     const defaultLeft = 24;
     const defaultTop = 80;
-    __menu_back__.style.left = `${defaultLeft + __spacing}px`;
-    __menu_back__.style.top = `${defaultTop}px`;
-    __main_menu__.style.left = `${defaultLeft}px`;
-    __main_menu__.style.top = `${defaultTop}px`;
+    widgetBackElement.style.left = `${defaultLeft + widgetSpacing}px`;
+    widgetBackElement.style.top = `${defaultTop}px`;
+    widgetIframeElement.style.left = `${defaultLeft}px`;
+    widgetIframeElement.style.top = `${defaultTop}px`;
   }
   sendResponse && sendResponse("ok");
 });
@@ -624,7 +624,7 @@ window.addEventListener("message", async (event) => {
   if (msgType === "IF_B_CAPTURE_SCREEN") {
     console.log(`[SpectraLens:ContentBridge] 📸 Hiding extension UI for clean screen capture...`);
     const framesToHide = Array.from(
-      document.querySelectorAll("#__menuWindowIframe, #screenSelectorIframe, #spectralens-widget-intro, #spectralens-tour-overlay, iframe[id*='menuWindow']"),
+      document.querySelectorAll("#spectralensWidgetIframe, #screenSelectorIframe, #spectralens-widget-intro, #spectralens-tour-overlay, iframe[id*='menuWindow']"),
     );
     const savedStyles = framesToHide.map((f) => ({
       frame: f,
@@ -649,7 +649,7 @@ window.addEventListener("message", async (event) => {
         });
 
         console.log(`[SpectraLens:ContentBridge] 📥 Received clean capture response from background:`, res);
-        const iframe = document.getElementById("__menuWindowIframe");
+        const iframe = document.getElementById("spectralensWidgetIframe");
         if (res) {
           pagePostMessage(msgType, res, iframe?.contentWindow);
         }
@@ -660,7 +660,7 @@ window.addEventListener("message", async (event) => {
 
   if (msgType === "IF_B_CAPTURE_PAGE") {
     console.log(`[SpectraLens:ContentBridge] 📄 Extracting active page metadata, text, and top-section screenshot...`);
-    const iframe = document.getElementById("__menuWindowIframe");
+    const iframe = document.getElementById("spectralensWidgetIframe");
 
     try {
       const title = document.title || "Web Page";
@@ -681,7 +681,7 @@ window.addEventListener("message", async (event) => {
       const clone = document.body.cloneNode(true);
       clone
         .querySelectorAll(
-          "script, style, noscript, iframe, svg, #__menuWindowIframe, #screenSelectorIframe, [aria-hidden='true']",
+          "script, style, noscript, iframe, svg, #spectralensWidgetIframe, #screenSelectorIframe, [aria-hidden='true']",
         )
         .forEach((el) => el.remove());
 
@@ -698,7 +698,7 @@ window.addEventListener("message", async (event) => {
 
       // Temporarily hide frames to capture clean top-section screenshot
       const framesToHide = Array.from(
-        document.querySelectorAll("#__menuWindowIframe, #screenSelectorIframe, #spectralens-widget-intro, #spectralens-tour-overlay, iframe[id*='menuWindow']"),
+        document.querySelectorAll("#spectralensWidgetIframe, #screenSelectorIframe, #spectralens-widget-intro, #spectralens-tour-overlay, iframe[id*='menuWindow']"),
       );
       const savedStyles = framesToHide.map((f) => ({
         frame: f,
@@ -765,7 +765,7 @@ window.addEventListener("message", async (event) => {
 
     runtimeSendMessage(msgType, { ...event.data }, (res) => {
       console.log(`[SpectraLens:ContentBridge] 📥 Received response from background for "${msgType}":`, res);
-      const iframe = document.getElementById("__menuWindowIframe");
+      const iframe = document.getElementById("spectralensWidgetIframe");
       if (res) {
         pagePostMessage(msgType, res, iframe?.contentWindow);
       } else {
@@ -773,7 +773,7 @@ window.addEventListener("message", async (event) => {
       }
     });
   } else if (msgType === "IF_C_GET_CURRENT_CONTROLS") {
-    const iframe = document.getElementById("__menuWindowIframe");
+    const iframe = document.getElementById("spectralensWidgetIframe");
     try {
       const getControlsSettings = await chromeStorageGetLocal(KEYS.CONTROLS);
       pagePostMessage(
@@ -805,7 +805,7 @@ if (typeof chrome !== "undefined" && chrome.storage?.onChanged) {
     if (changes[KEYS.CONTROLS]) {
       const val = changes[KEYS.CONTROLS].newValue;
       const controls = typeof val === "string" ? JSON.parse(val) : val;
-      const iframe = document.getElementById("__menuWindowIframe");
+      const iframe = document.getElementById("spectralensWidgetIframe");
       if (iframe?.contentWindow) {
         pagePostMessage(
           "IF_C_GET_CURRENT_CONTROLS",
@@ -823,8 +823,8 @@ if (typeof chrome !== "undefined" && chrome.storage?.onChanged) {
 
 // Watch for live webpage theme toggles (e.g. YouTube, GitHub dark mode toggle)
 try {
-  const __themeObserver = new MutationObserver(() => {
-    const iframe = document.getElementById("__menuWindowIframe");
+  const themeMutationObserver = new MutationObserver(() => {
+    const iframe = document.getElementById("spectralensWidgetIframe");
     if (iframe?.contentWindow) {
       chromeStorageGetLocal(KEYS.CONTROLS, (controls) => {
         pagePostMessage(
@@ -840,7 +840,7 @@ try {
     }
   });
 
-  __themeObserver.observe(document.documentElement, {
+  themeMutationObserver.observe(document.documentElement, {
     attributes: true,
     attributeFilter: [
       "class",
@@ -856,7 +856,7 @@ try {
     window
       .matchMedia("(prefers-color-scheme: dark)")
       .addEventListener("change", () => {
-        const iframe = document.getElementById("__menuWindowIframe");
+        const iframe = document.getElementById("spectralensWidgetIframe");
         if (iframe?.contentWindow) {
           chromeStorageGetLocal(KEYS.CONTROLS, (controls) => {
             pagePostMessage(
