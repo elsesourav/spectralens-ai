@@ -339,23 +339,25 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
       }
     }
 
-    // 45s timeout protection per query
+    // Dynamic Adaptive Timeout: 50s for cold start (new window/tab), 22s for warm/already-open sessions
+    const queryTimeoutMs = isReused ? 22000 : 50000;
     timeoutId = setTimeout(() => {
       console.warn(
-        `%c[SpectraLens:Pipeline] ⏱️ [TIMEOUT] 45s timeout reached for Tab #${tabId}`,
+        `%c[SpectraLens:Pipeline] ⏱️ [TIMEOUT] ${queryTimeoutMs / 1000}s timeout reached for Tab #${tabId} (isReused: ${isReused})`,
         "color: #ef4444; font-weight: bold;",
       );
       safeResolve(formatProviderError(providerId, "Request timed out"));
-    }, 45000);
+    }, queryTimeoutMs);
 
     function runInjection() {
       if (isResolved || isExecuting) return;
       isExecuting = true;
 
       console.log(
-        `%c[SpectraLens:Pipeline] 💉 [STEP 4/5] Injecting "${providerId}" adapter script into Tab #${tabId}...`,
+        `%c[SpectraLens:Pipeline] 💉 [STEP 4/5] Injecting "${providerId}" adapter script into Tab #${tabId} (isReused: ${isReused})...`,
         "color: #f59e0b; font-weight: bold;",
       );
+      const argsWithContext = [...extractArgs, isReused];
       executeScriptReturn(
         tabId,
         extractFn,
@@ -382,7 +384,7 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
             isExecuting = false;
           }
         },
-        extractArgs,
+        argsWithContext,
       );
     }
 
@@ -398,37 +400,36 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
       }
     }
 
-    chrome.tabs.onUpdated.addListener(listener);
+    function onRemoved(removedTabId) {
+      if (removedTabId === tabId) {
+        detachTurnListeners();
+        persistentProviderTabs.delete(providerId);
+        activeAiTabs = activeAiTabs.filter((id) => id !== tabId);
+        safeResolve(formatProviderError(providerId, "Window closed"));
+      }
+    }
 
-    // If tab is already complete (or reused), run immediately
-    if (tab.status === "complete" || isReused) {
+    chrome.tabs.onUpdated.addListener(listener);
+    chrome.tabs.onRemoved.addListener(onRemoved);
+
+    // If tab is already fully loaded, run adapter immediately
+    if (isReused || tab.status === "complete") {
       console.log(
-        `%c[SpectraLens:Pipeline] ⚡ Tab #${tabId} is ready. Running adapter immediately...`,
-        "color: #3b82f6;",
+        `%c[SpectraLens:Pipeline] ⚡ Tab #${tabId} is ready (isReused: ${isReused}). Running adapter immediately...`,
+        "color: #10b981; font-weight: bold;",
       );
       runInjection();
     }
-
-    function onRemoved(removedTabId) {
-      if (removedTabId === tabId) {
-        console.log(
-          `%c[SpectraLens:Pipeline] 🚪 Tab #${tabId} was closed externally.`,
-          "color: #ef4444;",
-        );
-        persistentProviderTabs.delete(providerId);
-        safeResolve("");
-      }
-    }
-    chrome.tabs.onRemoved.addListener(onRemoved);
   });
 }
 
 /* --- Provider Functions --- */
 
 /**
- * Generic adapter runner executed inside the target provider tab
+ * Universal content extractor function injected into provider tabs.
+ * Runs in the isolated content context with full access to ProviderAdapterRegistry.
  */
-function runTabAdapter(providerId, prompt, image = null) {
+function runTabAdapter(providerId, prompt, image, isReused = false) {
   return new Promise(async (resolve) => {
     function getShortError(pid, reason) {
       if (typeof formatProviderError === "function") {
@@ -438,8 +439,9 @@ function runTabAdapter(providerId, prompt, image = null) {
     }
 
     try {
+      const streamTimeoutMs = isReused ? 20000 : 45000;
       console.log(
-        `%c[SpectraLens:Adapter] 🚀 [ADAPTER 1/4] Running adapter for "${providerId}" with prompt: "${prompt.slice(0, 35)}..."`,
+        `%c[SpectraLens:Adapter] 🚀 [ADAPTER 1/4] Running adapter for "${providerId}" with timeout ${streamTimeoutMs / 1000}s (isReused: ${isReused}): "${prompt.slice(0, 35)}..."`,
         "color: #3b82f6; font-weight: bold;",
       );
       const adapter =
@@ -480,20 +482,21 @@ function runTabAdapter(providerId, prompt, image = null) {
             `%c[SpectraLens:Adapter] 🎯 Search page already executing query ("${prompt.slice(0, 25)}..."). Observing AI stream directly...`,
             "color: #10b981; font-weight: bold;",
           );
-          const answer = await adapter.observeResponse(25000);
+          const answer = await adapter.observeResponse(streamTimeoutMs);
           resolve(answer || getShortError(providerId, "No response generated"));
           return;
         }
       }
 
-      // 1. Locate input editor (up to 20 attempts)
+      // 1. Locate input editor (up to 20 attempts for first time, up to 10 for reused)
       console.log(
         `%c[SpectraLens:Adapter] ✍️ [ADAPTER 2/4] Locating input editor for "${providerId}"...`,
         "color: #f59e0b;",
       );
       let input = adapter.findInput();
       let attempts = 0;
-      while (!input && attempts < 20) {
+      const maxLocateAttempts = isReused ? 10 : 20;
+      while (!input && attempts < maxLocateAttempts) {
         await new Promise((r) => setTimeout(r, 350));
         input = adapter.findInput();
         attempts++;
@@ -502,12 +505,12 @@ function runTabAdapter(providerId, prompt, image = null) {
       if (!input) {
         // If on search page and response already exists
         if (existingContainer && previousContent.length > 25) {
-          const answer = await adapter.observeResponse(20000);
+          const answer = await adapter.observeResponse(streamTimeoutMs);
           resolve(answer || getShortError(providerId, "Empty response"));
           return;
         }
         console.warn(
-          `%c[SpectraLens:Adapter] ⚠️ Input box not found for "${providerId}" after 20 attempts.`,
+          `%c[SpectraLens:Adapter] ⚠️ Input box not found for "${providerId}" after ${maxLocateAttempts} attempts.`,
           "color: #ef4444; font-weight: bold;",
         );
         resolve(
@@ -565,10 +568,10 @@ function runTabAdapter(providerId, prompt, image = null) {
 
       // 5. Observe and return streaming response (waiting for new content to generate)
       console.log(
-        `%c[SpectraLens:Adapter] ⏳ [ADAPTER 4/4] Observing stream response for "${providerId}"...`,
+        `%c[SpectraLens:Adapter] ⏳ [ADAPTER 4/4] Observing stream response for "${providerId}" (timeout: ${streamTimeoutMs / 1000}s)...`,
         "color: #f59e0b; font-weight: bold;",
       );
-      const answer = await adapter.observeResponse(25000, previousContent);
+      const answer = await adapter.observeResponse(streamTimeoutMs, previousContent);
       console.log(
         `%c[SpectraLens:Adapter] ✅ [ADAPTER COMPLETE] Response extracted for "${providerId}", length: ${answer?.length || 0} chars`,
         "color: #10b981; font-weight: bold;",
