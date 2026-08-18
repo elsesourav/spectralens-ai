@@ -426,18 +426,19 @@ function runTabAdapter(providerId, prompt, image = null) {
         return;
       }
 
-      // 1. If already on search results page with rendered AI response and NO follow-up input is active, observe directly
+      // 1. If already on search results page for THIS exact query (initial search), observe directly without re-typing
       const isSearchPage = window.location.pathname.startsWith("/search");
-      const followUpInput = document.querySelector('textarea.ITIRGe, textarea[placeholder*="Ask anything" i], textarea[aria-label*="Ask a follow up" i]');
-      
-      if (isSearchPage && !followUpInput) {
-        const existingAnswer = adapter.findResponseContainer();
-        if (existingAnswer && (existingAnswer.textContent || "").trim().length > 25) {
+      if (isSearchPage) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlQuery = (urlParams.get("q") || "").trim().toLowerCase();
+        const promptQuery = (prompt || "").trim().toLowerCase();
+
+        if (urlQuery && (urlQuery === promptQuery || promptQuery.startsWith(urlQuery) || urlQuery.startsWith(promptQuery))) {
           console.log(
-            `%c[SpectraLens:Adapter] 🎯 Search results AI Overview rendered. Observing stream...`,
+            `%c[SpectraLens:Adapter] 🎯 Search page already executing query ("${prompt.slice(0, 25)}..."). Observing AI stream directly...`,
             "color: #10b981; font-weight: bold;",
           );
-          const answer = await adapter.observeResponse(20000);
+          const answer = await adapter.observeResponse(22000);
           resolve(answer || getShortError(providerId, "No response generated"));
           return;
         }
