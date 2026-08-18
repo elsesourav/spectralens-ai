@@ -20,30 +20,39 @@ export default function ChatContextMentions({
         Attach Context
       </div>
       <div className="flex flex-col gap-0.5">
-        {filteredMentionOptions.map((option, index) => (
-          <button
-            key={option.id}
-            onClick={() => onSelectMention(option)}
-            className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-left transition-all cursor-pointer ${
-              index === mentionSelectedIndex
-                ? "bg-blue-50 dark:bg-blue-500/15 text-blue-600 dark:text-blue-400 font-medium"
-                : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.06]"
-            }`}
-          >
-            <span className="text-sm">{option.icon}</span>
-            <div className="flex flex-col flex-1 min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-semibold">{option.cmd}</span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-slate-200/60 dark:bg-white/10 text-slate-600 dark:text-slate-300 font-medium">
-                  {option.badge}
+        {filteredMentionOptions.map((option, index) => {
+          const Icon = option.IconComponent;
+          return (
+            <button
+              key={option.id}
+              onClick={() => onSelectMention(option)}
+              className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-left transition-all cursor-pointer ${
+                index === mentionSelectedIndex
+                  ? "bg-blue-50 dark:bg-blue-500/15 text-blue-600 dark:text-blue-400 font-medium"
+                  : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.06]"
+              }`}
+            >
+              <div className="w-6 h-6 rounded-lg bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                {Icon ? (
+                  <Icon className="w-3.5 h-3.5" />
+                ) : (
+                  <span className="text-xs">{option.icon}</span>
+                )}
+              </div>
+              <div className="flex flex-col flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-semibold">{option.cmd}</span>
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-slate-200/60 dark:bg-white/10 text-slate-600 dark:text-slate-300 font-medium">
+                    {option.badge}
+                  </span>
+                </div>
+                <span className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
+                  {option.desc}
                 </span>
               </div>
-              <span className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
-                {option.desc}
-              </span>
-            </div>
-          </button>
-        ))}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

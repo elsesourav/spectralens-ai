@@ -1,6 +1,12 @@
 import PropTypes from "prop-types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { IoTimeOutline, IoAdd } from "react-icons/io5";
+import {
+  IoTimeOutline,
+  IoAdd,
+  IoCameraOutline,
+  IoDocumentTextOutline,
+  IoCropOutline,
+} from "react-icons/io5";
 import ChatAiResponseCard from "../features/chat/ChatAiResponseCard.jsx";
 import ChatMessageBubble from "../features/chat/ChatMessageBubble.jsx";
 import ChatModelTabs from "../features/chat/ChatModelTabs.jsx";
@@ -15,7 +21,7 @@ const MENTION_OPTIONS = [
     label: "Screen",
     badge: "Screenshot",
     desc: "Capture visible screen",
-    icon: "📸",
+    IconComponent: IoCameraOutline,
   },
   {
     id: "page",
@@ -23,7 +29,7 @@ const MENTION_OPTIONS = [
     label: "Page",
     badge: "Page Text",
     desc: "Attach page readable text",
-    icon: "📄",
+    IconComponent: IoDocumentTextOutline,
   },
   {
     id: "area",
@@ -31,7 +37,7 @@ const MENTION_OPTIONS = [
     label: "Area",
     badge: "Crop Area",
     desc: "Select on-screen area",
-    icon: "✂️",
+    IconComponent: IoCropOutline,
   },
 ];
 
@@ -48,6 +54,7 @@ export default function ChatBot({
   const [input, setInput] = useState(pendingInput || "");
   const [isLoading, setIsLoading] = useState(false);
   const [isViewingHistory, setIsViewingHistory] = useState(false);
+  const lastHandledNewChatRef = useRef(0);
   
   // Continuous Conversation Turns: Array<{ id, question, questionImage, questionPage, messageTime, answers, isLoading, selectedProvider }>
   const [turns, setTurns] = useState([]);
@@ -369,9 +376,7 @@ export default function ChatBot({
 
   // Start fresh chat session (clears the continuous chat thread and resets background sessions)
   const handleNewChat = useCallback(() => {
-    if (isLoading) {
-      handleStopFetch();
-    }
+    handleStopFetch();
     setIsViewingHistory(false);
     setInput("");
     setTurns([]);
@@ -388,7 +393,7 @@ export default function ChatBot({
     setTimeout(() => {
       textareaRef.current?.focus();
     }, 50);
-  }, [isLoading, handleStopFetch]);
+  }, [handleStopFetch]);
 
   // Live sync active AI providers from Chrome storage & settings
   useEffect(() => {
@@ -804,7 +809,8 @@ export default function ChatBot({
   }, [isOpen]);
 
   useEffect(() => {
-    if (newChatTrigger > 0) {
+    if (newChatTrigger > 0 && newChatTrigger !== lastHandledNewChatRef.current) {
+      lastHandledNewChatRef.current = newChatTrigger;
       handleNewChat();
     }
   }, [newChatTrigger, handleNewChat]);
