@@ -401,6 +401,7 @@ export default function ChatBot({
     setViewedProviders(new Set());
     setIsLoading(false);
     currentRequestIdRef.current = null;
+    UTILS.pagePostMessage("IF_B_NEW_CHAT", {}, window.parent);
     if (textareaRef.current) {
       textareaRef.current.style.height = "24px";
     }

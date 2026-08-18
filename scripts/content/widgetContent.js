@@ -611,10 +611,12 @@ pageOnMessage("IF_C_SELECT_TEXT", () => {
 });
 
 runtimeOnMessage("B_C_CLOSE_MENU", async (_, __, sendResponse) => {
-  console.log("Close Menu");
+  console.log("Close Menu & Widget");
   isFirstWidgetSetup = true;
   sendResponse("ok");
+  removeIntroOverlay();
   document.getElementById("spectralensWidgetIframe")?.remove();
+  document.getElementById("screenSelectorIframe")?.remove();
   const back = document.getElementById("spectralensWidgetBack");
 
   if (back) {

@@ -1,6 +1,7 @@
-/* --- Request Cancellation State & Isolated Worker Window Pool --- */
+/* --- Persistent AI Provider Tab Pool & Isolated Worker Window --- */
 let currentRequestId = null;
 let activeAiTabs = [];
+const persistentProviderTabs = new Map(); // providerId -> { tabId, windowId, providerId, lastActive }
 let workerWindowId = null;
 let workerWindowPromise = null;
 
@@ -11,6 +12,21 @@ if (typeof chrome !== "undefined" && chrome.windows?.onRemoved) {
       console.log(`[SpectraLens:Pipeline] 🪟 Background Worker Window #${removedWinId} was closed.`);
       workerWindowId = null;
       workerWindowPromise = null;
+      persistentProviderTabs.clear();
+      activeAiTabs = [];
+    }
+  });
+}
+
+// Track if individual AI provider tab is closed externally
+if (typeof chrome !== "undefined" && chrome.tabs?.onRemoved) {
+  chrome.tabs.onRemoved.addListener((removedTabId) => {
+    activeAiTabs = activeAiTabs.filter((id) => id !== removedTabId);
+    for (const [providerId, entry] of persistentProviderTabs.entries()) {
+      if (entry.tabId === removedTabId) {
+        console.log(`[SpectraLens:Pipeline] 🚪 Provider Tab for "${providerId}" (#${removedTabId}) closed.`);
+        persistentProviderTabs.delete(providerId);
+      }
     }
   });
 }
@@ -124,15 +140,55 @@ async function getOrCreateWorkerWindow() {
   return workerWindowPromise;
 }
 
-/** Immediately cancel all ongoing AI scraper requests and close all active scraper tabs */
+/** Immediately cancel all ongoing AI scraper requests */
 function cancelAllAiRequests() {
   currentRequestId = "cancelled_" + Date.now();
-  const tabsToClose = [...activeAiTabs];
-  activeAiTabs = [];
-  tabsToClose.forEach((id) => {
+}
+
+/** Closes a specific AI provider's background tab (e.g. when toggled OFF in Settings) */
+function closeProviderTab(providerId) {
+  if (!providerId) return;
+  const key = String(providerId).toLowerCase();
+  const entry = persistentProviderTabs.get(key);
+  if (entry && entry.tabId) {
+    console.log(`[SpectraLens:Pipeline] 🧹 Closing disabled AI provider tab: "${key}" (#${entry.tabId})`);
+    chromeTabMediaAccess(entry.tabId, false);
+    chrome.tabs.remove(entry.tabId).catch(() => {});
+    persistentProviderTabs.delete(key);
+  }
+  activeAiTabs = activeAiTabs.filter((id) => id !== entry?.tabId);
+
+  // If no more persistent tabs remain, close the worker window to free RAM
+  if (persistentProviderTabs.size === 0 && workerWindowId) {
+    chrome.windows.remove(workerWindowId).catch(() => {});
+    workerWindowId = null;
+    workerWindowPromise = null;
+  }
+}
+
+/** Closes all provider tabs and worker window (e.g. on New Chat, page close, or full reset) */
+function resetAllProviderSessions() {
+  console.log("[SpectraLens:Pipeline] 🔄 Resetting all AI provider background sessions...");
+  currentRequestId = "reset_" + Date.now();
+  for (const [providerId, entry] of persistentProviderTabs.entries()) {
+    if (entry.tabId) {
+      chromeTabMediaAccess(entry.tabId, false);
+      chrome.tabs.remove(entry.tabId).catch(() => {});
+    }
+  }
+  persistentProviderTabs.clear();
+
+  activeAiTabs.forEach((id) => {
     chromeTabMediaAccess(id, false);
     chrome.tabs.remove(id).catch(() => {});
   });
+  activeAiTabs = [];
+
+  if (workerWindowId) {
+    chrome.windows.remove(workerWindowId).catch(() => {});
+    workerWindowId = null;
+    workerWindowPromise = null;
+  }
 }
 
 /* --- Error Formatting Helper --- */
@@ -167,10 +223,11 @@ function formatProviderError(providerId, shortReason) {
 /* --- Shared Helper --- */
 
 /**
- * Opens an isolated background tab inside the worker window, waits for it to load, executes a content
- * extraction function, and returns the cleaned HTML.
+ * Opens (or reuses) an isolated background tab inside the worker window, waits for it to load,
+ * executes the content extraction adapter function, and returns the cleaned HTML.
+ * Keeping tabs open preserves multi-turn conversation context across queries!
  *
- * @param {string} url - The URL to open
+ * @param {string} url - The URL to open or navigate
  * @param {Function} extractFn - Function to run inside the tab (must return a Promise<string>)
  * @param {Array} [extractArgs=[]] - Arguments to pass to extractFn
  * @param {string} [requestId=null] - The unique ID for the current batch of requests
@@ -178,19 +235,13 @@ function formatProviderError(providerId, shortReason) {
  */
 function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
   return new Promise(async (resolve) => {
-    const providerId = extractArgs?.[0] || "ai";
+    const providerId = (extractArgs?.[0] || "ai").toLowerCase();
     console.log(
       `%c[SpectraLens:Pipeline] 🚀 [STEP 1/5] Initiating request for "${providerId}" (URL: ${url}, RequestID: ${requestId})`,
       "color: #3b82f6; font-weight: bold;",
     );
 
-    // If we have a new requestId, cancel all existing fetching tabs
-    if (requestId && currentRequestId !== requestId) {
-      console.log(
-        `%c[SpectraLens:Pipeline] 🔄 New batch detected. Cancelling previous tabs...`,
-        "color: #f59e0b;",
-      );
-      cancelAllAiRequests();
+    if (requestId) {
       currentRequestId = requestId;
     }
 
@@ -198,78 +249,111 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
     let timeoutId = null;
     let isExecuting = false;
 
-    // Retrieve or instantiate dedicated background worker window
-    const targetWindowId = await getOrCreateWorkerWindow();
+    // Check if we already have an active persistent tab for this provider
+    const existingEntry = persistentProviderTabs.get(providerId);
+    let existingTab = null;
 
-    console.log(
-      `%c[SpectraLens:Pipeline] 📑 [STEP 2/5] Creating background tab inside isolated Worker Window #${targetWindowId || "default"} (active: false)...`,
-      "color: #3b82f6;",
-    );
-
-    const tabCreateOptions = { url, active: false };
-    if (targetWindowId) {
-      tabCreateOptions.windowId = targetWindowId;
+    if (existingEntry && existingEntry.tabId && typeof chrome !== "undefined" && chrome.tabs?.get) {
+      try {
+        existingTab = await chrome.tabs.get(existingEntry.tabId);
+      } catch {
+        existingTab = null;
+        persistentProviderTabs.delete(providerId);
+      }
     }
 
-    chrome.tabs.create(tabCreateOptions, (tab) => {
-      // Fallback: If creating tab inside workerWindow failed (e.g. user closed window), recreate in default window
-      if (chrome.runtime?.lastError || !tab || !tab.id) {
-        if (targetWindowId) {
-          console.warn("[SpectraLens:Pipeline] ⚠️ Failed creating tab in worker window, retrying with fallback:", chrome.runtime?.lastError?.message);
-          workerWindowId = null;
-          chrome.tabs.create({ url, active: false }, handleCreatedTab);
+    if (existingTab && existingTab.id) {
+      console.log(
+        `%c[SpectraLens:Pipeline] 🔁 [STEP 2/5 REUSE] Reusing active background Tab #${existingTab.id} for "${providerId}" (preserving session context)...`,
+        "color: #8b5cf6; font-weight: bold;",
+      );
+      handleTabReady(existingTab, true);
+    } else {
+      // Retrieve or instantiate dedicated background worker window
+      const targetWindowId = await getOrCreateWorkerWindow();
+
+      console.log(
+        `%c[SpectraLens:Pipeline] 📑 [STEP 2/5 NEW] Creating background tab inside isolated Worker Window #${targetWindowId || "default"} (active: false)...`,
+        "color: #3b82f6;",
+      );
+
+      const tabCreateOptions = { url, active: false };
+      if (targetWindowId) {
+        tabCreateOptions.windowId = targetWindowId;
+      }
+
+      chrome.tabs.create(tabCreateOptions, (tab) => {
+        if (chrome.runtime?.lastError || !tab || !tab.id) {
+          if (targetWindowId) {
+            console.warn("[SpectraLens:Pipeline] ⚠️ Failed creating tab in worker window, retrying with fallback:", chrome.runtime?.lastError?.message);
+            workerWindowId = null;
+            chrome.tabs.create({ url, active: false }, (fallbackTab) => {
+              if (!fallbackTab || !fallbackTab.id) {
+                resolve(formatProviderError(providerId, "Tab creation failed"));
+                return;
+              }
+              handleTabReady(fallbackTab, false);
+            });
+            return;
+          }
+          console.error(
+            `%c[SpectraLens:Pipeline] ❌ [STEP 2/5 FAILED] Failed to create background tab for ${url}`,
+            "color: #ef4444; font-weight: bold;",
+          );
+          resolve(formatProviderError(providerId, "Tab creation failed"));
           return;
         }
-        console.error(
-          `%c[SpectraLens:Pipeline] ❌ [STEP 2/5 FAILED] Failed to create background tab for ${url}`,
-          "color: #ef4444; font-weight: bold;",
-        );
-        resolve(formatProviderError(providerId, "Tab creation failed"));
-        return;
-      }
-      handleCreatedTab(tab);
-    });
+        handleTabReady(tab, false);
+      });
+    }
 
-    function handleCreatedTab(tab) {
+    function handleTabReady(tab, isReused = false) {
       if (!tab || !tab.id) {
         resolve(formatProviderError(providerId, "Tab creation failed"));
         return;
       }
 
       const tabId = tab.id;
-      activeAiTabs.push(tabId);
+      if (!activeAiTabs.includes(tabId)) {
+        activeAiTabs.push(tabId);
+      }
+      persistentProviderTabs.set(providerId, {
+        tabId,
+        windowId: tab.windowId,
+        providerId,
+        lastActive: Date.now(),
+      });
+
       console.log(
-        `%c[SpectraLens:Pipeline] 📑 [STEP 3/5] Background Tab #${tabId} created (Window #${tab.windowId}, active: false). Enabling media access & listening for load completion...`,
+        `%c[SpectraLens:Pipeline] 📑 [STEP 3/5] Background Tab #${tabId} ready (Window #${tab.windowId}, reused: ${isReused}). Listening for stream completion...`,
         "color: #10b981; font-weight: bold;",
       );
       chromeTabMediaAccess(tabId, true);
 
-      function cleanup() {
+      // If reusing a tab and the provider uses direct URL search parameters (Perplexity, Bing, Grok), update URL if needed
+      if (isReused && (providerId === "perplexity" || providerId === "bing" || providerId === "grok")) {
+        chrome.tabs.update(tabId, { url, active: false });
+      }
+
+      function detachTurnListeners() {
         if (timeoutId) clearTimeout(timeoutId);
         chrome.tabs.onUpdated.removeListener(listener);
         chrome.tabs.onRemoved.removeListener(onRemoved);
-        chromeTabMediaAccess(tabId, false);
-        console.log(
-          `%c[SpectraLens:Pipeline] 🧹 [CLEANUP] Closing background Tab #${tabId} to keep browser clean...`,
-          "color: #8b5cf6;",
-        );
-        chrome.tabs.remove(tabId).catch(() => {});
-        activeAiTabs = activeAiTabs.filter((id) => id !== tabId);
       }
 
       function safeResolve(val) {
         if (!isResolved) {
           isResolved = true;
-          cleanup();
+          detachTurnListeners();
           console.log(
-            `%c[SpectraLens:Pipeline] ✅ [STEP 5/5] fetchAiAnswer resolved for Tab #${tabId} (Content Length: ${val?.length || 0} chars)`,
+            `%c[SpectraLens:Pipeline] ✅ [STEP 5/5] fetchAiAnswer resolved for Tab #${tabId} (Content Length: ${val?.length || 0} chars). Tab preserved for context memory.`,
             "color: #10b981; font-weight: bold;",
           );
           resolve(val);
         }
       }
 
-      // 25s timeout protection
+      // 25s timeout protection per query
       timeoutId = setTimeout(() => {
         console.warn(
           `%c[SpectraLens:Pipeline] ⏱️ [TIMEOUT] 25s timeout reached for Tab #${tabId}`,
@@ -300,16 +384,14 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
             if (cleanedHtml) {
               safeResolve(cleanedHtml);
             } else {
-              // Reset isExecuting in case tab was navigating so next complete state can retry
               isExecuting = false;
-              // Check if the tab already finished loading the new destination page
               if (chrome.tabs?.get) {
                 chrome.tabs.get(tabId, (currentTab) => {
                   void chrome.runtime?.lastError;
                   if (currentTab && currentTab.status === "complete" && !isResolved) {
                     console.log(
-                      `%c[SpectraLens:Pipeline] 🔄 Tab #${tabId} finished navigation to "${currentTab.url}". Re-injecting adapter...`,
-                      "color: #3b82f6; font-weight: bold;",
+                      `%c[SpectraLens:Pipeline] 🔄 Tab #${tabId} status is complete. Retrying adapter...`,
+                      "color: #3b82f6;",
                     );
                     runInjection();
                   }
@@ -328,7 +410,6 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
             `%c[SpectraLens:Pipeline] 🌐 [PAGE LOAD COMPLETE] Tab #${tabId} status is "complete". Running adapter injection...`,
             "color: #3b82f6; font-weight: bold;",
           );
-          // Reset executing flag on new page load so navigation transitions can proceed
           isExecuting = false;
           runInjection();
         }
@@ -336,22 +417,22 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
 
       chrome.tabs.onUpdated.addListener(listener);
 
-      // If the tab was already complete when created, run immediately
-      if (tab.status === "complete") {
+      // If tab is already complete (or reused), run immediately
+      if (tab.status === "complete" || isReused) {
         console.log(
-          `%c[SpectraLens:Pipeline] ⚡ Tab #${tabId} already in "complete" state. Running adapter immediately...`,
+          `%c[SpectraLens:Pipeline] ⚡ Tab #${tabId} is ready. Running adapter immediately...`,
           "color: #3b82f6;",
         );
         runInjection();
       }
 
-      // Handle cases where the tab is closed before it finishes (e.g. by cancellation)
       function onRemoved(removedTabId) {
         if (removedTabId === tabId) {
           console.log(
-            `%c[SpectraLens:Pipeline] 🚪 Tab #${tabId} was closed externally by user or system.`,
+            `%c[SpectraLens:Pipeline] 🚪 Tab #${tabId} was closed externally.`,
             "color: #ef4444;",
           );
+          persistentProviderTabs.delete(providerId);
           safeResolve("");
         }
       }

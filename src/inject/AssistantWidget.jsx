@@ -431,6 +431,7 @@ export default function AssistantWidget() {
     setLoadedHistoryItem(null);
     setNewChatKey((k) => k + 1);
     setActiveTab("chat");
+    ES.pagePostMessage("IF_B_NEW_CHAT", {}, window.parent);
   }, []);
 
   const isDimmed = menuOpacity === "0.2" || parseFloat(menuOpacity) < 0.5;

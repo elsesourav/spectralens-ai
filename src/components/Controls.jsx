@@ -246,6 +246,11 @@ export default function Controls({ isMenuOpen = true }) {
           item.id === id ? { ...item, enabled: false } : item,
         );
         saveControlsSettings(next);
+        extensionUtils.pagePostMessage(
+          "IF_B_CLOSE_PROVIDER_TAB",
+          { providerId: id },
+          window.parent,
+        );
         return next;
       });
       return;
@@ -285,6 +290,11 @@ export default function Controls({ isMenuOpen = true }) {
       const nextList = [...enabledItems, ...disabledItems];
 
       saveControlsSettings(nextList);
+      extensionUtils.pagePostMessage(
+        "IF_B_CLOSE_PROVIDER_TAB",
+        { providerId: replaceId },
+        window.parent,
+      );
       return nextList;
     });
 

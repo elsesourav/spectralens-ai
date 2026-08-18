@@ -143,10 +143,15 @@ assert(!controlsCode.includes("settings.enable"), "Controls.jsx uses safe option
 const requestAiPath = path.join(rootDir, "scripts", "background", "requestAi.js");
 const requestAiCode = fs.readFileSync(requestAiPath, "utf-8");
 assert(requestAiCode.includes("cancelAllAiRequests"), "requestAi.js defines cancelAllAiRequests");
+assert(requestAiCode.includes("closeProviderTab"), "requestAi.js defines closeProviderTab");
+assert(requestAiCode.includes("resetAllProviderSessions"), "requestAi.js defines resetAllProviderSessions");
+assert(requestAiCode.includes("persistentProviderTabs"), "requestAi.js maintains persistentProviderTabs map");
 
 const bgPath = path.join(rootDir, "scripts", "background", "background.js");
 const bgCode = fs.readFileSync(bgPath, "utf-8");
 assert(bgCode.includes("IF_B_STOP_FETCH"), "background.js handles IF_B_STOP_FETCH cancellation");
+assert(bgCode.includes("IF_B_NEW_CHAT"), "background.js handles IF_B_NEW_CHAT reset");
+assert(bgCode.includes("IF_B_CLOSE_PROVIDER_TAB"), "background.js handles IF_B_CLOSE_PROVIDER_TAB");
 assert(!bgCode.includes("settings.enable"), "background.js uses safe optional chaining for settings");
 
 // --- TEST SUITE 6: Auto-Versioning 9.99.999 Schema & Rollover ---

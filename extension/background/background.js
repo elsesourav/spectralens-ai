@@ -150,8 +150,18 @@ const cleanupAlwaysActiveHosts = () => {
   });
 };
 
-chrome.tabs.onRemoved.addListener(() => {
+chrome.tabs.onRemoved.addListener(async (tabId) => {
   cleanupAlwaysActiveHosts();
+  try {
+    const tabs = await getTabs();
+    const remainingWebTabs = (tabs || []).filter(
+      (t) => t && t.id !== tabId && !isInternalPage(t) && t.url?.startsWith("http"),
+    );
+    if (remainingWebTabs.length === 0) {
+      console.log("[SpectraLens:Background] All user web browsing tabs closed. Cleaning up all AI provider sessions...");
+      resetAllProviderSessions();
+    }
+  } catch {}
 });
 chrome.tabs.onActivated.addListener((activeInfo) => {
   chrome.tabs.get(activeInfo.tabId, (tab) => {
@@ -164,6 +174,28 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     updateAlwaysActiveBadge(tabId, changeInfo.url || tab?.url);
   }
 });
+
+// Live monitor for disabled AI providers in Settings to close background tabs immediately
+if (typeof chrome !== "undefined" && chrome.storage?.onChanged) {
+  chrome.storage.onChanged.addListener((changes) => {
+    if (changes[KEYS.CONTROLS]) {
+      const oldVal = changes[KEYS.CONTROLS].oldValue;
+      const newVal = changes[KEYS.CONTROLS].newValue;
+      const oldControls = typeof oldVal === "string" ? JSON.parse(oldVal || "{}") : oldVal || {};
+      const newControls = typeof newVal === "string" ? JSON.parse(newVal || "{}") : newVal || {};
+
+      const allProviders = ["google", "chatgpt", "claude", "gemini", "grok", "perplexity", "bing"];
+      allProviders.forEach((p) => {
+        const wasEnabled = oldControls?.providers?.[p]?.enabled !== false;
+        const isEnabled = newControls?.providers?.[p]?.enabled !== false;
+        if (wasEnabled && !isEnabled) {
+          console.log(`[SpectraLens:Background] 🔕 Provider "${p}" disabled in settings. Closing background tab...`);
+          closeProviderTab(p);
+        }
+      });
+    }
+  });
+}
 
 runtimeOnMessage("P_B_TOGGLE_ALWAYS_ACTIVE", async (_, __, sendResponse) => {
   const tab = await getActiveTab();
@@ -267,6 +299,7 @@ runtimeOnMessage("P_B_TOGGLE", async (_, __, sendResponse) => {
       hosts.splice(idx, 1);
       chromeStorageSetLocal(KEYS.MENU_HOSTS, hosts, () => {
         tabSendMessage(tab.id, "B_C_CLOSE_MENU");
+        resetAllProviderSessions();
         chromeStorageSetLocal(KEYS.SETTINGS, { enable: hosts.length > 0, menuHosts: hosts });
       });
     } else {
@@ -279,6 +312,19 @@ runtimeOnMessage("P_B_TOGGLE", async (_, __, sendResponse) => {
     }
   });
   return sendResponse("ok");
+});
+
+runtimeOnMessage("IF_B_NEW_CHAT", (_, __, sendResponse) => {
+  resetAllProviderSessions();
+  sendResponse && sendResponse({ status: "reset" });
+});
+
+runtimeOnMessage("IF_B_CLOSE_PROVIDER_TAB", (data, __, sendResponse) => {
+  const providerId = data?.providerId || data?.provider;
+  if (providerId) {
+    closeProviderTab(providerId);
+  }
+  sendResponse && sendResponse({ status: "ok" });
 });
 
 runtimeOnMessage("P_B_RESET_WIDGET_POSITION", async (_, __, sendResponse) => {
