@@ -1252,22 +1252,17 @@
 
     findInput() {
       return document.querySelector(
-        'textarea[name="q"], input[name="q"], textarea[title="Search"], textarea[aria-label="Search"], [role="combobox"]',
+        'textarea.ITIRGe, textarea[placeholder*="Ask anything" i], textarea[aria-label*="Ask a follow up" i], textarea[placeholder*="Ask a follow up" i], textarea[name="q"], input[name="q"], textarea[title="Search"], textarea[aria-label="Search"], [role="combobox"]',
       );
     }
 
     async insertPrompt(text) {
       this._lastPrompt = text;
 
-      // If already on search results page with a query, no need to re-type
-      if (window.location.pathname.startsWith("/search")) {
-        return true;
-      }
-
       // 1. Activate AI Mode first if available
       await this.ensureAiMode();
 
-      // 2. Find and populate search input
+      // 2. Find and populate search / follow-up input
       const input = this.findInput();
       if (!input) return false;
       this.focusInput();
@@ -1286,7 +1281,7 @@
       input.dispatchEvent(new Event("change", { bubbles: true }));
       input.dispatchEvent(new KeyboardEvent("input", { bubbles: true }));
       tabLog("GoogleTab", `✍️ Prompt inserted into search box: "${text.slice(0, 30)}..."`);
-      await new Promise((r) => setTimeout(r, 250));
+      await new Promise((r) => setTimeout(r, 200));
       return true;
     }
 
@@ -1313,19 +1308,40 @@
     }
 
     async submit() {
-      // If already on search results page, skip submit
-      if (window.location.pathname.startsWith("/search")) {
-        return true;
-      }
-
-      await new Promise((r) => setTimeout(r, 200));
+      await new Promise((r) => setTimeout(r, 150));
 
       const input = this.findInput();
-      const form = input ? input.closest("form") : document.querySelector('form[role="search"], form[action="/search"]');
+      const isFollowUpInput = input?.classList?.contains("ITIRGe") || input?.placeholder?.toLowerCase().includes("ask");
+
+      // For in-page follow-up chat turns, dispatch Enter keydown
+      if (input) {
+        tabLog("GoogleTab", "↵ Dispatching Enter key to input box...");
+        input.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "Enter",
+            code: "Enter",
+            keyCode: 13,
+            which: 13,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+        input.dispatchEvent(
+          new KeyboardEvent("keyup", {
+            key: "Enter",
+            code: "Enter",
+            keyCode: 13,
+            which: 13,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+        await new Promise((r) => setTimeout(r, 300));
+      }
 
       const btn = this.findSendButton();
       if (btn) {
-        tabLog("GoogleTab", "🔘 Clicking AI Send button (jsname='B6rgad' / plR5qb)...");
+        tabLog("GoogleTab", "🔘 Clicking AI Send button...");
         try {
           btn.click();
           btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
@@ -1333,8 +1349,9 @@
         await new Promise((r) => setTimeout(r, 300));
       }
 
-      // Native browser form submission (guaranteed to submit in background tab without human focus)
-      if (form) {
+      // Native browser form submission for initial search
+      const form = input ? input.closest("form") : document.querySelector('form[role="search"], form[action="/search"]');
+      if (form && !isFollowUpInput) {
         tabLog("GoogleTab", "🚀 Executing native form requestSubmit (no human interaction needed)...");
         try {
           if (typeof form.requestSubmit === "function") {
@@ -1349,26 +1366,21 @@
         }
       }
 
-      if (input) {
-        tabLog("GoogleTab", "↵ Dispatching Enter key to search box...");
-        input.dispatchEvent(
-          new KeyboardEvent("keydown", {
-            key: "Enter",
-            code: "Enter",
-            keyCode: 13,
-            which: 13,
-            bubbles: true,
-            cancelable: true,
-          }),
-        );
-        return true;
-      }
-
-      return false;
+      return true;
     }
 
     findResponseContainer() {
-      // ONLY select the pure AI answer column (main-col), never broad parents with rhs-col!
+      // 1. Check for AI Overview copy buttons or response blocks (latest turn in thread)
+      const copyBtns = Array.from(document.querySelectorAll('button[aria-label="Copy text"].bKxaof, button[aria-label*="Copy text" i]'));
+      if (copyBtns.length > 0) {
+        const lastCopyBtn = copyBtns[copyBtns.length - 1];
+        const block = lastCopyBtn.closest('div[jsname], div.mZJni, div.Dn7Fzd, div[data-container-id="main-col"]') || lastCopyBtn.parentElement?.parentElement;
+        if (block && (block.textContent || "").trim().length > 25) {
+          return block;
+        }
+      }
+
+      // 2. ONLY select the pure AI answer column (main-col), picking the latest (last) in thread
       const selectors = [
         'div[data-container-id="main-col"] .Dn7Fzd',
         'div[data-container-id="main-col"] div[jsname="N760b"]',
@@ -1388,9 +1400,12 @@
         '#rso',
       ];
       for (const sel of selectors) {
-        const el = document.querySelector(sel);
-        if (el && (el.textContent || "").trim().length > 25) {
-          return el;
+        const matched = document.querySelectorAll(sel);
+        if (matched.length > 0) {
+          const lastEl = matched[matched.length - 1];
+          if (lastEl && (lastEl.textContent || "").trim().length > 25) {
+            return lastEl;
+          }
         }
       }
       return null;

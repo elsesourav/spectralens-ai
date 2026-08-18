@@ -439,46 +439,31 @@ function runTabAdapter(providerId, prompt, image = null) {
         return;
       }
 
-      // 1. FAST PATH: Check if already on search results page or response container is already rendered
-      if (window.location.pathname.startsWith("/search")) {
-        console.log(
-          `%c[SpectraLens:Adapter] 🎯 Search results page loaded. Observing AI response stream...`,
-          "color: #10b981; font-weight: bold;",
-        );
-        const answer = await adapter.observeResponse(20000);
-        resolve(answer || getShortError(providerId, "No response generated"));
-        return;
+      // 1. Locate input editor (or observe pre-loaded initial search results)
+      let input = adapter.findInput();
+
+      // If no input editor is available immediately, check if this is an initial search results page load with answer already rendered
+      if (!input && window.location.pathname.startsWith("/search")) {
+        const existingAnswer = adapter.findResponseContainer();
+        if (existingAnswer && existingAnswer.textContent.trim().length > 25) {
+          console.log(
+            `%c[SpectraLens:Adapter] 🎯 Search results response container rendered. Observing stream...`,
+            "color: #10b981; font-weight: bold;",
+          );
+          const answer = await adapter.observeResponse(20000);
+          resolve(answer || getShortError(providerId, "No response generated"));
+          return;
+        }
       }
 
-      console.log(
-        `%c[SpectraLens:Adapter] 🔍 Checking if response container is already rendered on page...`,
-        "color: #64748b;",
-      );
-      const existingContainer = adapter.findResponseContainer();
-      if (existingContainer && existingContainer.textContent.trim().length > 25) {
-        console.log(
-          `%c[SpectraLens:Adapter] 🎯 Response container already present on page. Observing stream...`,
-          "color: #10b981; font-weight: bold;",
-        );
-        const answer = await adapter.observeResponse(15000);
-        resolve(answer || getShortError(providerId, "Empty response"));
-        return;
-      }
-
-      // 2. Otherwise: Locate input box (up to 12s)
+      // 2. Wait up to 25 attempts for input editor to mount
       console.log(
         `%c[SpectraLens:Adapter] ✍️ [ADAPTER 2/4] Locating input editor for "${providerId}"...`,
         "color: #f59e0b;",
       );
-      let input = adapter.findInput();
       let attempts = 0;
       while (!input && attempts < 25) {
-        // Also check if response container appeared in the meantime
-        if (adapter.findResponseContainer()?.textContent?.trim()?.length > 25) {
-          console.log(
-            `%c[SpectraLens:Adapter] 🎯 Response container appeared while waiting for input!`,
-            "color: #10b981;",
-          );
+        if (adapter.findResponseContainer()?.textContent?.trim()?.length > 25 && window.location.pathname.startsWith("/search")) {
           const answer = await adapter.observeResponse(15000);
           resolve(answer || getShortError(providerId, "Empty response"));
           return;
