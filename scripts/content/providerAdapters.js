@@ -2102,14 +2102,30 @@
       if (!input) return false;
 
       this.focusInput();
-      await new Promise((r) => setTimeout(r, 50));
+      await new Promise((r) => setTimeout(r, 80));
 
       if (input.tagName.toLowerCase() === "textarea") {
-        input.value = text;
+        input.value = "";
+        const nativeSetter = Object.getOwnPropertyDescriptor(
+          window.HTMLTextAreaElement.prototype,
+          "value",
+        )?.set;
+        if (nativeSetter) {
+          nativeSetter.call(input, text);
+        } else {
+          input.value = text;
+        }
         input.dispatchEvent(new Event("input", { bubbles: true }));
         input.dispatchEvent(new Event("change", { bubbles: true }));
       } else {
+        // ContentEditable / Lexical Rich Text Editor
+        input.focus();
+        try {
+          document.execCommand("selectAll", false, null);
+          document.execCommand("delete", false, null);
+        } catch {}
         input.textContent = "";
+
         const beforeInput = new InputEvent("beforeinput", {
           bubbles: true,
           composed: true,
@@ -2118,7 +2134,14 @@
           data: text,
         });
         input.dispatchEvent(beforeInput);
-        document.execCommand("insertText", false, text);
+        try {
+          document.execCommand("insertText", false, text);
+        } catch {}
+
+        if ((input.textContent || "").trim() !== text.trim()) {
+          input.textContent = text;
+        }
+
         input.dispatchEvent(
           new InputEvent("input", {
             bubbles: true,
@@ -2129,15 +2152,30 @@
           }),
         );
         input.dispatchEvent(new Event("input", { bubbles: true }));
+        input.dispatchEvent(new Event("change", { bubbles: true }));
       }
 
-      await new Promise((r) => setTimeout(r, 100));
+      await new Promise((r) => setTimeout(r, 150));
       return true;
     }
 
     findSendButton() {
+      const input = this.findInput();
+      if (input) {
+        const wrapper =
+          input.closest(
+            "div.relative, form, div.border, div.bg-background, div.rounded-2xl",
+          ) || input.parentElement?.parentElement;
+        if (wrapper) {
+          const wrapperBtn = wrapper.querySelector(
+            'button[aria-label*="Submit" i], button[aria-label*="Send" i], button.bg-super, button[type="submit"], button:has(svg.lucide-arrow-up), button:has(svg.lucide-arrow-right), button.rounded-full:has(svg)',
+          );
+          if (wrapperBtn) return wrapperBtn;
+        }
+      }
+
       return document.querySelector(
-        'button[aria-label="Submit" i], button[aria-label*="Submit" i], button[aria-label*="Search" i], button[aria-label*="Send" i], button[data-testid="submit-button"], button.bg-super, button:has(svg.lucide-arrow-right), button.reset.interactable',
+        'button[aria-label="Submit" i], button[aria-label*="Submit" i], button[aria-label*="Search" i], button[aria-label*="Send" i], button[data-testid="submit-button"], button.bg-super, button:has(svg.lucide-arrow-up), button:has(svg.lucide-arrow-right), button:has(svg.lucide-corner-down-left), button.reset.interactable:has(svg)',
       );
     }
 
@@ -2147,6 +2185,7 @@
       if (btn && !btn.disabled) {
         tabLog("PerplexityTab", "🔘 Clicking Perplexity Send button...");
         try {
+          btn.focus();
           btn.click();
           btn.dispatchEvent(
             new MouseEvent("click", {
@@ -2155,10 +2194,10 @@
               view: window,
             }),
           );
-          return true;
         } catch {}
       }
 
+      // Always also dispatch Enter key on the input to ensure submission
       const input = this.findInput();
       if (input) {
         tabLog(
@@ -2168,6 +2207,16 @@
         input.focus();
         input.dispatchEvent(
           new KeyboardEvent("keydown", {
+            key: "Enter",
+            code: "Enter",
+            keyCode: 13,
+            which: 13,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+        input.dispatchEvent(
+          new KeyboardEvent("keypress", {
             key: "Enter",
             code: "Enter",
             keyCode: 13,
@@ -2189,7 +2238,7 @@
         return true;
       }
 
-      return false;
+      return Boolean(btn);
     }
 
     findResponseContainer() {
