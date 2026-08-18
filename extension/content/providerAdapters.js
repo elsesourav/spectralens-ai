@@ -2151,58 +2151,49 @@
         // ContentEditable / Lexical Editor (#ask-input)
         input.focus();
 
-        // 1. Clear content using Range Selection & delete
-        const sel = window.getSelection();
-        const range = document.createRange();
-        range.selectNodeContents(input);
-        sel.removeAllRanges();
-        sel.addRange(range);
+        // 1. Clear content by selecting all and deleting
         try {
+          document.execCommand("selectAll", false, null);
           document.execCommand("delete", false, null);
         } catch {}
 
-        // 2. Dispatch beforeinput for insertText
-        const beforeInput = new InputEvent("beforeinput", {
-          bubbles: true,
-          cancelable: true,
-          composed: true,
-          inputType: "insertText",
-          data: text,
-        });
-        input.dispatchEvent(beforeInput);
+        // Fallback clear if DOM nodes remained
+        if ((input.textContent || "").trim().length > 0) {
+          try {
+            const sel = window.getSelection();
+            const range = document.createRange();
+            range.selectNodeContents(input);
+            sel.removeAllRanges();
+            sel.addRange(range);
+            range.deleteContents();
+          } catch {}
+        }
 
-        // 3. Use execCommand insertText
+        // 2. Insert text using execCommand("insertText") - single dispatch
+        let inserted = false;
         try {
-          document.execCommand("insertText", false, text);
+          inserted = document.execCommand("insertText", false, text);
         } catch {}
 
-        // 4. If execCommand didn't insert text, insert TextNode directly into selection range
-        if ((input.textContent || "").trim().length === 0) {
-          const currentSel = window.getSelection();
-          if (currentSel && currentSel.rangeCount > 0) {
-            const curRange = currentSel.getRangeAt(0);
+        // 3. Fallback only if execCommand did not insert text
+        const currentText = (input.textContent || "").trim();
+        if (!inserted || currentText !== text.trim()) {
+          const sel = window.getSelection();
+          if (sel && sel.rangeCount > 0) {
+            const curRange = sel.getRangeAt(0);
             curRange.deleteContents();
             const textNode = document.createTextNode(text);
             curRange.insertNode(textNode);
             curRange.selectNodeContents(textNode);
             curRange.collapse(false);
-            currentSel.removeAllRanges();
-            currentSel.addRange(curRange);
+            sel.removeAllRanges();
+            sel.addRange(curRange);
           } else {
             input.textContent = text;
           }
         }
 
-        // 5. Dispatch InputEvent to notify React
-        input.dispatchEvent(
-          new InputEvent("input", {
-            bubbles: true,
-            cancelable: true,
-            composed: true,
-            inputType: "insertText",
-            data: text,
-          }),
-        );
+        // 4. Notify React with standard bubbling Events
         input.dispatchEvent(new Event("input", { bubbles: true }));
         input.dispatchEvent(new Event("change", { bubbles: true }));
       }
