@@ -223,7 +223,14 @@ function injectMainWorldNetworkInterceptor(tabId) {
             const response = await origFetch.apply(this, args);
             try {
               const url = typeof args[0] === "string" ? args[0] : args[0]?.url || "";
-              if (url.includes("/async/folif") || url.includes("/async/aim") || url.includes("/async/")) {
+              if (
+                url.includes("/async/folif") ||
+                url.includes("/async/aim") ||
+                url.includes("/async/") ||
+                url.includes("/StreamGenerate") ||
+                url.includes("BardFrontendService") ||
+                url.includes("/assistant.lamda.")
+              ) {
                 const clone = response.clone();
                 clone
                   .text()

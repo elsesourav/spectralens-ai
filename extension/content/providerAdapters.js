@@ -918,6 +918,8 @@
   /* -------------------------------------------------------------------------- */
   /* 3. Google Gemini Adapter (gemini.google.com)                               */
   /* -------------------------------------------------------------------------- */
+  /* 3. Gemini Adapter (gemini.google.com)                                      */
+  /* -------------------------------------------------------------------------- */
   class GeminiAdapter extends BaseProviderAdapter {
     constructor() {
       super("gemini", "Gemini", /gemini\.google\.com/);
@@ -925,8 +927,62 @@
 
     findInput() {
       return document.querySelector(
-        'div[role="textbox"][aria-label*="Enter a prompt"], div.ql-editor.textarea, rich-textarea > div, div[contenteditable="true"]',
+        'div.ql-editor[contenteditable="true"], div[contenteditable="true"][role="textbox"], rich-textarea div[contenteditable="true"], rich-textarea > div, div.ql-editor.textarea, textarea[aria-label*="prompt" i], div[role="textbox"]',
       );
+    }
+
+    async attachImage(imageDataUrl) {
+      if (!imageDataUrl) return false;
+      tabLog("GeminiTab", "🖼️ Attaching image file to Gemini...");
+      try {
+        const arr = imageDataUrl.split(",");
+        const mime = arr[0].match(/:(.*?);/)?.[1] || "image/png";
+        const bstr = atob(arr[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+          u8arr[n] = bstr.charCodeAt(n);
+        }
+        const file = new File([u8arr], "attachment.png", {
+          type: mime,
+          lastModified: Date.now(),
+        });
+
+        // 1. Check file input
+        const fileInput = document.querySelector(
+          'input[type="file"], input[accept*="image"]',
+        );
+        if (fileInput) {
+          const dt = new DataTransfer();
+          dt.items.add(file);
+          fileInput.files = dt.files;
+          fileInput.dispatchEvent(new Event("change", { bubbles: true }));
+          fileInput.dispatchEvent(new Event("input", { bubbles: true }));
+          tabLog("GeminiTab", "📁 Dispatched image to file input!");
+          await new Promise((r) => setTimeout(r, 600));
+          return true;
+        }
+
+        // 2. Synthetic ClipboardEvent paste onto input editor
+        const input = this.findInput();
+        if (input) {
+          this.focusInput();
+          const dt = new DataTransfer();
+          dt.items.add(file);
+          const pasteEv = new ClipboardEvent("paste", {
+            bubbles: true,
+            cancelable: true,
+            clipboardData: dt,
+          });
+          input.dispatchEvent(pasteEv);
+          tabLog("GeminiTab", "📋 Dispatched synthetic paste event to Gemini input!");
+          await new Promise((r) => setTimeout(r, 600));
+          return true;
+        }
+      } catch (err) {
+        tabLog("GeminiTab", "❌ attachImage error:", err?.message);
+      }
+      return false;
     }
 
     async insertPrompt(text) {
@@ -934,10 +990,21 @@
       if (!input) return false;
 
       this.focusInput();
-      await new Promise((r) => setTimeout(r, 50));
+      await new Promise((r) => setTimeout(r, 100));
 
-      input.textContent = "";
-      input.textContent = text;
+      try {
+        document.execCommand("selectAll", false, null);
+        document.execCommand("delete", false, null);
+      } catch {}
+
+      let inserted = false;
+      try {
+        inserted = document.execCommand("insertText", false, text);
+      } catch {}
+
+      if (!inserted || (input.textContent || "").trim() !== text.trim()) {
+        input.textContent = text;
+      }
 
       input.dispatchEvent(
         new InputEvent("input", {
@@ -947,25 +1014,107 @@
           data: text,
         }),
       );
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
 
-      await new Promise((r) => setTimeout(r, 100));
+      tabLog("GeminiTab", `✍️ Prompt inserted into Gemini: "${text.slice(0, 30)}..."`);
+      await new Promise((r) => setTimeout(r, 150));
       return true;
     }
 
     findSendButton() {
-      return document.querySelector(
-        "button.send-button, button[aria-label*='Send'], button[aria-label*='Submit'], .send-button-container button",
-      );
+      const selectors = [
+        'button.send-button',
+        'button[aria-label*="Send message" i]',
+        'button[aria-label*="Submit" i]',
+        'button[aria-label*="Send" i]',
+        'button[mattooltip*="Send" i]',
+        '.send-button-container button',
+        'button[data-test-id="send-button"]',
+        'div.send-button-container button',
+        'button.send-button-wrapper',
+      ];
+      for (const sel of selectors) {
+        const el = document.querySelector(sel);
+        if (el && el.offsetParent !== null && !el.disabled) {
+          return el;
+        }
+      }
+      return null;
+    }
+
+    async submit() {
+      await new Promise((r) => setTimeout(r, 150));
+      const btn = this.findSendButton();
+      if (btn) {
+        tabLog("GeminiTab", "🔘 Clicking Gemini Send button...");
+        try {
+          btn.click();
+          btn.dispatchEvent(
+            new MouseEvent("click", {
+              bubbles: true,
+              cancelable: true,
+              view: window,
+            }),
+          );
+          return true;
+        } catch {}
+      }
+
+      // Fallback: Dispatch Enter key
+      const input = this.findInput();
+      if (input) {
+        tabLog("GeminiTab", "↵ Dispatching Enter key to Gemini input...");
+        input.focus();
+        input.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "Enter",
+            code: "Enter",
+            keyCode: 13,
+            which: 13,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+        input.dispatchEvent(
+          new KeyboardEvent("keyup", {
+            key: "Enter",
+            code: "Enter",
+            keyCode: 13,
+            which: 13,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+        return true;
+      }
+
+      return false;
     }
 
     findResponseContainer() {
+      // 1. Primary Gemini model response containers (newest turn at the end)
       const responses = document.querySelectorAll(
-        "structured-content-container.model-response-text, .markdown-main-panel, model-response",
+        'model-response, message-content, structured-content-container.model-response-text, .markdown-main-panel, div[data-test-id="model-response"]',
       );
       if (responses.length > 0) {
+        for (let i = responses.length - 1; i >= 0; i--) {
+          const resp = responses[i];
+          const innerContent = resp.querySelector(
+            '.model-response-text, .markdown, .response-content, .markdown-main-panel, .sparkle-text-output, structured-content-container',
+          );
+          const target = innerContent || resp;
+          const text = (target.textContent || "").trim();
+          if (text.length > 15) {
+            return target;
+          }
+        }
         return responses[responses.length - 1];
       }
-      return document.querySelector(".markdown-main-panel");
+
+      return document.querySelector(
+        '.markdown-main-panel, .model-response-text, message-content',
+      );
     }
 
     getJunkSelectors() {
@@ -977,22 +1126,132 @@
         "source-links",
         'button[aria-label*="Show drafts"]',
         'button[aria-label*="drafts"]',
+        '.model-response-footer',
+        'div.response-footer',
+        'button[aria-label*="Copy" i]',
+        'button[aria-label*="Like" i]',
+        'button[aria-label*="Dislike" i]',
+        'button[aria-label*="Share" i]',
+        'button[aria-label*="Modify response" i]',
       ];
+    }
+
+    observeResponse(timeoutMs = 25000, previousContent = "") {
+      return new Promise(async (resolve) => {
+        const startTime = Date.now();
+        let lastTextLength = 0;
+        let idleCount = 0;
+        let isDone = false;
+
+        const initialTurnCount = document.querySelectorAll(
+          'model-response, message-content, structured-content-container.model-response-text, .markdown-main-panel',
+        ).length;
+        const initialCopyBtnCount = document.querySelectorAll(
+          'button[aria-label*="Copy" i], button[data-test-id="copy-button"]',
+        ).length;
+
+        // Listen for live network stream chunks from StreamGenerate / BardFrontendService
+        let hasReceivedNetChunk = false;
+        const netChunkListener = (e) => {
+          if (e.detail?.raw) {
+            hasReceivedNetChunk = true;
+            tabLog(
+              "GeminiTab",
+              `📡 Network stream chunk captured from Gemini StreamGenerate (${e.detail.raw.length} bytes)`,
+            );
+          }
+        };
+        window.addEventListener("spectralens:network_chunk", netChunkListener);
+
+        const cleanUp = () => {
+          isDone = true;
+          clearInterval(checkInterval);
+          window.removeEventListener("spectralens:network_chunk", netChunkListener);
+        };
+
+        const checkInterval = setInterval(async () => {
+          if (isDone) return;
+          const currentCopyBtnCount = document.querySelectorAll(
+            'button[aria-label*="Copy" i], button[data-test-id="copy-button"]',
+          ).length;
+          const currentTurnCount = document.querySelectorAll(
+            'model-response, message-content, structured-content-container.model-response-text, .markdown-main-panel',
+          ).length;
+
+          const container = this.findResponseContainer();
+
+          if (container) {
+            const currentContent = (container.textContent || "").trim();
+            const currentLength = currentContent.length;
+
+            if (previousContent) {
+              const hasNewTurnAppeared =
+                currentTurnCount > initialTurnCount ||
+                currentCopyBtnCount > initialCopyBtnCount ||
+                hasReceivedNetChunk;
+
+              if (!hasNewTurnAppeared || currentContent === previousContent) {
+                return;
+              }
+            }
+
+            if (currentLength > 20) {
+              const isTurnFinished = previousContent
+                ? currentCopyBtnCount > initialCopyBtnCount ||
+                  (hasReceivedNetChunk && idleCount >= 2) ||
+                  (currentTurnCount > initialTurnCount && idleCount >= 3)
+                : currentCopyBtnCount > 0 ||
+                  (hasReceivedNetChunk && idleCount >= 2) ||
+                  idleCount >= 3;
+
+              if (currentLength === lastTextLength) {
+                idleCount++;
+                if (isTurnFinished || idleCount >= 4) {
+                  cleanUp();
+                  const md = await this.getCurrentResponse();
+                  tabLog(
+                    "GeminiTab",
+                    `✅ Gemini response extracted, length: ${md?.length || 0}`,
+                  );
+                  resolve(md);
+                  return;
+                }
+              } else {
+                lastTextLength = currentLength;
+                idleCount = 0;
+              }
+            }
+          }
+
+          if (Date.now() - startTime > timeoutMs) {
+            cleanUp();
+            const response = await this.getCurrentResponse();
+            if (response && response.length > 20) {
+              resolve(response);
+            } else {
+              resolve(
+                typeof formatProviderError === "function"
+                  ? formatProviderError(this.id, "No response generated or login required")
+                  : "> ⚠️ **Unable to retrieve Gemini response**",
+              );
+            }
+          }
+        }, 350);
+      });
     }
 
     isStreaming() {
       const container = this.findResponseContainer();
       return Boolean(
         container?.classList?.contains("processing-state-visible") ||
-        document.querySelector(
-          "div.response-container-header-processing-state",
-        ),
+        document.querySelector("div.response-container-header-processing-state") ||
+        document.querySelector("mat-progress-bar")
       );
     }
 
     isComplete() {
       const hasCompletedFooter = Boolean(
-        document.querySelector("div.response-footer.complete"),
+        document.querySelector("div.response-footer.complete, button[aria-label*='Copy' i]"),
       );
       return (
         (hasCompletedFooter || !this.isStreaming()) &&
