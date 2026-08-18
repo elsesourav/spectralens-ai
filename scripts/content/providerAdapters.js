@@ -426,15 +426,9 @@
         '[role="dialog"]',
         '[role="alert"]',
         '[role="toolbar"]',
-        '[aria-hidden="true"]',
         ".copy-button",
         ".action-button",
-        ".screen-reader-only",
-        ".sr-only",
-        '[style*="display: none"]',
-        '[style*="display:none"]',
-        '[style*="visibility: hidden"]',
-        '[style*="visibility:hidden"]',
+        "svg[aria-hidden='true']",
       ];
     }
 
@@ -628,7 +622,24 @@
           this.cleanCloneNode(clone);
         }
 
-        targetNode = clone;
+        // Safety check: Ensure cleaning did not wipe out real response text
+        const cloneText = (clone.textContent || "").trim();
+        const liveText = (container.textContent || "").trim();
+        if (liveText.length > 20 && cloneText.length < 10) {
+          tabLog(
+            this.id || "ProviderAdapter",
+            `⚠️ Cloned tree lost content during pruning (${liveText.length} → ${cloneText.length}). Preserving source container structure.`,
+          );
+          const safeClone = container.cloneNode(true);
+          safeClone
+            .querySelectorAll(
+              'button, form, dialog, [role="toolbar"], .copy-button, .action-button, svg[aria-hidden="true"]',
+            )
+            .forEach((el) => el.remove());
+          targetNode = safeClone;
+        } else {
+          targetNode = clone;
+        }
       }
 
       // Return exact theme-aware HTML wrapped in isolated container with text-selection enabled
@@ -2794,32 +2805,10 @@
         'div[data-sfc-cp*="user"]',
         'div:has(> img[alt*="Visually searched" i])',
         'img[alt*="Visually searched" i]',
-        "div.xU328e",
-        "div.v51B4d",
-        "div.d6P8Be",
-        "div.cUnjbc",
         'div[data-container-id="rhs-col"]',
         'div[data-xid="aim-aside-initial-corroboration-container"]',
         'div[data-xid="Gd7Hsc"]',
         'div[data-xid="YruvMc"]',
-        "div.ub891",
-        "div.nLDHre",
-        "div.ofHStc",
-        "div.SK38Xc",
-        "div.tbIZh",
-        "div.N6Axvb",
-        "div.OBWDNe",
-        "div.jR6h",
-        "ul.aajpme",
-        "div.UrecDd",
-        "div.YOTKvb",
-        "div.HvurC",
-        "div.PpHF4",
-        "div.DBNuff",
-        "span.DHPVt",
-        "button.vDOt8c",
-        "div.a14YJe",
-        "span.NMq1me",
       ];
     }
 
