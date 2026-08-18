@@ -297,11 +297,12 @@ export default function ChatBot({
     return () => document.removeEventListener("pointerdown", handleClickOutside);
   }, []);
 
-  // Context response listener (screen capture / page capture)
+  // Context response listener (screen capture / page capture / area crop capture)
   useEffect(() => {
     UTILS.pageOnMessage("IF_B_CAPTURE_SCREEN", (data) => {
       if (data?.image) {
         setAttachedImage(data.image);
+        setAttachedPage(null);
         setAttachedContextType("screen");
       }
     });
@@ -309,10 +310,19 @@ export default function ChatBot({
     UTILS.pageOnMessage("IF_B_CAPTURE_PAGE", (data) => {
       if (data && data.success) {
         setAttachedPage(data);
-        if (data.image) {
-          setAttachedImage(data.image);
-        }
+        setAttachedImage(null);
         setAttachedContextType("page");
+      }
+    });
+
+    UTILS.pageOnMessage("C_IF_SET_AREA_IMAGE", (data) => {
+      if (data?.image) {
+        setAttachedImage(data.image);
+        setAttachedPage(null);
+        setAttachedContextType("area");
+        setTimeout(() => {
+          textareaRef.current?.focus();
+        }, 50);
       }
     });
   }, []);
@@ -952,6 +962,7 @@ export default function ChatBot({
           setAttachedImage={setAttachedImage}
           attachedPage={attachedPage}
           setAttachedPage={setAttachedPage}
+          attachedContextType={attachedContextType}
           setAttachedContextType={setAttachedContextType}
           showMentionMenu={showMentionMenu}
           filteredMentionOptions={filteredMentionOptions}

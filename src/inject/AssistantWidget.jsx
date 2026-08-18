@@ -148,6 +148,13 @@ export default function AssistantWidget() {
           setMenuOpacity("1");
         }
       }),
+      ES.pageOnMessage("C_IF_SET_AREA_IMAGE", (data) => {
+        if (data && data.image) {
+          setIsChatOpen(true);
+          setActiveTab("chat");
+          setMenuOpacity("1");
+        }
+      }),
       ES.pageOnMessage("C_IF_CLOSE_CHAT", () => {
         setIsChatOpen(false);
       }),

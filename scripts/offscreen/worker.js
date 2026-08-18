@@ -108,16 +108,30 @@ window.addEventListener("beforeunload", async () => {
    }
 });
 
-runtimeOnMessage("C_OF_START_QRC", (data, _, sendResponse) => {
+runtimeOnMessage("C_OF_CROP_IMAGE", (data, _, sendResponse) => {
    const { imageData, rectInfo } = data || {};
-   processOCR(imageData, rectInfo)
-      .then((result) => {
-         sendResponse({ success: !!result, result });
-      })
-      .catch((err) => {
-         console.error("OCR failed with error:", err);
-         sendResponse({ success: false, error: String(err) });
-      });
+   let box = null;
+   if (rectInfo && typeof rectInfo === "object" && rectInfo.width && rectInfo.height) {
+      const dpr = rectInfo.devicePixelRatio || 1;
+      box = {
+         width: (rectInfo.width || 0) * dpr,
+         height: (rectInfo.height || 0) * dpr,
+         left: (rectInfo.left || 0) * dpr,
+         top: (rectInfo.top || 0) * dpr,
+      };
+   }
+   if (box) {
+      cropImage(imageData, box)
+         .then((cropped) => {
+            sendResponse({ success: true, image: cropped });
+         })
+         .catch((err) => {
+            console.error("Crop failed with error:", err);
+            sendResponse({ success: false, error: String(err) });
+         });
+   } else {
+      sendResponse({ success: true, image: imageData });
+   }
    return true;
 });
 

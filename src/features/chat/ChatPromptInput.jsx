@@ -11,6 +11,7 @@ export default function ChatPromptInput({
   setAttachedImage,
   attachedPage,
   setAttachedPage,
+  attachedContextType,
   setAttachedContextType,
   showMentionMenu,
   filteredMentionOptions,
@@ -43,18 +44,20 @@ export default function ChatPromptInput({
         onSelectMention={onSelectMention}
       />
 
-      {/* Screen attachment chip */}
-      {attachedImage && (
+      {/* Screen / Area attachment chip (only shown when not a page context) */}
+      {attachedImage && !attachedPage && (
         <div className="flex items-center gap-2 px-3 py-1.5 mb-2 bg-white dark:bg-[#191c25] border border-blue-500/30 dark:border-blue-500/25 rounded-xl shadow-xs animate-in fade-in duration-200">
           <div className="relative w-8 h-6 rounded overflow-hidden border border-slate-300 dark:border-white/10 shrink-0 bg-slate-200 dark:bg-black/30">
-            <img src={attachedImage} alt="Screen attachment" className="w-full h-full object-cover" />
+            <img src={attachedImage} alt="Attachment" className="w-full h-full object-cover" />
           </div>
           <div className="flex flex-col min-w-0 flex-1">
             <span className="text-[11px] font-semibold text-slate-800 dark:text-slate-200 truncate">
-              Screen Attached
+              {attachedContextType === "area" ? "Selected Area Attached" : "Screen Attached"}
             </span>
             <span className="text-[9px] text-slate-400 dark:text-slate-500">
-              Visual image will be sent to AI
+              {attachedContextType === "area"
+                ? "Visual crop will be sent to AI"
+                : "Visual image will be sent to AI"}
             </span>
           </div>
           <button
@@ -70,7 +73,7 @@ export default function ChatPromptInput({
         </div>
       )}
 
-      {/* Page context chip */}
+      {/* Single unified Page context chip with thumbnail and metadata in one */}
       {attachedPage && (
         <div className="flex items-center gap-2.5 px-3 py-1.5 mb-2 bg-white dark:bg-[#191c25] border border-blue-500/30 dark:border-blue-500/25 rounded-xl shadow-xs animate-in fade-in duration-200">
           {attachedPage.image ? (

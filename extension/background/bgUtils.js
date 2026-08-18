@@ -15,6 +15,22 @@ async function ensureOffscreen() {
    }
 }
 
+/* ---------------- offscreen image crop extraction ---------------- */
+async function performCropExtraction(imageData, rectInfo) {
+   await ensureOffscreen();
+   await wait(40);
+
+   return new Promise((resolve) => {
+      runtimeSendMessage("C_OF_CROP_IMAGE", { imageData, rectInfo }, (res) => {
+         if (res && res.success && res.image) {
+            resolve({ success: true, image: res.image });
+         } else {
+            resolve({ success: false, image: imageData });
+         }
+      });
+   });
+}
+
 /* ---------------- offscreen OCR engine ---------------- */
 async function performOcrExtraction(imageData, rectInfo) {
    console.log("[Background] performOcrExtraction initializing offscreen document...");
@@ -22,19 +38,17 @@ async function performOcrExtraction(imageData, rectInfo) {
    await wait(120);
 
    return new Promise((resolve) => {
-      console.log("[Background] Posting C_OF_START_QRC to offscreen OCR worker...");
-      runtimeSendMessage("C_OF_START_QRC", { imageData, rectInfo }, (res) => {
-         console.log("[Background] OCR Worker response received:", res);
+      console.log("[Background] Posting C_OF_CROP_IMAGE / OCR to offscreen worker...");
+      runtimeSendMessage("C_OF_CROP_IMAGE", { imageData, rectInfo }, (res) => {
          if (res && res.success) {
             resolve(res);
          } else {
-            console.error("[Background] OCR failed:", res?.error || res?.message);
             resolve(res || { success: false });
          }
       });
    });
 }
-const __OCR__ = performOcrExtraction;
+const __OCR__ = performCropExtraction;
 
 /* ---------------- injects screen selector ---------------- */
 function injectScreenSelector(tabId) {

@@ -550,6 +550,35 @@ pageOnMessage("IF_C_SELECT_COORDS", async (data) => {
   }
 });
 
+runtimeOnMessage("B_C_AREA_RESULT", async (data, _, sendResponse) => {
+  const { image } = data || {};
+  sendResponse && sendResponse({ success: true });
+
+  const menuFrame = document.getElementById("spectralensWidgetIframe");
+  const menuBack = document.getElementById("spectralensWidgetBack");
+  if (menuFrame) {
+    menuFrame.style.display = "block";
+    pagePostMessage("C_IF_OPEN_CHAT", {}, menuFrame.contentWindow);
+    pagePostMessage(
+      "C_IF_SET_AREA_IMAGE",
+      { image },
+      menuFrame.contentWindow,
+    );
+    setTimeout(() => {
+      pagePostMessage(
+        "C_IF_SET_AREA_IMAGE",
+        { image },
+        menuFrame.contentWindow,
+      );
+    }, 80);
+    pagePostMessage("C_IF_VISIBLE", {}, menuFrame.contentWindow);
+    pagePostMessage("C_IF_SHOW", {}, menuFrame.contentWindow);
+  }
+  if (menuBack) {
+    menuBack.style.display = "block";
+  }
+});
+
 runtimeOnMessage("B_C_OCR_RESULT", async (data, _, sendResponse) => {
   const { text, image } = data || {};
   sendResponse && sendResponse({ success: true });
@@ -559,18 +588,20 @@ runtimeOnMessage("B_C_OCR_RESULT", async (data, _, sendResponse) => {
   if (menuFrame) {
     menuFrame.style.display = "block";
     pagePostMessage("C_IF_OPEN_CHAT", {}, menuFrame.contentWindow);
-    pagePostMessage(
-      "C_IF_SET_INPUTS",
-      { input: text, image },
-      menuFrame.contentWindow,
-    );
-    setTimeout(() => {
+    if (image) {
+      pagePostMessage(
+        "C_IF_SET_AREA_IMAGE",
+        { image },
+        menuFrame.contentWindow,
+      );
+    }
+    if (text) {
       pagePostMessage(
         "C_IF_SET_INPUTS",
         { input: text, image },
         menuFrame.contentWindow,
       );
-    }, 80);
+    }
     pagePostMessage("C_IF_VISIBLE", {}, menuFrame.contentWindow);
     pagePostMessage("C_IF_SHOW", {}, menuFrame.contentWindow);
   }

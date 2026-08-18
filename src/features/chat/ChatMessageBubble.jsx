@@ -14,30 +14,27 @@ export default function ChatMessageBubble({
   return (
     <div className="flex flex-col items-end gap-1 animate-fade-in group">
       <div className="user-message-bubble relative max-w-[85%] px-3.5 py-2.5 rounded-2xl rounded-tr-xs bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs select-text">
-        {/* Attached image preview */}
-        {lastQuestionImage && (
-          <div className="mb-2 rounded-xl overflow-hidden border border-white/20 shadow-xs max-h-36 bg-black/20">
-            <img
-              src={lastQuestionImage}
-              alt="Attached page preview"
-              className="w-full h-auto max-h-36 object-contain cursor-pointer hover:opacity-95 transition-opacity"
-              onClick={() => {
-                try {
-                  const w = window.open();
-                  w?.document.write(
-                    `<html style="background:#0b0d13;display:flex;align-items:center;justify-content:center;height:100%;"><body style="margin:0;"><img src="${lastQuestionImage}" style="max-width:95vw;max-height:95vh;border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,0.5);" /></body></html>`,
-                  );
-                } catch {}
-              }}
-              title="Click to view full screenshot"
-            />
-          </div>
-        )}
-
-        {/* Attached page metadata preview */}
-        {lastQuestionPage && (
+        {/* Attached page metadata preview with embedded thumbnail (for @page) */}
+        {lastQuestionPage ? (
           <div className="flex items-center gap-2.5 mb-2 px-3 py-1.5 rounded-xl bg-white/15 border border-white/20 text-white select-none backdrop-blur-xs">
-            {lastQuestionPage.favicon ? (
+            {lastQuestionPage.image ? (
+              <div className="relative w-10 h-7 rounded overflow-hidden border border-white/20 shrink-0 bg-black/20">
+                <img
+                  src={lastQuestionPage.image}
+                  alt="Page screenshot"
+                  className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                  onClick={() => {
+                    try {
+                      const w = window.open();
+                      w?.document.write(
+                        `<html style="background:#0b0d13;display:flex;align-items:center;justify-content:center;height:100%;"><body style="margin:0;"><img src="${lastQuestionPage.image}" style="max-width:95vw;max-height:95vh;border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,0.5);" /></body></html>`,
+                      );
+                    } catch {}
+                  }}
+                  title="Click to view full screenshot"
+                />
+              </div>
+            ) : lastQuestionPage.favicon ? (
               <img
                 src={lastQuestionPage.favicon}
                 alt=""
@@ -64,7 +61,25 @@ export default function ChatMessageBubble({
               </div>
             </div>
           </div>
-        )}
+        ) : lastQuestionImage ? (
+          /* Attached standalone image preview (for @screen or @area) */
+          <div className="mb-2 rounded-xl overflow-hidden border border-white/20 shadow-xs max-h-36 bg-black/20">
+            <img
+              src={lastQuestionImage}
+              alt="Attached preview"
+              className="w-full h-auto max-h-36 object-contain cursor-pointer hover:opacity-95 transition-opacity"
+              onClick={() => {
+                try {
+                  const w = window.open();
+                  w?.document.write(
+                    `<html style="background:#0b0d13;display:flex;align-items:center;justify-content:center;height:100%;"><body style="margin:0;"><img src="${lastQuestionImage}" style="max-width:95vw;max-height:95vh;border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,0.5);" /></body></html>`,
+                  );
+                } catch {}
+              }}
+              title="Click to view full screenshot"
+            />
+          </div>
+        ) : null}
 
         <p
           className="text-xs leading-relaxed font-normal whitespace-pre-wrap break-words max-h-[7.2em] overflow-y-auto custom-scrollbar pr-1 select-text cursor-text"

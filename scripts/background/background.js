@@ -456,16 +456,18 @@ runtimeOnMessage(
     const onImageCaptured = async (img) => {
       if (!img) return;
       try {
-        const data = await performOcrExtraction(img, rect);
-        if (data?.success && data?.result) {
-          const text = (data.result.text || "").trim();
+        const data = await performCropExtraction(img, rect);
+        if (data?.success && data?.image) {
+          tabSendMessage(tabId, "B_C_AREA_RESULT", {
+            image: data.image,
+          });
           tabSendMessage(tabId, "B_C_OCR_RESULT", {
-            ...data.result,
-            text,
+            image: data.image,
+            text: "",
           });
         }
       } catch (e) {
-        console.error("OCR execution error:", e);
+        console.error("Area crop error:", e);
       }
     };
 
