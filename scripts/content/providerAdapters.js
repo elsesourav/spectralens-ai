@@ -2113,32 +2113,7 @@
 
     async insertPrompt(text) {
       const input = this.findInput();
-      if (!input) {
-        tabLog(
-          "PerplexityTab",
-          JSON.stringify({
-            step: "insertPrompt",
-            status: "ERROR",
-            error: "Input editor not found",
-            timestamp: new Date().toISOString(),
-          }),
-        );
-        return false;
-      }
-
-      const initialText = (input.textContent || input.value || "").trim();
-      tabLog(
-        "PerplexityTab",
-        JSON.stringify({
-          step: "insertPrompt:start",
-          inputTag: input.tagName.toLowerCase(),
-          inputId: input.id || "",
-          initialTextLength: initialText.length,
-          initialTextPreview: initialText.slice(0, 40),
-          targetTextPreview: text.slice(0, 40),
-          timestamp: new Date().toISOString(),
-        }),
-      );
+      if (!input) return false;
 
       this.focusInput();
       await new Promise((r) => setTimeout(r, 60));
@@ -2199,18 +2174,7 @@
       }
 
       await new Promise((r) => setTimeout(r, 100));
-      const finalText = (input.textContent || input.value || "").trim();
-      tabLog(
-        "PerplexityTab",
-        JSON.stringify({
-          step: "insertPrompt:complete",
-          finalTextLength: finalText.length,
-          finalTextPreview: finalText.slice(0, 40),
-          success: finalText.length > 0,
-          timestamp: new Date().toISOString(),
-        }),
-      );
-      return true;
+      return Boolean((input.textContent || input.value || "").trim().length > 0);
     }
 
     findSendButton() {
@@ -2247,19 +2211,6 @@
       await new Promise((r) => setTimeout(r, 200));
       const btn = this.findSendButton();
       const input = this.findInput();
-
-      tabLog(
-        "PerplexityTab",
-        JSON.stringify({
-          step: "submit:start",
-          sendButtonFound: Boolean(btn),
-          buttonTag: btn ? btn.tagName.toLowerCase() : null,
-          ariaLabel: btn ? btn.getAttribute("aria-label") : null,
-          disabled: btn ? btn.disabled : null,
-          isPointerEventsNone: btn ? btn.classList.contains("pointer-events-none") : null,
-          timestamp: new Date().toISOString(),
-        }),
-      );
 
       function triggerFullClick(el) {
         if (!el) return;
@@ -2327,28 +2278,13 @@
           await new Promise((r) => setTimeout(r, 100));
           if (!btn.disabled && !btn.classList.contains("pointer-events-none")) {
             activeBtn = btn;
-            tabLog(
-              "PerplexityTab",
-              JSON.stringify({
-                step: "submit:button_enabled",
-                pollAttempt: i + 1,
-                timestamp: new Date().toISOString(),
-              }),
-            );
             break;
           }
         }
       }
 
       if (activeBtn) {
-        tabLog(
-          "PerplexityTab",
-          JSON.stringify({
-            step: "submit:click_active_button",
-            ariaLabel: activeBtn.getAttribute("aria-label"),
-            timestamp: new Date().toISOString(),
-          }),
-        );
+        tabLog("PerplexityTab", "🔘 Triggering submit on Perplexity send button...");
         triggerFullClick(activeBtn);
         await new Promise((r) => setTimeout(r, 100));
         return true;
@@ -2356,26 +2292,14 @@
 
       // If button still not active, force enable & click and dispatch Enter
       if (btn) {
-        tabLog(
-          "PerplexityTab",
-          JSON.stringify({
-            step: "submit:force_click",
-            timestamp: new Date().toISOString(),
-          }),
-        );
+        tabLog("PerplexityTab", "🔘 Forcing click on Perplexity send button...");
         btn.removeAttribute("disabled");
         btn.classList.remove("pointer-events-none");
         triggerFullClick(btn);
       }
 
       if (input) {
-        tabLog(
-          "PerplexityTab",
-          JSON.stringify({
-            step: "submit:dispatch_enter",
-            timestamp: new Date().toISOString(),
-          }),
-        );
+        tabLog("PerplexityTab", "↵ Dispatching Enter key sequence to Perplexity input...");
         triggerEnter(input);
         return true;
       }
@@ -2431,14 +2355,7 @@
           'button[aria-label="Copy"], button[aria-label*="Copy" i]:not([aria-label*="query" i])',
         ).length;
 
-        tabLog(
-          "PerplexityTab",
-          `👀 [observeResponse] Starting response observation (timeout: ${timeoutMs / 1000}s, initialCopyBtns: ${initialCopyCount}, prevContentLen: ${previousContent.length})`,
-        );
-
-        let tickCount = 0;
         const checkInterval = setInterval(async () => {
-          tickCount++;
           const isStreamingNow = this.isStreaming();
           if (isStreamingNow) {
             hasSeenStreaming = true;
@@ -2450,12 +2367,6 @@
 
           // For follow-up queries, wait until new response begins
           if (previousContent && currentCopyCount <= initialCopyCount && !hasSeenStreaming) {
-            if (tickCount % 5 === 0) {
-              tabLog(
-                "PerplexityTab",
-                `⏳ [observeResponse tick #${tickCount}] Waiting for new turn response to start (copyBtns: ${currentCopyCount}/${initialCopyCount}, isStreaming: ${isStreamingNow})...`,
-              );
-            }
             return;
           }
 
@@ -2471,21 +2382,11 @@
             if (currentLength > 20) {
               const isFinished = !isStreamingNow && (hasSeenStreaming ? idleCount >= 2 : idleCount >= 4);
 
-              if (tickCount % 4 === 0) {
-                tabLog(
-                  "PerplexityTab",
-                  `📊 [observeResponse tick #${tickCount}] Current text length: ${currentLength} (last: ${lastTextLength}, idle: ${idleCount}, isStreaming: ${isStreamingNow})`,
-                );
-              }
-
               if (currentLength === lastTextLength) {
                 idleCount++;
                 if (isFinished || idleCount >= 5) {
                   clearInterval(checkInterval);
-                  tabLog(
-                    "PerplexityTab",
-                    `🎉 [observeResponse] Generation complete! Text settled at ${currentLength} chars (idleCount: ${idleCount}). Extracting markdown...`,
-                  );
+                  tabLog("PerplexityTab", `🎉 Generation complete! Extracted ${currentLength} chars response.`);
                   const md = await this.getCurrentResponse();
                   resolve(md);
                   return;
@@ -2499,7 +2400,6 @@
 
           if (Date.now() - startTime > timeoutMs) {
             clearInterval(checkInterval);
-            tabLog("PerplexityTab", `⏱️ [observeResponse] Timeout (${timeoutMs / 1000}s) reached!`);
             const response = await this.getCurrentResponse();
             resolve(
               response ||
