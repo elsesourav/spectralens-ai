@@ -50,7 +50,7 @@ const foundRisky = manifest.permissions.filter((p) => riskyPermissions.includes(
 assert(foundRisky.length === 0, `No risky/unwanted permissions found (found: ${JSON.stringify(foundRisky)})`);
 
 // Verify essential permissions
-const requiredPermissions = ["scripting", "storage", "activeTab", "tabs", "declarativeNetRequest", "offscreen"];
+const requiredPermissions = ["scripting", "storage", "activeTab", "tabs", "offscreen"];
 const hasAllRequired = requiredPermissions.every((p) => manifest.permissions.includes(p));
 assert(hasAllRequired, "All required functional permissions are present");
 

@@ -9,7 +9,9 @@ let workerWindowPromise = null;
 if (typeof chrome !== "undefined" && chrome.windows?.onRemoved) {
   chrome.windows.onRemoved.addListener((removedWinId) => {
     if (removedWinId === workerWindowId) {
-      console.log(`[SpectraLens:Pipeline] 🪟 Background Worker Window #${removedWinId} was closed.`);
+      console.log(
+        `[SpectraLens:Pipeline] 🪟 Background Worker Window #${removedWinId} was closed.`,
+      );
       workerWindowId = null;
       workerWindowPromise = null;
       persistentProviderTabs.clear();
@@ -24,7 +26,9 @@ if (typeof chrome !== "undefined" && chrome.tabs?.onRemoved) {
     activeAiTabs = activeAiTabs.filter((id) => id !== removedTabId);
     for (const [providerId, entry] of persistentProviderTabs.entries()) {
       if (entry.tabId === removedTabId) {
-        console.log(`[SpectraLens:Pipeline] 🚪 Provider Tab for "${providerId}" (#${removedTabId}) closed.`);
+        console.log(
+          `[SpectraLens:Pipeline] 🚪 Provider Tab for "${providerId}" (#${removedTabId}) closed.`,
+        );
         persistentProviderTabs.delete(providerId);
       }
     }
@@ -39,7 +43,12 @@ if (typeof chrome !== "undefined" && chrome.tabs?.onRemoved) {
 async function openOrReuseProviderTab(providerId, url) {
   // 1. Check if an active persistent tab exists for this provider
   const existingEntry = persistentProviderTabs.get(providerId);
-  if (existingEntry && existingEntry.tabId && typeof chrome !== "undefined" && chrome.tabs?.get) {
+  if (
+    existingEntry &&
+    existingEntry.tabId &&
+    typeof chrome !== "undefined" &&
+    chrome.tabs?.get
+  ) {
     try {
       const tab = await chrome.tabs.get(existingEntry.tabId);
       if (tab && tab.id) {
@@ -57,13 +66,16 @@ async function openOrReuseProviderTab(providerId, url) {
       if (win && win.id) {
         // Window already exists, create tab inside this worker window
         return new Promise((resolve) => {
-          chrome.tabs.create({ url, windowId: win.id, active: false }, (tab) => {
-            if (chrome.runtime?.lastError || !tab) {
-              resolve({ tab: null, isReused: false });
-            } else {
-              resolve({ tab, isReused: false });
-            }
-          });
+          chrome.tabs.create(
+            { url, windowId: win.id, active: false },
+            (tab) => {
+              if (chrome.runtime?.lastError || !tab) {
+                resolve({ tab: null, isReused: false });
+              } else {
+                resolve({ tab, isReused: false });
+              }
+            },
+          );
         });
       }
     } catch {
@@ -81,7 +93,10 @@ async function openOrReuseProviderTab(providerId, url) {
     }
 
     // Create worker window (width: 500px, height: max)
-    const maxHeight = typeof screen !== "undefined" && screen.availHeight ? screen.availHeight : 950;
+    const maxHeight =
+      typeof screen !== "undefined" && screen.availHeight
+        ? screen.availHeight
+        : 950;
     chrome.windows.create(
       {
         url,
@@ -114,10 +129,13 @@ async function openOrReuseProviderTab(providerId, url) {
         );
 
         // Fallback: normal window
-        chrome.windows.create({ url, focused: false, width: 500, height: maxHeight }, (winFallback) => {
-          if (winFallback?.id) workerWindowId = winFallback.id;
-          resolve({ tab: winFallback?.tabs?.[0] || null, isReused: false });
-        });
+        chrome.windows.create(
+          { url, focused: false, width: 500, height: maxHeight },
+          (winFallback) => {
+            if (winFallback?.id) workerWindowId = winFallback.id;
+            resolve({ tab: winFallback?.tabs?.[0] || null, isReused: false });
+          },
+        );
       },
     );
   });
@@ -134,9 +152,10 @@ function closeProviderTab(providerId) {
   const key = String(providerId).toLowerCase();
   const entry = persistentProviderTabs.get(key);
   if (entry && entry.tabId) {
-    console.log(`[SpectraLens:Pipeline] 🧹 Closing disabled AI provider tab: "${key}" (#${entry.tabId})`);
+    console.log(
+      `[SpectraLens:Pipeline] 🧹 Closing disabled AI provider tab: "${key}" (#${entry.tabId})`,
+    );
     chromeTabMediaAccess(entry.tabId, false);
-    removeBackgroundTabNetworkOptimization(entry.tabId);
     chrome.tabs.remove(entry.tabId).catch(() => {});
     persistentProviderTabs.delete(key);
   }
@@ -152,12 +171,13 @@ function closeProviderTab(providerId) {
 
 /** Closes all provider tabs and worker window (e.g. on New Chat, page close, or full reset) */
 function resetAllProviderSessions() {
-  console.log("[SpectraLens:Pipeline] 🔄 Resetting all AI provider background sessions...");
+  console.log(
+    "[SpectraLens:Pipeline] 🔄 Resetting all AI provider background sessions...",
+  );
   currentRequestId = "reset_" + Date.now();
   for (const [providerId, entry] of persistentProviderTabs.entries()) {
     if (entry.tabId) {
       chromeTabMediaAccess(entry.tabId, false);
-      removeBackgroundTabNetworkOptimization(entry.tabId);
       chrome.tabs.remove(entry.tabId).catch(() => {});
     }
   }
@@ -165,7 +185,6 @@ function resetAllProviderSessions() {
 
   activeAiTabs.forEach((id) => {
     chromeTabMediaAccess(id, false);
-    removeBackgroundTabNetworkOptimization(id);
     chrome.tabs.remove(id).catch(() => {});
   });
   activeAiTabs = [];
@@ -175,52 +194,6 @@ function resetAllProviderSessions() {
     workerWindowId = null;
     workerWindowPromise = null;
   }
-}
-
-/**
- * Enables network optimization rules on background AI worker tabs,
- * blocking heavy image, video, and media assets to accelerate page load and save bandwidth/RAM.
- */
-function applyBackgroundTabNetworkOptimization(tabId) {
-  if (!chrome.declarativeNetRequest?.updateSessionRules || !tabId) return;
-  try {
-    const ruleId = 20000 + (tabId % 50000);
-    chrome.declarativeNetRequest.updateSessionRules(
-      {
-        removeRuleIds: [ruleId],
-        addRules: [
-          {
-            id: ruleId,
-            priority: 1,
-            action: { type: "block" },
-            condition: {
-              tabIds: [tabId],
-              resourceTypes: ["image", "media"],
-            },
-          },
-        ],
-      },
-      () => {
-        void chrome.runtime?.lastError;
-      },
-    );
-  } catch {}
-}
-
-/** Removes network optimization rule for a closed background tab */
-function removeBackgroundTabNetworkOptimization(tabId) {
-  if (!chrome.declarativeNetRequest?.updateSessionRules || !tabId) return;
-  try {
-    const ruleId = 20000 + (tabId % 50000);
-    chrome.declarativeNetRequest.updateSessionRules(
-      {
-        removeRuleIds: [ruleId],
-      },
-      () => {
-        void chrome.runtime?.lastError;
-      },
-    );
-  } catch {}
 }
 
 /* --- Error Formatting Helper --- */
@@ -271,7 +244,8 @@ function injectMainWorldNetworkInterceptor(tabId) {
           window.fetch = async function (...args) {
             const response = await origFetch.apply(this, args);
             try {
-              const url = typeof args[0] === "string" ? args[0] : args[0]?.url || "";
+              const url =
+                typeof args[0] === "string" ? args[0] : args[0]?.url || "";
               if (
                 url.includes("/async/folif") ||
                 url.includes("/async/aim") ||
@@ -365,12 +339,16 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
       `%c[SpectraLens:Pipeline] 📑 [STEP 3/5] Background Tab #${tabId} ready (Window #${tab.windowId}, reused: ${isReused}). Listening for stream completion...`,
       "color: #10b981; font-weight: bold;",
     );
-    applyBackgroundTabNetworkOptimization(tabId);
     chromeTabMediaAccess(tabId, true);
     injectMainWorldNetworkInterceptor(tabId);
 
     // If reusing a tab and the provider uses direct URL search parameters (Perplexity, Bing, Grok), update URL if needed
-    if (isReused && (providerId === "perplexity" || providerId === "bing" || providerId === "grok")) {
+    if (
+      isReused &&
+      (providerId === "perplexity" ||
+        providerId === "bing" ||
+        providerId === "grok")
+    ) {
       chrome.tabs.update(tabId, { url, active: false });
       injectMainWorldNetworkInterceptor(tabId);
     }
@@ -513,7 +491,9 @@ function runTabAdapter(providerId, prompt, image = null) {
 
       // Record any pre-existing response content before sending the new message
       const existingContainer = adapter.findResponseContainer();
-      const previousContent = existingContainer ? (existingContainer.textContent || "").trim() : "";
+      const previousContent = existingContainer
+        ? (existingContainer.textContent || "").trim()
+        : "";
 
       // 0. If already on search results page for THIS exact query (initial search), observe directly without re-typing
       const isSearchPage = window.location.pathname.startsWith("/search");
@@ -522,7 +502,12 @@ function runTabAdapter(providerId, prompt, image = null) {
         const urlQuery = (urlParams.get("q") || "").trim().toLowerCase();
         const promptQuery = (prompt || "").trim().toLowerCase();
 
-        if (urlQuery && (urlQuery === promptQuery || promptQuery.startsWith(urlQuery) || urlQuery.startsWith(promptQuery))) {
+        if (
+          urlQuery &&
+          (urlQuery === promptQuery ||
+            promptQuery.startsWith(urlQuery) ||
+            urlQuery.startsWith(promptQuery))
+        ) {
           console.log(
             `%c[SpectraLens:Adapter] 🎯 Search page already executing query ("${prompt.slice(0, 25)}..."). Observing AI stream directly...`,
             "color: #10b981; font-weight: bold;",
@@ -557,7 +542,9 @@ function runTabAdapter(providerId, prompt, image = null) {
           `%c[SpectraLens:Adapter] ⚠️ Input box not found for "${providerId}" after 20 attempts.`,
           "color: #ef4444; font-weight: bold;",
         );
-        resolve(getShortError(providerId, "Input box not found or login required"));
+        resolve(
+          getShortError(providerId, "Input box not found or login required"),
+        );
         return;
       }
 
@@ -620,7 +607,11 @@ function runTabAdapter(providerId, prompt, image = null) {
       );
       resolve(answer || getShortError(providerId, "No response generated"));
     } catch (e) {
-      console.error(`%c[SpectraLens:Adapter] ❌ Error running adapter:`, "color: #ef4444;", e);
+      console.error(
+        `%c[SpectraLens:Adapter] ❌ Error running adapter:`,
+        "color: #ef4444;",
+        e,
+      );
       resolve(getShortError(providerId, e?.message || "Execution error"));
     }
   });
