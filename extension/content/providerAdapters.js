@@ -1663,8 +1663,11 @@
     }
 
     findResponseContainer() {
-      // 1. Primary AI Overview text containers in Google AI Search (e.g. div.mZJni.Dn7Fzd)
+      // 1. Primary AI Overview text containers in Google AI Search & /async/folif turn containers
       const selectors = [
+        'div[data-scope-id="turn"]:last-of-type div.mZJni.Dn7Fzd',
+        'div[data-scope-id="turn"]:last-of-type div[data-container-id="main-col"]',
+        'div[data-scope-id="turn"]:last-of-type',
         "div.mZJni.Dn7Fzd",
         "div.mZJni",
         "div.Dn7Fzd",
@@ -1672,6 +1675,8 @@
         'div[data-container-id="main-col"] div[jsname="N760b"]',
         'div[data-container-id="main-col"] div[data-attrid="wa:/description"]',
         'div[data-container-id="main-col"]',
+        "div.n6owBd.awi2gc",
+        'div[data-target-container-id="5"]',
         'div[data-attrid="wa:/description"]',
         "div.ULSXZd",
         "div.IZ6rdc",
