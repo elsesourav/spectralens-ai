@@ -223,7 +223,7 @@ function injectFloatingMenuWidget(tabId) {
             existingMWF.style.display = "block";
          }
 
-         if (!existingMWB) {
+          if (!existingMWB) {
             const back = document.createElement("div");
             back.setAttribute("id", "spectralensWidgetBack");
             const defaultLeft = window.innerWidth - 180;
@@ -243,11 +243,17 @@ function injectFloatingMenuWidget(tabId) {
             );
             document.body.append(back);
 
-            back.addEventListener("pointerenter", __pointerenter__);
-            back.addEventListener("pointerleave", __pointerleave__);
-            back.addEventListener("pointerdown", __pointerdown__);
-            window.addEventListener("pointermove", __pointermove__);
-            back.addEventListener("pointerup", __pointerup__);
+            const onEnter = window.handleWidgetPointerEnter || window.__pointerenter__;
+            const onLeave = window.handleWidgetPointerLeave || window.__pointerleave__;
+            const onDown = window.handleWidgetPointerDown || window.__pointerdown__;
+            const onMove = window.handleWidgetPointerMove || window.__pointermove__;
+            const onUp = window.handleWidgetPointerUp || window.__pointerup__;
+
+            if (typeof onEnter === "function") back.addEventListener("pointerenter", onEnter);
+            if (typeof onLeave === "function") back.addEventListener("pointerleave", onLeave);
+            if (typeof onDown === "function") back.addEventListener("pointerdown", onDown);
+            if (typeof onMove === "function") window.addEventListener("pointermove", onMove);
+            if (typeof onUp === "function") back.addEventListener("pointerup", onUp);
          } else {
             existingMWB.style.display = "block";
          }

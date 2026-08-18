@@ -41,10 +41,7 @@ function getTodayDateString() {
 function removeIntroOverlay() {
   const overlay = document.getElementById("spectralens-tour-overlay");
   if (overlay) {
-    overlay.style.opacity = "0";
-    setTimeout(() => {
-      overlay.remove();
-    }, 250);
+    overlay.remove();
   }
 }
 
@@ -80,14 +77,14 @@ function checkAndShowDailyIntro(left, top) {
         badgeColor: "#10b981",
         title: "Drag to Reposition",
         desc: "Click and hold the 6-dot grip handle in the center to move the widget anywhere on your screen. It automatically remembers your preferred position.",
-        spotlight: { xOffset: 46, yOffset: 2, width: 44, height: 44, radius: "14px" },
+        spotlight: { xOffset: 46, yOffset: 3, width: 46, height: 42, radius: "12px" },
       },
       {
         badge: "💬 Step 3 of 3 • Multi-AI & Context",
         badgeColor: "#a855f7",
         title: "Launch Chat & @ Features",
         desc: "Click the chat icon to open the full assistant. Use @page to send web links, metadata & top screenshots, or @screen to ask about visual areas.",
-        spotlight: { xOffset: 104, yOffset: 2, width: 44, height: 44, radius: "22px" },
+        spotlight: { xOffset: 104, yOffset: 3, width: 44, height: 42, radius: "22px" },
       },
     ];
 
@@ -96,10 +93,10 @@ function checkAndShowDailyIntro(left, top) {
     overlay.style.cssText = `
       position: fixed;
       inset: 0;
-      z-index: 2147483646;
+      z-index: 2147483647;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       user-select: none;
-      transition: opacity 250ms ease;
+      transition: opacity 200ms ease;
       opacity: 0;
     `;
 
@@ -111,15 +108,15 @@ function checkAndShowDailyIntro(left, top) {
       pointer-events: none;
       box-shadow: 0 0 0 9999px rgba(6, 8, 15, 0.75), 0 0 25px 4px rgba(99, 102, 241, 0.5);
       border: 1.5px solid rgba(139, 92, 246, 0.7);
-      transition: all 300ms cubic-bezier(0.16, 1, 0.3, 1);
-      z-index: 2147483646;
+      transition: all 250ms cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 2147483647;
     `;
 
     // Guide Card Dialog
     const card = document.createElement("div");
     card.id = "spectralens-tour-card";
     const isAbove = top + 48 + 220 >= window.innerHeight;
-    const cardTop = isAbove ? Math.max(16, top - 180) : top + 64;
+    const cardTop = isAbove ? Math.max(16, top - 190) : top + 60;
     const cardLeft = Math.max(16, Math.min(window.innerWidth - 336, left - 80));
 
     card.style.cssText = `
@@ -134,8 +131,8 @@ function checkAndShowDailyIntro(left, top) {
       box-shadow: 0 20px 50px rgba(0, 0, 0, 0.65), 0 0 30px rgba(99, 102, 241, 0.15);
       padding: 16px 18px;
       color: #f8fafc;
-      z-index: 2147483647;
-      transition: all 250ms cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 2147483648;
+      transition: all 200ms cubic-bezier(0.16, 1, 0.3, 1);
     `;
 
     function renderStep(stepIndex) {
@@ -239,8 +236,7 @@ function checkAndShowDailyIntro(left, top) {
 }
 
 function handleWidgetPointerEnter() {
-  widgetBackElement = document.getElementById("spectralensWidgetBack");
-  widgetIframeElement = document.getElementById("spectralensWidgetIframe");
+  ensureWidgetBackListeners();
   const menuFrame = document.getElementById("spectralensWidgetIframe");
   pagePostMessage("C_IF_MENU_WINDOW_DRAG_START", {}, menuFrame?.contentWindow);
   pagePostMessage("C_IF_ACTIVITY", {}, menuFrame?.contentWindow);
@@ -273,9 +269,10 @@ function handleWidgetPointerLeave() {
 function handleWidgetPointerDown(e) {
   removeIntroOverlay();
   isWidgetDragging = true;
+  widgetBackElement = document.getElementById("spectralensWidgetBack");
   const rect = widgetBackElement?.getBoundingClientRect();
-  dragPointerOffset.x = e.clientX - rect.left;
-  dragPointerOffset.y = e.clientY - rect.top;
+  dragPointerOffset.x = e.clientX - (rect ? rect.left : 0);
+  dragPointerOffset.y = e.clientY - (rect ? rect.top : 0);
 
   if (widgetBackElement?.setPointerCapture)
     widgetBackElement.setPointerCapture(e.pointerId);
@@ -293,16 +290,26 @@ function handleWidgetPointerMove(e) {
     newTop,
   );
 
-  widgetBackElement.style.left = `${constrainedPosition.x + widgetSpacing}px`;
-  widgetBackElement.style.top = `${constrainedPosition.y}px`;
+  widgetBackElement = document.getElementById("spectralensWidgetBack");
+  widgetIframeElement = document.getElementById("spectralensWidgetIframe");
 
-  widgetIframeElement.style.left = `${constrainedPosition.x}px`;
-  widgetIframeElement.style.top = `${constrainedPosition.y}px`;
+  if (widgetBackElement) {
+    widgetBackElement.style.left = `${constrainedPosition.x + widgetSpacing}px`;
+    widgetBackElement.style.top = `${constrainedPosition.y}px`;
+  }
+
+  if (widgetIframeElement) {
+    widgetIframeElement.style.left = `${constrainedPosition.x}px`;
+    widgetIframeElement.style.top = `${constrainedPosition.y}px`;
+  }
 }
 
 function handleWidgetPointerUp(e) {
   if (!isWidgetDragging) return;
   isWidgetDragging = false;
+
+  widgetBackElement = document.getElementById("spectralensWidgetBack");
+  widgetIframeElement = document.getElementById("spectralensWidgetIframe");
 
   if (widgetBackElement?.releasePointerCapture)
     widgetBackElement.releasePointerCapture(e.pointerId);
@@ -315,11 +322,42 @@ function handleWidgetPointerUp(e) {
     left - widgetSpacing,
     top,
   );
-  widgetBackElement.style.left = `${constrainedPosition.x + widgetSpacing}px`;
-  widgetBackElement.style.top = `${constrainedPosition.y}px`;
 
-  widgetIframeElement.style.left = `${constrainedPosition.x}px`;
-  widgetIframeElement.style.top = `${constrainedPosition.y}px`;
+  if (widgetBackElement) {
+    widgetBackElement.style.left = `${constrainedPosition.x + widgetSpacing}px`;
+    widgetBackElement.style.top = `${constrainedPosition.y}px`;
+  }
+
+  if (widgetIframeElement) {
+    widgetIframeElement.style.left = `${constrainedPosition.x}px`;
+    widgetIframeElement.style.top = `${constrainedPosition.y}px`;
+  }
+}
+
+// Attach globally to window for fail-safe runtime discovery
+window.handleWidgetPointerEnter = handleWidgetPointerEnter;
+window.handleWidgetPointerLeave = handleWidgetPointerLeave;
+window.handleWidgetPointerDown = handleWidgetPointerDown;
+window.handleWidgetPointerMove = handleWidgetPointerMove;
+window.handleWidgetPointerUp = handleWidgetPointerUp;
+
+window.__pointerenter__ = handleWidgetPointerEnter;
+window.__pointerleave__ = handleWidgetPointerLeave;
+window.__pointerdown__ = handleWidgetPointerDown;
+window.__pointermove__ = handleWidgetPointerMove;
+window.__pointerup__ = handleWidgetPointerUp;
+
+function ensureWidgetBackListeners() {
+  widgetBackElement = document.getElementById("spectralensWidgetBack");
+  widgetIframeElement = document.getElementById("spectralensWidgetIframe");
+  if (widgetBackElement && !widgetBackElement.__listenersAttached) {
+    widgetBackElement.__listenersAttached = true;
+    widgetBackElement.addEventListener("pointerenter", handleWidgetPointerEnter);
+    widgetBackElement.addEventListener("pointerleave", handleWidgetPointerLeave);
+    widgetBackElement.addEventListener("pointerdown", handleWidgetPointerDown);
+    window.addEventListener("pointermove", handleWidgetPointerMove);
+    widgetBackElement.addEventListener("pointerup", handleWidgetPointerUp);
+  }
 }
 
 function detectPageTheme() {
@@ -404,6 +442,7 @@ function detectPageTheme() {
 /* -------- Message Passing Section --------- */
 pageOnMessage("IF_C_MENU_WINDOW_MOVE", async (data) => {
   removeIntroOverlay();
+  ensureWidgetBackListeners();
   const { deltaX, deltaY } = data || {};
   isRestoringClosedPosition = false;
   widgetBackElement = document.getElementById("spectralensWidgetBack");
@@ -429,6 +468,7 @@ pageOnMessage("IF_C_MENU_WINDOW_RESIZE", async (data) => {
   if (isOpen) {
     removeIntroOverlay();
   }
+  ensureWidgetBackListeners();
 
   widgetBackElement = document.getElementById("spectralensWidgetBack");
   widgetIframeElement = document.getElementById("spectralensWidgetIframe");
