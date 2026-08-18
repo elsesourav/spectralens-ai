@@ -1780,6 +1780,7 @@
         const startTime = Date.now();
         let lastTextLength = 0;
         let idleCount = 0;
+        let isDone = false;
 
         // Record initial count of turns and copy buttons before this turn starts
         const initialTurnCount = document.querySelectorAll(
@@ -1789,10 +1790,30 @@
           'button[aria-label="Copy text"].bKxaof, button[aria-label*="Copy text" i], button.bKxaof',
         ).length;
 
+        // Listen for live network stream chunks from /async/folif
+        let hasReceivedNetChunk = false;
+        const netChunkListener = (e) => {
+          if (e.detail?.raw) {
+            hasReceivedNetChunk = true;
+            tabLog(
+              "GoogleTab",
+              `📡 Network stream chunk captured from /async/folif (${e.detail.raw.length} bytes)`,
+            );
+          }
+        };
+        window.addEventListener("spectralens:network_chunk", netChunkListener);
+
+        const cleanUp = () => {
+          isDone = true;
+          clearInterval(checkInterval);
+          window.removeEventListener("spectralens:network_chunk", netChunkListener);
+        };
+
         // Activate AI Mode once on homepage if not already active
         await this.ensureAiMode();
 
         const checkInterval = setInterval(async () => {
+          if (isDone) return;
           const currentCopyBtnCount = document.querySelectorAll(
             'button[aria-label="Copy text"].bKxaof, button[aria-label*="Copy text" i], button.bKxaof',
           ).length;
@@ -1820,13 +1841,13 @@
               // Turn 1: any copy button on page OR stable text
               // Turn 2+: new copy button appeared OR stable text for 3 checks
               const isTurnFinished = previousContent
-                ? currentCopyBtnCount > initialCopyBtnCount
-                : currentCopyBtnCount > 0;
+                ? currentCopyBtnCount > initialCopyBtnCount || (hasReceivedNetChunk && idleCount >= 2)
+                : currentCopyBtnCount > 0 || (hasReceivedNetChunk && idleCount >= 2);
 
               if (currentLength === lastTextLength) {
                 idleCount++;
                 if (isTurnFinished || idleCount >= 3) {
-                  clearInterval(checkInterval);
+                  cleanUp();
                   const md = await this.getCurrentResponse();
                   tabLog(
                     "GoogleTab",
@@ -1843,7 +1864,7 @@
           }
 
           if (Date.now() - startTime > timeoutMs) {
-            clearInterval(checkInterval);
+            cleanUp();
             const response = await this.getCurrentResponse();
             if (response && response.length > 20) {
               resolve(response);

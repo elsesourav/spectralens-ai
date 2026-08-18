@@ -205,6 +205,56 @@ function formatProviderError(providerId, shortReason) {
 
 /* --- Shared Helper --- */
 
+/** Injects an in-page fetch interceptor into world: "MAIN" for real-time /async/folif stream capture */
+function injectMainWorldNetworkInterceptor(tabId) {
+  if (!chrome.scripting?.executeScript || !tabId) return;
+  try {
+    chrome.scripting.executeScript(
+      {
+        target: { tabId },
+        world: "MAIN",
+        func: () => {
+          if (window.__SPECTRALENS_MAIN_NET_HOOKED__) return;
+          window.__SPECTRALENS_MAIN_NET_HOOKED__ = true;
+          window.__SPECTRALENS_NETWORK_CHUNKS__ = [];
+
+          const origFetch = window.fetch;
+          window.fetch = async function (...args) {
+            const response = await origFetch.apply(this, args);
+            try {
+              const url = typeof args[0] === "string" ? args[0] : args[0]?.url || "";
+              if (url.includes("/async/folif") || url.includes("/async/aim") || url.includes("/async/")) {
+                const clone = response.clone();
+                clone
+                  .text()
+                  .then((text) => {
+                    if (text && text.length > 50) {
+                      window.__SPECTRALENS_NETWORK_CHUNKS__.push({
+                        url,
+                        timestamp: Date.now(),
+                        raw: text,
+                      });
+                      window.dispatchEvent(
+                        new CustomEvent("spectralens:network_chunk", {
+                          detail: { url, raw: text, timestamp: Date.now() },
+                        }),
+                      );
+                    }
+                  })
+                  .catch(() => {});
+              }
+            } catch {}
+            return response;
+          };
+        },
+      },
+      () => {
+        void chrome.runtime?.lastError;
+      },
+    );
+  } catch {}
+}
+
 /**
  * Opens (or reuses) an isolated background tab inside the worker window, waits for it to load,
  * executes the content extraction adapter function, and returns the cleaned HTML.
@@ -260,10 +310,12 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
       "color: #10b981; font-weight: bold;",
     );
     chromeTabMediaAccess(tabId, true);
+    injectMainWorldNetworkInterceptor(tabId);
 
     // If reusing a tab and the provider uses direct URL search parameters (Perplexity, Bing, Grok), update URL if needed
     if (isReused && (providerId === "perplexity" || providerId === "bing" || providerId === "grok")) {
       chrome.tabs.update(tabId, { url, active: false });
+      injectMainWorldNetworkInterceptor(tabId);
     }
 
     function detachTurnListeners() {
@@ -354,6 +406,7 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
           `%c[SpectraLens:Pipeline] 🌐 [PAGE LOAD COMPLETE] Tab #${tabId} status is "complete". Running adapter injection...`,
           "color: #3b82f6; font-weight: bold;",
         );
+        injectMainWorldNetworkInterceptor(tabId);
         runInjection();
       }
     }
