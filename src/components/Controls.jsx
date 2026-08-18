@@ -13,7 +13,7 @@ const DEFAULT_AI_OPTIONS = [
   { id: "google", name: "Google AI", enabled: true },
   { id: "gemini", name: "Gemini", enabled: true },
   { id: "chatgpt", name: "ChatGPT", enabled: true },
-  { id: "bing", name: "Bing AI", enabled: false },
+  { id: "claude", name: "Claude", enabled: false },
   { id: "perplexity", name: "Perplexity", enabled: false },
   { id: "grok", name: "Grok AI", enabled: false },
 ];
