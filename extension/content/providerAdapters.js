@@ -1036,8 +1036,14 @@
     }
 
     findInput() {
-      return document.querySelector(
-        'div[data-testid="chat-input"], div.ProseMirror[contenteditable="true"], fieldset div[contenteditable="true"], div[contenteditable="true"]',
+      return (
+        document.querySelector('div.ProseMirror[contenteditable="true"]') ||
+        document.querySelector('div[contenteditable="true"][data-placeholder]') ||
+        document.querySelector('div[aria-label*="Write your prompt" i]') ||
+        document.querySelector('fieldset div[contenteditable="true"]') ||
+        document.querySelector('div[data-testid="chat-input"]') ||
+        document.querySelector('div[contenteditable="true"]') ||
+        document.querySelector('textarea')
       );
     }
 
@@ -1103,39 +1109,61 @@
       if (!input) return false;
 
       this.focusInput();
-      await new Promise((r) => setTimeout(r, 50));
+      await new Promise((r) => setTimeout(r, 60));
 
-      input.textContent = "";
-      const beforeInput = new InputEvent("beforeinput", {
-        bubbles: true,
-        cancelable: true,
-        inputType: "insertText",
-        data: text,
-      });
-      const notCancelled = input.dispatchEvent(beforeInput);
-      if (notCancelled) {
-        const success = document.execCommand("insertText", false, text);
-        if (!success) {
-          input.textContent = text;
+      if (input.tagName.toLowerCase() === "textarea") {
+        const nativeSetter = Object.getOwnPropertyDescriptor(
+          window.HTMLTextAreaElement.prototype,
+          "value",
+        )?.set;
+        if (nativeSetter) {
+          nativeSetter.call(input, text);
+        } else {
+          input.value = text;
         }
-      }
-      input.dispatchEvent(
-        new InputEvent("input", {
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+      } else {
+        // ProseMirror Rich Text Editor
+        input.innerHTML = `<p>${text}</p>`;
+
+        const beforeInput = new InputEvent("beforeinput", {
           bubbles: true,
           cancelable: true,
           inputType: "insertText",
           data: text,
-        }),
-      );
-      input.dispatchEvent(new Event("input", { bubbles: true }));
+        });
+        const notCancelled = input.dispatchEvent(beforeInput);
+        if (notCancelled) {
+          try {
+            document.execCommand("selectAll", false, null);
+            document.execCommand("insertText", false, text);
+          } catch {}
+        }
+        input.dispatchEvent(
+          new InputEvent("input", {
+            bubbles: true,
+            cancelable: true,
+            inputType: "insertText",
+            data: text,
+          }),
+        );
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+      }
 
       await new Promise((r) => setTimeout(r, 100));
       return true;
     }
 
     findSendButton() {
-      return document.querySelector(
-        'button[aria-label*="Send Message" i], button[aria-label*="Send" i], button.cursor-pointer:has(svg)',
+      return (
+        document.querySelector('button[aria-label*="Send Message" i]') ||
+        document.querySelector('button[aria-label*="Send" i]') ||
+        document.querySelector('button[data-testid="send-button"]') ||
+        document.querySelector('fieldset button[type="submit"]') ||
+        document.querySelector('fieldset button:not([disabled]):has(svg)') ||
+        document.querySelector('button.cursor-pointer:has(svg)')
       );
     }
 
@@ -1145,6 +1173,7 @@
       if (btn && !btn.disabled) {
         tabLog("ClaudeTab", "🔘 Clicking Claude Send button...");
         try {
+          btn.focus();
           btn.click();
           btn.dispatchEvent(
             new MouseEvent("click", {
@@ -1173,6 +1202,16 @@
           }),
         );
         input.dispatchEvent(
+          new KeyboardEvent("keypress", {
+            key: "Enter",
+            code: "Enter",
+            keyCode: 13,
+            which: 13,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+        input.dispatchEvent(
           new KeyboardEvent("keyup", {
             key: "Enter",
             code: "Enter",
@@ -1189,24 +1228,37 @@
     }
 
     findResponseContainer() {
-      const responses = document.querySelectorAll(
-        "div.font-claude-response, div.standard-markdown, [role='article'][aria-label*='Claude responded' i], div.font-claude-message",
-      );
-      if (responses.length > 0) {
-        for (let i = responses.length - 1; i >= 0; i--) {
-          const resp = responses[i];
-          const innerMarkdown =
-            resp.querySelector(
-              "div.standard-markdown, p.font-claude-response-body, div.font-claude-message",
-            ) || resp;
-          const text = (innerMarkdown.textContent || "").trim();
-          if (text.length > 10) {
-            return innerMarkdown;
+      const candidates = [
+        '[data-message-author-role="assistant"] div.standard-markdown',
+        '[data-message-author-role="assistant"] div.progressive-markdown',
+        '[data-message-author-role="assistant"]',
+        'div.font-claude-response div.standard-markdown',
+        'div.font-claude-response div.progressive-markdown',
+        'div.font-claude-response',
+        '[role="article"][aria-label*="Claude responded" i] div.standard-markdown',
+        '[role="article"][aria-label*="Claude responded" i]',
+        'div.font-claude-message div.standard-markdown',
+        'div.font-claude-message',
+        'div.standard-markdown',
+        'div.progressive-markdown',
+        'div[class*="font-claude"]',
+      ];
+
+      for (const sel of candidates) {
+        const list = document.querySelectorAll(sel);
+        if (list.length > 0) {
+          for (let i = list.length - 1; i >= 0; i--) {
+            const el = list[i];
+            const txt = (el.textContent || "").trim();
+            if (txt.length > 0) {
+              return el;
+            }
           }
         }
-        return responses[responses.length - 1];
       }
-      return document.querySelector("div.font-claude-response");
+      return document.querySelector(
+        '[data-message-author-role="assistant"], div.font-claude-response, div.font-claude-message, div.standard-markdown',
+      );
     }
 
     getJunkSelectors() {
@@ -1216,19 +1268,25 @@
         'button[data-testid="retry-button"]',
         'button[aria-label="Copy Content"]',
         'button[aria-label*="Copy" i]',
+        'button[aria-label*="Thumbs" i]',
+        'button[aria-label*="Feedback" i]',
+        '[data-testid*="action-bar"]',
       ];
     }
 
-    observeResponse(timeoutMs = 25000, previousContent = "") {
+    observeResponse(timeoutMs = 30000, previousContent = "") {
       return new Promise(async (resolve) => {
         const startTime = Date.now();
         let lastTextLength = 0;
         let idleCount = 0;
         let hasSeenStreaming = false;
 
-        const initialTurnCount = document.querySelectorAll(
-          "div.font-claude-response, [role='article'][aria-label*='Claude responded' i]",
-        ).length;
+        const getTurnCount = () =>
+          document.querySelectorAll(
+            '[data-message-author-role="assistant"], div.font-claude-response, [role="article"][aria-label*="Claude responded" i], div.font-claude-message',
+          ).length;
+
+        const initialTurnCount = getTurnCount();
 
         const checkInterval = setInterval(async () => {
           const isStreamingNow = this.isStreaming();
@@ -1236,11 +1294,9 @@
             hasSeenStreaming = true;
           }
 
-          const currentTurnCount = document.querySelectorAll(
-            "div.font-claude-response, [role='article'][aria-label*='Claude responded' i]",
-          ).length;
-
+          const currentTurnCount = getTurnCount();
           const container = this.findResponseContainer();
+
           if (container) {
             const currentContent = (container.textContent || "").trim();
             const currentLength = currentContent.length;
@@ -1254,14 +1310,14 @@
               }
             }
 
-            if (currentLength > 20) {
-              const isFinished = hasSeenStreaming
-                ? !isStreamingNow
-                : idleCount >= 3;
-
+            if (currentLength > 0) {
               if (currentLength === lastTextLength) {
                 idleCount++;
-                if (isFinished || idleCount >= 4) {
+                const isFinished = hasSeenStreaming
+                  ? !isStreamingNow && idleCount >= 2
+                  : idleCount >= 3;
+
+                if (isFinished) {
                   clearInterval(checkInterval);
                   const md = await this.getCurrentResponse();
                   resolve(md);
@@ -1290,10 +1346,11 @@
     }
 
     isStreaming() {
-      const streamingEl = document.querySelector(
-        'div[data-is-streaming="true"], button[aria-label*="Stop" i]',
+      return Boolean(
+        document.querySelector(
+          'div[data-is-streaming="true"], button[aria-label*="Stop" i], svg.animate-spin, div.animate-pulse',
+        ),
       );
-      return Boolean(streamingEl);
     }
 
     isComplete() {

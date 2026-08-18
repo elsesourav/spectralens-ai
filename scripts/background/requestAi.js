@@ -367,7 +367,7 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
             return;
           }
 
-          if (resultVal && resultVal.length > 20) {
+          if (typeof resultVal === "string" && resultVal.trim().length > 0) {
             safeResolve(resultVal);
           } else {
             isExecuting = false;
