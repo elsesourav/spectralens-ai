@@ -31,6 +31,102 @@ const __applyCollisionDetection__ = (left, top) => {
   return { x: constrainedLeft, y: constrainedTop };
 };
 
+const INTRO_STORAGE_KEY = "spectralens_last_intro_date";
+
+function getTodayDateString() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function removeIntroOverlay() {
+  const intro = document.getElementById("spectralens-widget-intro");
+  if (intro) {
+    intro.style.opacity = "0";
+    intro.style.transform = "translateY(-4px)";
+    setTimeout(() => {
+      intro.remove();
+    }, 200);
+  }
+}
+
+function checkAndShowDailyIntro(left, top) {
+  if (typeof chrome === "undefined" || !chrome.storage?.local) return;
+
+  const todayStr = getTodayDateString();
+  chrome.storage.local.get([INTRO_STORAGE_KEY], (res) => {
+    const lastDate = res?.[INTRO_STORAGE_KEY];
+    if (lastDate === todayStr) {
+      // Max 1 time per day across all tabs
+      return;
+    }
+
+    // Save today's date so it only shows once in a single day
+    chrome.storage.local.set({ [INTRO_STORAGE_KEY]: todayStr });
+
+    document.getElementById("spectralens-widget-intro")?.remove();
+
+    const isAbove = top >= 36;
+    const introTop = isAbove ? top - 32 : top + 52;
+
+    const intro = document.createElement("div");
+    intro.id = "spectralens-widget-intro";
+    intro.style.cssText = `
+      position: fixed;
+      left: ${left}px;
+      top: ${introTop}px;
+      width: 154px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      pointer-events: none;
+      z-index: 2147483647;
+      transition: opacity 200ms ease, transform 200ms ease;
+      opacity: 1;
+      transform: translateY(0);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      user-select: none;
+    `;
+
+    if (isAbove) {
+      intro.innerHTML = `
+        <div style="flex: 1; display: flex; flex-direction: column; align-items: center; margin-left: 36px;">
+          <div style="background: #059669; color: #ffffff; padding: 2.5px 7px; border-radius: 6px; font-size: 9px; font-weight: 700; letter-spacing: 0.2px; white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,0.35);">
+            Drag to move
+          </div>
+          <div style="width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 4px solid #059669; margin-top: -1px;"></div>
+        </div>
+        <div style="display: flex; flex-direction: column; align-items: center; margin-right: 4px;">
+          <div style="background: #7c3aed; color: #ffffff; padding: 2.5px 7px; border-radius: 6px; font-size: 9px; font-weight: 700; letter-spacing: 0.2px; white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,0.35);">
+            Click to chat
+          </div>
+          <div style="width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 4px solid #7c3aed; margin-top: -1px;"></div>
+        </div>
+      `;
+    } else {
+      intro.innerHTML = `
+        <div style="flex: 1; display: flex; flex-direction: column; align-items: center; margin-left: 36px;">
+          <div style="width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-bottom: 4px solid #059669; margin-bottom: -1px;"></div>
+          <div style="background: #059669; color: #ffffff; padding: 2.5px 7px; border-radius: 6px; font-size: 9px; font-weight: 700; letter-spacing: 0.2px; white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,0.35);">
+            Drag to move
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; align-items: center; margin-right: 4px;">
+          <div style="width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-bottom: 4px solid #7c3aed; margin-bottom: -1px;"></div>
+          <div style="background: #7c3aed; color: #ffffff; padding: 2.5px 7px; border-radius: 6px; font-size: 9px; font-weight: 700; letter-spacing: 0.2px; white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,0.35);">
+            Click to chat
+          </div>
+        </div>
+      `;
+    }
+
+    document.body.appendChild(intro);
+
+    setTimeout(() => {
+      removeIntroOverlay();
+    }, 2500);
+  });
+}
+
 function __pointerenter__() {
   __menu_back__ = document.getElementById("__menuWindowBack");
   __main_menu__ = document.getElementById("__menuWindowIframe");
@@ -64,6 +160,7 @@ function __pointerleave__() {
 }
 
 function __pointerdown__(e) {
+  removeIntroOverlay();
   __isDragging = true;
   const rect = __menu_back__?.getBoundingClientRect();
   __pointerOffset.x = e.clientX - rect.left;
@@ -195,6 +292,7 @@ function detectPageTheme() {
 
 /* -------- Message Passing Section --------- */
 pageOnMessage("IF_C_MENU_WINDOW_MOVE", async (data) => {
+  removeIntroOverlay();
   const { deltaX, deltaY } = data || {};
   __isNoMoveOpenToClose = false;
   __menu_back__ = document.getElementById("__menuWindowBack");
@@ -217,6 +315,9 @@ pageOnMessage("IF_C_MENU_WINDOW_MOVE", async (data) => {
 
 pageOnMessage("IF_C_MENU_WINDOW_RESIZE", async (data) => {
   const { width, height, isOpen } = data;
+  if (isOpen) {
+    removeIntroOverlay();
+  }
 
   __menu_back__ = document.getElementById("__menuWindowBack");
   __main_menu__ = document.getElementById("__menuWindowIframe");
@@ -273,6 +374,11 @@ pageOnMessage("IF_C_MENU_WINDOW_RESIZE", async (data) => {
       "left 300ms cubic-bezier(0.16, 1, 0.3, 1), top 300ms cubic-bezier(0.16, 1, 0.3, 1), width 300ms cubic-bezier(0.16, 1, 0.3, 1), height 300ms cubic-bezier(0.16, 1, 0.3, 1), border-radius 300ms cubic-bezier(0.16, 1, 0.3, 1)";
   } else {
     __isFirstSetup = false;
+    if (!isOpen) {
+      setTimeout(() => {
+        checkAndShowDailyIntro(constrainedPosition.x, constrainedPosition.y);
+      }, 100);
+    }
   }
 
   __main_menu__.style.borderRadius = isOpen ? "20px" : "24px";
@@ -407,7 +513,7 @@ window.addEventListener("message", async (event) => {
   if (msgType === "IF_B_CAPTURE_SCREEN") {
     console.log(`[SpectraLens:ContentBridge] 📸 Hiding extension UI for clean screen capture...`);
     const framesToHide = Array.from(
-      document.querySelectorAll("#__menuWindowIframe, #screenSelectorIframe, iframe[id*='menuWindow']"),
+      document.querySelectorAll("#__menuWindowIframe, #screenSelectorIframe, #spectralens-widget-intro, iframe[id*='menuWindow']"),
     );
     const savedStyles = framesToHide.map((f) => ({
       frame: f,
@@ -481,7 +587,7 @@ window.addEventListener("message", async (event) => {
 
       // Temporarily hide frames to capture clean top-section screenshot
       const framesToHide = Array.from(
-        document.querySelectorAll("#__menuWindowIframe, #screenSelectorIframe, iframe[id*='menuWindow']"),
+        document.querySelectorAll("#__menuWindowIframe, #screenSelectorIframe, #spectralens-widget-intro, iframe[id*='menuWindow']"),
       );
       const savedStyles = framesToHide.map((f) => ({
         frame: f,

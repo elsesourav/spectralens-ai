@@ -499,6 +499,7 @@ export default function Menu() {
               onPointerDown={dismissOnboarding}
               role="button"
               tabIndex={-1}
+              title="Drag to move"
               aria-label="Drag SpectraLens AI widget"
               className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-150 select-none ${
                 isDraggingWidget
@@ -513,23 +514,6 @@ export default function Menu() {
                 size={16}
               />
             </div>
-
-            {/* Hover Tooltip: "Drag to move" */}
-            {dragHover && !isDraggingWidget && !showOnboarding && (
-              <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-md bg-slate-900/95 dark:bg-black/95 text-emerald-300 text-[9px] font-semibold tracking-wide shadow-lg border border-emerald-500/30 whitespace-nowrap pointer-events-none z-50">
-                Drag to move
-              </div>
-            )}
-
-            {/* First-time Onboarding Hint for Drag */}
-            {showOnboarding && (
-              <div className="absolute -top-7 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none z-50">
-                <div className="px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[9px] font-bold shadow-md shadow-emerald-900/40 whitespace-nowrap">
-                  Drag to move
-                </div>
-                <div className="w-1.5 h-1.5 bg-emerald-600 rotate-45 -mt-0.5" />
-              </div>
-            )}
           </div>
 
           {/* Hairline Separator 2 */}
@@ -546,6 +530,7 @@ export default function Menu() {
               }}
               onMouseEnter={() => setChatHover(true)}
               onMouseLeave={() => setChatHover(false)}
+              title="Open SpectraLens AI"
               aria-label="Open SpectraLens AI"
               className={`w-8 h-8 rounded-full flex items-center justify-center p-1 border transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-purple-400/70 cursor-pointer ${
                 chatHover
@@ -558,23 +543,6 @@ export default function Menu() {
                 size={16}
               />
             </button>
-
-            {/* Hover Tooltip: "Open SpectraLens AI" */}
-            {chatHover && !showOnboarding && (
-              <div className="absolute -bottom-7 right-0 px-2 py-0.5 rounded-md bg-slate-900/95 dark:bg-black/95 text-purple-200 text-[9px] font-semibold tracking-wide shadow-lg border border-purple-500/30 whitespace-nowrap pointer-events-none z-50">
-                Open SpectraLens AI
-              </div>
-            )}
-
-            {/* First-time Onboarding Hint for Chat */}
-            {showOnboarding && (
-              <div className="absolute -top-7 right-0 flex flex-col items-center pointer-events-none z-50">
-                <div className="px-2 py-0.5 rounded-md bg-purple-600 text-white text-[9px] font-bold shadow-md shadow-purple-900/40 whitespace-nowrap">
-                  Click to chat
-                </div>
-                <div className="w-1.5 h-1.5 bg-purple-600 rotate-45 -mt-0.5" />
-              </div>
-            )}
           </div>
         </div>
 

@@ -200,8 +200,8 @@ function __PUSH_MENU__(tabId) {
                   position: fixed;
                   top: 0px;
                   left: 0px;
-                  width: 164px;
-                  height: 46px;
+                  width: 154px;
+                  height: 48px;
                   background: transparent !important;
                   background-color: transparent !important;
                   color-scheme: normal !important;
