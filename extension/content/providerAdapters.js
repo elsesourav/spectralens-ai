@@ -728,8 +728,62 @@
 
     findInput() {
       return document.querySelector(
-        'div[role="textbox"][aria-label="Chat with ChatGPT"], #prompt-textarea, textarea[data-id="root"], div.ProseMirror[contenteditable="true"]',
+        'div[role="textbox"][aria-label="Chat with ChatGPT"], #prompt-textarea, textarea[data-id="root"], div.ProseMirror[contenteditable="true"], div[contenteditable="true"]',
       );
+    }
+
+    async attachImage(imageDataUrl) {
+      if (!imageDataUrl) return false;
+      tabLog("ChatGPTTab", "🖼️ Attaching image file to ChatGPT...");
+      try {
+        const arr = imageDataUrl.split(",");
+        const mime = arr[0].match(/:(.*?);/)?.[1] || "image/png";
+        const bstr = atob(arr[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+          u8arr[n] = bstr.charCodeAt(n);
+        }
+        const file = new File([u8arr], "screenshot.png", {
+          type: mime,
+          lastModified: Date.now(),
+        });
+
+        // 1. Check file input
+        const fileInput = document.querySelector(
+          'input[type="file"], input[accept*="image"]',
+        );
+        if (fileInput) {
+          const dt = new DataTransfer();
+          dt.items.add(file);
+          fileInput.files = dt.files;
+          fileInput.dispatchEvent(new Event("change", { bubbles: true }));
+          fileInput.dispatchEvent(new Event("input", { bubbles: true }));
+          tabLog("ChatGPTTab", "📁 Dispatched image to ChatGPT file input!");
+          await new Promise((r) => setTimeout(r, 600));
+          return true;
+        }
+
+        // 2. Synthetic ClipboardEvent paste onto input editor
+        const input = this.findInput();
+        if (input) {
+          this.focusInput();
+          const dt = new DataTransfer();
+          dt.items.add(file);
+          const pasteEv = new ClipboardEvent("paste", {
+            bubbles: true,
+            cancelable: true,
+            clipboardData: dt,
+          });
+          input.dispatchEvent(pasteEv);
+          tabLog("ChatGPTTab", "📋 Dispatched synthetic paste event to ChatGPT input!");
+          await new Promise((r) => setTimeout(r, 600));
+          return true;
+        }
+      } catch (err) {
+        tabLog("ChatGPTTab", "❌ attachImage error:", err?.message);
+      }
+      return false;
     }
 
     async insertPrompt(text) {
@@ -775,6 +829,7 @@
             data: text,
           }),
         );
+        input.dispatchEvent(new Event("input", { bubbles: true }));
       }
 
       await new Promise((r) => setTimeout(r, 100));
@@ -783,19 +838,73 @@
 
     findSendButton() {
       return document.querySelector(
-        'button[data-testid="send-button"], button[aria-label*="Send prompt"], button[aria-label*="Send"]',
+        'button[data-testid="send-button"], button[aria-label*="Send prompt" i], button[aria-label*="Send" i], button[data-testid="fruitjuice-send-button"]',
       );
+    }
+
+    async submit() {
+      await new Promise((r) => setTimeout(r, 150));
+      const btn = this.findSendButton();
+      if (btn && !btn.disabled) {
+        tabLog("ChatGPTTab", "🔘 Clicking ChatGPT Send button...");
+        try {
+          btn.click();
+          btn.dispatchEvent(
+            new MouseEvent("click", {
+              bubbles: true,
+              cancelable: true,
+              view: window,
+            }),
+          );
+          return true;
+        } catch {}
+      }
+
+      // Fallback: Dispatch Enter key
+      const input = this.findInput();
+      if (input) {
+        tabLog("ChatGPTTab", "↵ Dispatching Enter key to ChatGPT input...");
+        input.focus();
+        input.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "Enter",
+            code: "Enter",
+            keyCode: 13,
+            which: 13,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+        input.dispatchEvent(
+          new KeyboardEvent("keyup", {
+            key: "Enter",
+            code: "Enter",
+            keyCode: 13,
+            which: 13,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+        return true;
+      }
+
+      return false;
     }
 
     findResponseContainer() {
       const messages = document.querySelectorAll(
-        '[data-message-author-role="assistant"]',
+        '[data-message-author-role="assistant"], article div.markdown',
       );
       if (messages.length > 0) {
-        const lastMsg = messages[messages.length - 1];
-        return (
-          lastMsg.querySelector("div.markdown.prose, div.markdown") || lastMsg
-        );
+        for (let i = messages.length - 1; i >= 0; i--) {
+          const msg = messages[i];
+          const innerMarkdown = msg.querySelector("div.markdown.prose, div.markdown") || msg;
+          const text = (innerMarkdown.textContent || "").trim();
+          if (text.length > 10) {
+            return innerMarkdown;
+          }
+        }
+        return messages[messages.length - 1];
       }
       return document.querySelector(
         "article [data-message-author-role='assistant'] .markdown",
@@ -809,13 +918,81 @@
         'div[data-testid="fruitjuice-send-button"]',
         ".text-xs.text-token-text-tertiary",
         "div.text-center.text-xs",
+        'button[aria-label*="Copy" i]',
+        'button[aria-label*="Read aloud" i]',
+        'button[aria-label*="Good response" i]',
+        'button[aria-label*="Bad response" i]',
       ];
+    }
+
+    observeResponse(timeoutMs = 25000, previousContent = "") {
+      return new Promise(async (resolve) => {
+        const startTime = Date.now();
+        let lastTextLength = 0;
+        let idleCount = 0;
+        let hasSeenStreaming = false;
+
+        const initialTurnCount = document.querySelectorAll(
+          '[data-message-author-role="assistant"]',
+        ).length;
+
+        const checkInterval = setInterval(async () => {
+          const isStreamingNow = this.isStreaming();
+          if (isStreamingNow) {
+            hasSeenStreaming = true;
+          }
+
+          const currentTurnCount = document.querySelectorAll(
+            '[data-message-author-role="assistant"]',
+          ).length;
+
+          const container = this.findResponseContainer();
+          if (container) {
+            const currentContent = (container.textContent || "").trim();
+            const currentLength = currentContent.length;
+
+            if (previousContent) {
+              const isNewTurn =
+                currentTurnCount > initialTurnCount ||
+                (hasSeenStreaming && !isStreamingNow);
+              if (!isNewTurn || currentContent === previousContent) {
+                return;
+              }
+            }
+
+            if (currentLength > 20) {
+              const isFinished = hasSeenStreaming
+                ? !isStreamingNow
+                : idleCount >= 3;
+
+              if (currentLength === lastTextLength) {
+                idleCount++;
+                if (isFinished || idleCount >= 4) {
+                  clearInterval(checkInterval);
+                  const md = await this.getCurrentResponse();
+                  resolve(md);
+                  return;
+                }
+              } else {
+                lastTextLength = currentLength;
+                idleCount = 0;
+              }
+            }
+          }
+
+          if (Date.now() - startTime > timeoutMs) {
+            clearInterval(checkInterval);
+            const response = await this.getCurrentResponse();
+            resolve(response || formatProviderError(this.id, "No response generated or login required"));
+          }
+        }, 350);
+      });
     }
 
     isStreaming() {
       return Boolean(
         document.querySelector(
-          'button[data-testid="stop-button"], button[aria-label*="Stop streaming"], button[aria-label*="Stop generating"]',
+          'button[data-testid="stop-button"], button[aria-label*="Stop streaming" i], button[aria-label*="Stop generating" i]',
         ),
       );
     }
@@ -835,8 +1012,62 @@
 
     findInput() {
       return document.querySelector(
-        'div[data-testid="chat-input"], div.ProseMirror[contenteditable="true"], fieldset div[contenteditable="true"]',
+        'div[data-testid="chat-input"], div.ProseMirror[contenteditable="true"], fieldset div[contenteditable="true"], div[contenteditable="true"]',
       );
+    }
+
+    async attachImage(imageDataUrl) {
+      if (!imageDataUrl) return false;
+      tabLog("ClaudeTab", "🖼️ Attaching image file to Claude...");
+      try {
+        const arr = imageDataUrl.split(",");
+        const mime = arr[0].match(/:(.*?);/)?.[1] || "image/png";
+        const bstr = atob(arr[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+          u8arr[n] = bstr.charCodeAt(n);
+        }
+        const file = new File([u8arr], "screenshot.png", {
+          type: mime,
+          lastModified: Date.now(),
+        });
+
+        // 1. Check file input
+        const fileInput = document.querySelector(
+          'input[type="file"], input[accept*="image"]',
+        );
+        if (fileInput) {
+          const dt = new DataTransfer();
+          dt.items.add(file);
+          fileInput.files = dt.files;
+          fileInput.dispatchEvent(new Event("change", { bubbles: true }));
+          fileInput.dispatchEvent(new Event("input", { bubbles: true }));
+          tabLog("ClaudeTab", "📁 Dispatched image to Claude file input!");
+          await new Promise((r) => setTimeout(r, 600));
+          return true;
+        }
+
+        // 2. Synthetic ClipboardEvent paste onto input editor
+        const input = this.findInput();
+        if (input) {
+          this.focusInput();
+          const dt = new DataTransfer();
+          dt.items.add(file);
+          const pasteEv = new ClipboardEvent("paste", {
+            bubbles: true,
+            cancelable: true,
+            clipboardData: dt,
+          });
+          input.dispatchEvent(pasteEv);
+          tabLog("ClaudeTab", "📋 Dispatched synthetic paste event to Claude input!");
+          await new Promise((r) => setTimeout(r, 600));
+          return true;
+        }
+      } catch (err) {
+        tabLog("ClaudeTab", "❌ attachImage error:", err?.message);
+      }
+      return false;
     }
 
     async insertPrompt(text) {
@@ -868,6 +1099,7 @@
           data: text,
         }),
       );
+      input.dispatchEvent(new Event("input", { bubbles: true }));
 
       await new Promise((r) => setTimeout(r, 100));
       return true;
@@ -875,21 +1107,73 @@
 
     findSendButton() {
       return document.querySelector(
-        'button[aria-label*="Send Message"], button[aria-label*="Send"]',
+        'button[aria-label*="Send Message" i], button[aria-label*="Send" i], button.cursor-pointer:has(svg)',
       );
+    }
+
+    async submit() {
+      await new Promise((r) => setTimeout(r, 150));
+      const btn = this.findSendButton();
+      if (btn && !btn.disabled) {
+        tabLog("ClaudeTab", "🔘 Clicking Claude Send button...");
+        try {
+          btn.click();
+          btn.dispatchEvent(
+            new MouseEvent("click", {
+              bubbles: true,
+              cancelable: true,
+              view: window,
+            }),
+          );
+          return true;
+        } catch {}
+      }
+
+      // Fallback: Dispatch Enter key
+      const input = this.findInput();
+      if (input) {
+        tabLog("ClaudeTab", "↵ Dispatching Enter key to Claude input...");
+        input.focus();
+        input.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "Enter",
+            code: "Enter",
+            keyCode: 13,
+            which: 13,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+        input.dispatchEvent(
+          new KeyboardEvent("keyup", {
+            key: "Enter",
+            code: "Enter",
+            keyCode: 13,
+            which: 13,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+        return true;
+      }
+
+      return false;
     }
 
     findResponseContainer() {
       const responses = document.querySelectorAll(
-        "div.font-claude-response, div.standard-markdown, [role='article'][aria-label*='Claude responded']",
+        "div.font-claude-response, div.standard-markdown, [role='article'][aria-label*='Claude responded' i], div.font-claude-message",
       );
       if (responses.length > 0) {
-        const last = responses[responses.length - 1];
-        return (
-          last.querySelector(
-            "div.standard-markdown, p.font-claude-response-body",
-          ) || last
-        );
+        for (let i = responses.length - 1; i >= 0; i--) {
+          const resp = responses[i];
+          const innerMarkdown = resp.querySelector("div.standard-markdown, p.font-claude-response-body, div.font-claude-message") || resp;
+          const text = (innerMarkdown.textContent || "").trim();
+          if (text.length > 10) {
+            return innerMarkdown;
+          }
+        }
+        return responses[responses.length - 1];
       }
       return document.querySelector("div.font-claude-response");
     }
@@ -900,12 +1184,77 @@
         ".font-claude-message-actions",
         'button[data-testid="retry-button"]',
         'button[aria-label="Copy Content"]',
+        'button[aria-label*="Copy" i]',
       ];
+    }
+
+    observeResponse(timeoutMs = 25000, previousContent = "") {
+      return new Promise(async (resolve) => {
+        const startTime = Date.now();
+        let lastTextLength = 0;
+        let idleCount = 0;
+        let hasSeenStreaming = false;
+
+        const initialTurnCount = document.querySelectorAll(
+          "div.font-claude-response, [role='article'][aria-label*='Claude responded' i]",
+        ).length;
+
+        const checkInterval = setInterval(async () => {
+          const isStreamingNow = this.isStreaming();
+          if (isStreamingNow) {
+            hasSeenStreaming = true;
+          }
+
+          const currentTurnCount = document.querySelectorAll(
+            "div.font-claude-response, [role='article'][aria-label*='Claude responded' i]",
+          ).length;
+
+          const container = this.findResponseContainer();
+          if (container) {
+            const currentContent = (container.textContent || "").trim();
+            const currentLength = currentContent.length;
+
+            if (previousContent) {
+              const isNewTurn =
+                currentTurnCount > initialTurnCount ||
+                (hasSeenStreaming && !isStreamingNow);
+              if (!isNewTurn || currentContent === previousContent) {
+                return;
+              }
+            }
+
+            if (currentLength > 20) {
+              const isFinished = hasSeenStreaming
+                ? !isStreamingNow
+                : idleCount >= 3;
+
+              if (currentLength === lastTextLength) {
+                idleCount++;
+                if (isFinished || idleCount >= 4) {
+                  clearInterval(checkInterval);
+                  const md = await this.getCurrentResponse();
+                  resolve(md);
+                  return;
+                }
+              } else {
+                lastTextLength = currentLength;
+                idleCount = 0;
+              }
+            }
+          }
+
+          if (Date.now() - startTime > timeoutMs) {
+            clearInterval(checkInterval);
+            const response = await this.getCurrentResponse();
+            resolve(response || formatProviderError(this.id, "No response generated or login required"));
+          }
+        }, 350);
+      });
     }
 
     isStreaming() {
       const streamingEl = document.querySelector(
-        'div[data-is-streaming="true"], button[aria-label*="Stop"]',
+        'div[data-is-streaming="true"], button[aria-label*="Stop" i]',
       );
       return Boolean(streamingEl);
     }
@@ -1270,8 +1619,60 @@
 
     findInput() {
       return document.querySelector(
-        'div[role="textbox"][aria-label*="Ask Grok"], main div.ProseMirror, textarea[placeholder*="Ask Grok"]',
+        'div[role="textbox"][aria-label*="Ask Grok"], main div.ProseMirror, textarea[placeholder*="Ask Grok"], div[contenteditable="true"]',
       );
+    }
+
+    async attachImage(imageDataUrl) {
+      if (!imageDataUrl) return false;
+      tabLog("GrokTab", "🖼️ Attaching image file to Grok...");
+      try {
+        const arr = imageDataUrl.split(",");
+        const mime = arr[0].match(/:(.*?);/)?.[1] || "image/png";
+        const bstr = atob(arr[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+          u8arr[n] = bstr.charCodeAt(n);
+        }
+        const file = new File([u8arr], "screenshot.png", {
+          type: mime,
+          lastModified: Date.now(),
+        });
+
+        const fileInput = document.querySelector(
+          'input[type="file"], input[accept*="image"]',
+        );
+        if (fileInput) {
+          const dt = new DataTransfer();
+          dt.items.add(file);
+          fileInput.files = dt.files;
+          fileInput.dispatchEvent(new Event("change", { bubbles: true }));
+          fileInput.dispatchEvent(new Event("input", { bubbles: true }));
+          tabLog("GrokTab", "📁 Dispatched image to Grok file input!");
+          await new Promise((r) => setTimeout(r, 600));
+          return true;
+        }
+
+        const input = this.findInput();
+        if (input) {
+          this.focusInput();
+          const dt = new DataTransfer();
+          dt.items.add(file);
+          const pasteEv = new ClipboardEvent("paste", {
+            bubbles: true,
+            cancelable: true,
+            clipboardData: dt,
+          });
+          input.dispatchEvent(pasteEv);
+          tabLog("GrokTab", "📋 Dispatched synthetic paste event to Grok input!");
+          await new Promise((r) => setTimeout(r, 600));
+          return true;
+        }
+      } catch (err) {
+        tabLog("GrokTab", "❌ attachImage error:", err?.message);
+      }
+      return false;
     }
 
     async insertPrompt(text) {
@@ -1303,6 +1704,7 @@
             data: text,
           }),
         );
+        input.dispatchEvent(new Event("input", { bubbles: true }));
       }
 
       await new Promise((r) => setTimeout(r, 100));
@@ -1311,15 +1713,71 @@
 
     findSendButton() {
       return document.querySelector(
-        'button[aria-label*="Send"], button[type="submit"], button.bg-highlight',
+        'button[aria-label*="Send" i], button[type="submit"], button.bg-highlight',
       );
+    }
+
+    async submit() {
+      await new Promise((r) => setTimeout(r, 150));
+      const btn = this.findSendButton();
+      if (btn && !btn.disabled) {
+        tabLog("GrokTab", "🔘 Clicking Grok Send button...");
+        try {
+          btn.click();
+          btn.dispatchEvent(
+            new MouseEvent("click", {
+              bubbles: true,
+              cancelable: true,
+              view: window,
+            }),
+          );
+          return true;
+        } catch {}
+      }
+
+      const input = this.findInput();
+      if (input) {
+        tabLog("GrokTab", "↵ Dispatching Enter key to Grok input...");
+        input.focus();
+        input.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "Enter",
+            code: "Enter",
+            keyCode: 13,
+            which: 13,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+        input.dispatchEvent(
+          new KeyboardEvent("keyup", {
+            key: "Enter",
+            code: "Enter",
+            keyCode: 13,
+            which: 13,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+        return true;
+      }
+
+      return false;
     }
 
     findResponseContainer() {
       const messages = document.querySelectorAll(
-        '[data-testid="assistant-message"], div.response-content-markdown, main #last-reply-container',
+        '[data-testid="assistant-message"], div.response-content-markdown, main #last-reply-container, div.message-bubble',
       );
       if (messages.length > 0) {
+        for (let i = messages.length - 1; i >= 0; i--) {
+          const msg = messages[i];
+          const innerMarkdown = msg.querySelector("div.response-content-markdown, div.markdown, [dir='auto']") || msg;
+          const text = (innerMarkdown.textContent || "").trim();
+          if (text.length > 10) {
+            return innerMarkdown;
+          }
+        }
         return messages[messages.length - 1];
       }
       return document.querySelector(
@@ -1327,10 +1785,84 @@
       );
     }
 
+    getJunkSelectors() {
+      return [
+        ...super.getJunkSelectors(),
+        'button[aria-label*="Copy" i]',
+        'button[aria-label*="Share" i]',
+        'button[aria-label*="Like" i]',
+        'button[aria-label*="Dislike" i]',
+      ];
+    }
+
+    observeResponse(timeoutMs = 25000, previousContent = "") {
+      return new Promise(async (resolve) => {
+        const startTime = Date.now();
+        let lastTextLength = 0;
+        let idleCount = 0;
+        let hasSeenStreaming = false;
+
+        const initialTurnCount = document.querySelectorAll(
+          '[data-testid="assistant-message"], div.response-content-markdown, main #last-reply-container',
+        ).length;
+
+        const checkInterval = setInterval(async () => {
+          const isStreamingNow = this.isStreaming();
+          if (isStreamingNow) {
+            hasSeenStreaming = true;
+          }
+
+          const currentTurnCount = document.querySelectorAll(
+            '[data-testid="assistant-message"], div.response-content-markdown, main #last-reply-container',
+          ).length;
+
+          const container = this.findResponseContainer();
+          if (container) {
+            const currentContent = (container.textContent || "").trim();
+            const currentLength = currentContent.length;
+
+            if (previousContent) {
+              const isNewTurn =
+                currentTurnCount > initialTurnCount ||
+                (hasSeenStreaming && !isStreamingNow);
+              if (!isNewTurn || currentContent === previousContent) {
+                return;
+              }
+            }
+
+            if (currentLength > 20) {
+              const isFinished = hasSeenStreaming
+                ? !isStreamingNow
+                : idleCount >= 3;
+
+              if (currentLength === lastTextLength) {
+                idleCount++;
+                if (isFinished || idleCount >= 4) {
+                  clearInterval(checkInterval);
+                  const md = await this.getCurrentResponse();
+                  resolve(md);
+                  return;
+                }
+              } else {
+                lastTextLength = currentLength;
+                idleCount = 0;
+              }
+            }
+          }
+
+          if (Date.now() - startTime > timeoutMs) {
+            clearInterval(checkInterval);
+            const response = await this.getCurrentResponse();
+            resolve(response || formatProviderError(this.id, "No response generated or login required"));
+          }
+        }, 350);
+      });
+    }
+
     isStreaming() {
       return Boolean(
         document.querySelector(
-          "main #last-reply-container .thinking-container",
+          "main #last-reply-container .thinking-container, div.thinking-indicator",
         ),
       );
     }
@@ -1350,8 +1882,60 @@
 
     findInput() {
       return document.querySelector(
-        '#ask-input, div[data-lexical-editor="true"], textarea[placeholder*="Ask"]',
+        '#ask-input, div[data-lexical-editor="true"], textarea[placeholder*="Ask" i], textarea[placeholder*="follow-up" i]',
       );
+    }
+
+    async attachImage(imageDataUrl) {
+      if (!imageDataUrl) return false;
+      tabLog("PerplexityTab", "🖼️ Attaching image file to Perplexity...");
+      try {
+        const arr = imageDataUrl.split(",");
+        const mime = arr[0].match(/:(.*?);/)?.[1] || "image/png";
+        const bstr = atob(arr[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+          u8arr[n] = bstr.charCodeAt(n);
+        }
+        const file = new File([u8arr], "screenshot.png", {
+          type: mime,
+          lastModified: Date.now(),
+        });
+
+        const fileInput = document.querySelector(
+          'input[type="file"], input[accept*="image"]',
+        );
+        if (fileInput) {
+          const dt = new DataTransfer();
+          dt.items.add(file);
+          fileInput.files = dt.files;
+          fileInput.dispatchEvent(new Event("change", { bubbles: true }));
+          fileInput.dispatchEvent(new Event("input", { bubbles: true }));
+          tabLog("PerplexityTab", "📁 Dispatched image to Perplexity file input!");
+          await new Promise((r) => setTimeout(r, 600));
+          return true;
+        }
+
+        const input = this.findInput();
+        if (input) {
+          this.focusInput();
+          const dt = new DataTransfer();
+          dt.items.add(file);
+          const pasteEv = new ClipboardEvent("paste", {
+            bubbles: true,
+            cancelable: true,
+            clipboardData: dt,
+          });
+          input.dispatchEvent(pasteEv);
+          tabLog("PerplexityTab", "📋 Dispatched synthetic paste event to Perplexity input!");
+          await new Promise((r) => setTimeout(r, 600));
+          return true;
+        }
+      } catch (err) {
+        tabLog("PerplexityTab", "❌ attachImage error:", err?.message);
+      }
+      return false;
     }
 
     async insertPrompt(text) {
@@ -1366,7 +1950,6 @@
         input.dispatchEvent(new Event("input", { bubbles: true }));
         input.dispatchEvent(new Event("change", { bubbles: true }));
       } else {
-        // Lexical editor
         input.textContent = "";
         const beforeInput = new InputEvent("beforeinput", {
           bubbles: true,
@@ -1386,6 +1969,7 @@
             data: text,
           }),
         );
+        input.dispatchEvent(new Event("input", { bubbles: true }));
       }
 
       await new Promise((r) => setTimeout(r, 100));
@@ -1394,18 +1978,73 @@
 
     findSendButton() {
       return document.querySelector(
-        'button[aria-label="Submit"], button[aria-label*="Search"], button.reset.interactable',
+        'button[aria-label="Submit" i], button[aria-label*="Search" i], button.reset.interactable',
       );
+    }
+
+    async submit() {
+      await new Promise((r) => setTimeout(r, 150));
+      const btn = this.findSendButton();
+      if (btn && !btn.disabled) {
+        tabLog("PerplexityTab", "🔘 Clicking Perplexity Send button...");
+        try {
+          btn.click();
+          btn.dispatchEvent(
+            new MouseEvent("click", {
+              bubbles: true,
+              cancelable: true,
+              view: window,
+            }),
+          );
+          return true;
+        } catch {}
+      }
+
+      const input = this.findInput();
+      if (input) {
+        tabLog("PerplexityTab", "↵ Dispatching Enter key to Perplexity input...");
+        input.focus();
+        input.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "Enter",
+            code: "Enter",
+            keyCode: 13,
+            which: 13,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+        input.dispatchEvent(
+          new KeyboardEvent("keyup", {
+            key: "Enter",
+            code: "Enter",
+            keyCode: 13,
+            which: 13,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+        return true;
+      }
+
+      return false;
     }
 
     findResponseContainer() {
       const proseContainers = document.querySelectorAll(
-        "div.prose, #markdown-content-0, div[dir='auto'].prose",
+        "div.prose, #markdown-content-0, div[dir='auto'].prose, div[data-testid='answer-content']",
       );
       if (proseContainers.length > 0) {
+        for (let i = proseContainers.length - 1; i >= 0; i--) {
+          const container = proseContainers[i];
+          const text = (container.textContent || "").trim();
+          if (text.length > 15) {
+            return container;
+          }
+        }
         return proseContainers[proseContainers.length - 1];
       }
-      return document.querySelector("#markdown-content-0");
+      return document.querySelector("#markdown-content-0, div.prose");
     }
 
     getJunkSelectors() {
@@ -1415,20 +2054,68 @@
         "div.citation",
         ".related-questions",
         'div[class*="Sources"]',
+        'button[aria-label*="Copy" i]',
+        'button[aria-label*="Share" i]',
       ];
+    }
+
+    observeResponse(timeoutMs = 25000, previousContent = "") {
+      return new Promise(async (resolve) => {
+        const startTime = Date.now();
+        let lastTextLength = 0;
+        let idleCount = 0;
+
+        const checkInterval = setInterval(async () => {
+          const isStreamingNow = this.isStreaming();
+          const container = this.findResponseContainer();
+          if (container) {
+            const currentContent = (container.textContent || "").trim();
+            const currentLength = currentContent.length;
+
+            if (previousContent && currentContent === previousContent) {
+              return;
+            }
+
+            if (currentLength > 20) {
+              const isFinished = !isStreamingNow || idleCount >= 3;
+
+              if (currentLength === lastTextLength) {
+                idleCount++;
+                if (isFinished || idleCount >= 4) {
+                  clearInterval(checkInterval);
+                  const md = await this.getCurrentResponse();
+                  resolve(md);
+                  return;
+                }
+              } else {
+                lastTextLength = currentLength;
+                idleCount = 0;
+              }
+            }
+          }
+
+          if (Date.now() - startTime > timeoutMs) {
+            clearInterval(checkInterval);
+            const response = await this.getCurrentResponse();
+            resolve(response || formatProviderError(this.id, "No response generated or login required"));
+          }
+        }, 350);
+      });
     }
 
     isStreaming() {
       const submitBtn = this.findSendButton();
+      const hasSpinner = Boolean(document.querySelector("svg.animate-spin"));
       return Boolean(
-        submitBtn &&
-        (submitBtn.disabled ||
-          submitBtn.getAttribute("aria-disabled") === "true"),
+        hasSpinner ||
+        (submitBtn &&
+          (submitBtn.disabled ||
+            submitBtn.getAttribute("aria-disabled") === "true")),
       );
     }
 
     isComplete() {
-      return Boolean(this.findResponseContainer());
+      return !this.isStreaming() && Boolean(this.findResponseContainer());
     }
   }
 
