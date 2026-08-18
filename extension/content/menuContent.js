@@ -73,18 +73,18 @@ function checkAndShowDailyIntro(left, top) {
         spotlight: { xOffset: -4, yOffset: -4, width: 162, height: 56, radius: "28px" },
       },
       {
-        badge: "⠿⠿ Step 2 of 3 • Movement",
+        badge: "⠿⠿ Step 2 of 3 • Full Drag & Move",
         badgeColor: "#10b981",
-        title: "Drag to Reposition",
-        desc: "Click and hold the 6-dot grip handle in the center to move the widget anywhere on your screen. It automatically remembers your preferred position.",
-        spotlight: { xOffset: 46, yOffset: 3, width: 46, height: 42, radius: "12px" },
+        title: "Fully Draggable Anywhere",
+        desc: "Click and hold the grip handle or anywhere on the launcher back to move the widget anywhere on your screen. It automatically remembers your preferred position.",
+        spotlight: { xOffset: 44, yOffset: 2, width: 52, height: 44, radius: "14px" },
       },
       {
         badge: "💬 Step 3 of 3 • Multi-AI & Context",
         badgeColor: "#a855f7",
         title: "Launch Chat & @ Features",
         desc: "Click the chat icon to open the full assistant. Use @page to send web links, metadata & top screenshots, or @screen to ask about visual areas.",
-        spotlight: { xOffset: 104, yOffset: 3, width: 44, height: 42, radius: "22px" },
+        spotlight: { xOffset: 104, yOffset: 2, width: 46, height: 44, radius: "22px" },
       },
     ];
 
@@ -106,7 +106,7 @@ function checkAndShowDailyIntro(left, top) {
     spotlight.style.cssText = `
       position: fixed;
       pointer-events: none;
-      box-shadow: 0 0 0 9999px rgba(6, 8, 15, 0.75), 0 0 25px 4px rgba(99, 102, 241, 0.5);
+      box-shadow: 0 0 0 9999px rgba(6, 8, 15, 0.78), 0 0 25px 4px rgba(99, 102, 241, 0.5);
       border: 1.5px solid rgba(139, 92, 246, 0.7);
       transition: all 250ms cubic-bezier(0.16, 1, 0.3, 1);
       z-index: 2147483647;
@@ -185,7 +185,7 @@ function checkAndShowDailyIntro(left, top) {
         </div>
       `;
 
-      // Attach button events
+      // Attach button events (Intro only closes on explicit user dismiss buttons)
       card.querySelector("#sl-tour-skip-x")?.addEventListener("click", removeIntroOverlay);
       card.querySelector("#sl-tour-skip")?.addEventListener("click", removeIntroOverlay);
       card.querySelector("#sl-tour-back")?.addEventListener("click", () => {
@@ -206,22 +206,6 @@ function checkAndShowDailyIntro(left, top) {
 
     overlay.appendChild(spotlight);
     overlay.appendChild(card);
-
-    // Clicking anywhere on backdrop outside the card closes guide
-    overlay.addEventListener("click", (e) => {
-      if (e.target === overlay) {
-        removeIntroOverlay();
-      }
-    });
-
-    // Pressing Escape closes guide
-    const handleKeydown = (e) => {
-      if (e.key === "Escape") {
-        removeIntroOverlay();
-        window.removeEventListener("keydown", handleKeydown);
-      }
-    };
-    window.addEventListener("keydown", handleKeydown);
 
     document.body.appendChild(overlay);
 
