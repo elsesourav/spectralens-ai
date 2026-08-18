@@ -39,13 +39,12 @@ function getTodayDateString() {
 }
 
 function removeIntroOverlay() {
-  const intro = document.getElementById("spectralens-widget-intro");
-  if (intro) {
-    intro.style.opacity = "0";
-    intro.style.transform = "translateY(-4px)";
+  const overlay = document.getElementById("spectralens-tour-overlay");
+  if (overlay) {
+    overlay.style.opacity = "0";
     setTimeout(() => {
-      intro.remove();
-    }, 200);
+      overlay.remove();
+    }, 250);
   }
 }
 
@@ -63,67 +62,179 @@ function checkAndShowDailyIntro(left, top) {
     // Save today's date so it only shows once in a single day
     chrome.storage.local.set({ [INTRO_STORAGE_KEY]: todayStr });
 
-    document.getElementById("spectralens-widget-intro")?.remove();
+    document.getElementById("spectralens-tour-overlay")?.remove();
 
-    const isAbove = top >= 36;
-    const introTop = isAbove ? top - 32 : top + 52;
+    let currentStep = 1;
+    const totalSteps = 3;
 
-    const intro = document.createElement("div");
-    intro.id = "spectralens-widget-intro";
-    intro.style.cssText = `
+    const stepsData = [
+      {
+        badge: "✦ Step 1 of 3 • Brand Identity",
+        badgeColor: "#3b82f6",
+        title: "SpectraLens AI Assistant",
+        desc: "Your smart multi-AI floating assistant on any webpage. Access Google AI, Perplexity, Claude, ChatGPT, and more right from this launcher.",
+        spotlight: { xOffset: -4, yOffset: -4, width: 162, height: 56, radius: "28px" },
+      },
+      {
+        badge: "⠿⠿ Step 2 of 3 • Movement",
+        badgeColor: "#10b981",
+        title: "Drag to Reposition",
+        desc: "Click and hold the 6-dot grip handle in the center to move the widget anywhere on your screen. It automatically remembers your preferred position.",
+        spotlight: { xOffset: 46, yOffset: 2, width: 44, height: 44, radius: "14px" },
+      },
+      {
+        badge: "💬 Step 3 of 3 • Multi-AI & Context",
+        badgeColor: "#a855f7",
+        title: "Launch Chat & @ Features",
+        desc: "Click the chat icon to open the full assistant. Use @page to send web links, metadata & top screenshots, or @screen to ask about visual areas.",
+        spotlight: { xOffset: 104, yOffset: 2, width: 44, height: 44, radius: "22px" },
+      },
+    ];
+
+    const overlay = document.createElement("div");
+    overlay.id = "spectralens-tour-overlay";
+    overlay.style.cssText = `
       position: fixed;
-      left: ${left}px;
-      top: ${introTop}px;
-      width: 154px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      pointer-events: none;
-      z-index: 2147483647;
-      transition: opacity 200ms ease, transform 200ms ease;
-      opacity: 1;
-      transform: translateY(0);
+      inset: 0;
+      z-index: 2147483646;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       user-select: none;
+      transition: opacity 250ms ease;
+      opacity: 0;
     `;
 
-    if (isAbove) {
-      intro.innerHTML = `
-        <div style="flex: 1; display: flex; flex-direction: column; align-items: center; margin-left: 36px;">
-          <div style="background: #059669; color: #ffffff; padding: 2.5px 7px; border-radius: 6px; font-size: 9px; font-weight: 700; letter-spacing: 0.2px; white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,0.35);">
-            Drag to move
-          </div>
-          <div style="width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 4px solid #059669; margin-top: -1px;"></div>
+    // Spotlight Cutout Element
+    const spotlight = document.createElement("div");
+    spotlight.id = "spectralens-tour-spotlight";
+    spotlight.style.cssText = `
+      position: fixed;
+      pointer-events: none;
+      box-shadow: 0 0 0 9999px rgba(6, 8, 15, 0.75), 0 0 25px 4px rgba(99, 102, 241, 0.5);
+      border: 1.5px solid rgba(139, 92, 246, 0.7);
+      transition: all 300ms cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 2147483646;
+    `;
+
+    // Guide Card Dialog
+    const card = document.createElement("div");
+    card.id = "spectralens-tour-card";
+    const isAbove = top + 48 + 220 >= window.innerHeight;
+    const cardTop = isAbove ? Math.max(16, top - 180) : top + 64;
+    const cardLeft = Math.max(16, Math.min(window.innerWidth - 336, left - 80));
+
+    card.style.cssText = `
+      position: fixed;
+      left: ${cardLeft}px;
+      top: ${cardTop}px;
+      width: 320px;
+      background: rgba(18, 20, 30, 0.94);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 18px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.65), 0 0 30px rgba(99, 102, 241, 0.15);
+      padding: 16px 18px;
+      color: #f8fafc;
+      z-index: 2147483647;
+      transition: all 250ms cubic-bezier(0.16, 1, 0.3, 1);
+    `;
+
+    function renderStep(stepIndex) {
+      const data = stepsData[stepIndex - 1];
+      if (!data) return;
+
+      // Update spotlight geometry
+      spotlight.style.left = `${left + data.spotlight.xOffset}px`;
+      spotlight.style.top = `${top + data.spotlight.yOffset}px`;
+      spotlight.style.width = `${data.spotlight.width}px`;
+      spotlight.style.height = `${data.spotlight.height}px`;
+      spotlight.style.borderRadius = data.spotlight.radius;
+
+      // Render card content
+      card.innerHTML = `
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+          <span style="font-size: 10px; font-weight: 700; color: ${data.badgeColor}; background: ${data.badgeColor}18; border: 1px solid ${data.badgeColor}35; padding: 2px 8px; border-radius: 12px; letter-spacing: 0.2px;">
+            ${data.badge}
+          </span>
+          <button id="sl-tour-skip-x" style="background: transparent; border: none; color: #64748b; hover:color: #cbd5e1; cursor: pointer; font-size: 14px; padding: 0 4px; line-height: 1;" title="Dismiss Guide">✕</button>
         </div>
-        <div style="display: flex; flex-direction: column; align-items: center; margin-right: 4px;">
-          <div style="background: #7c3aed; color: #ffffff; padding: 2.5px 7px; border-radius: 6px; font-size: 9px; font-weight: 700; letter-spacing: 0.2px; white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,0.35);">
-            Click to chat
+        <h4 style="margin: 0 0 6px 0; font-size: 14px; font-weight: 700; color: #ffffff; letter-spacing: -0.2px;">
+          ${data.title}
+        </h4>
+        <p style="margin: 0 0 16px 0; font-size: 11.5px; line-height: 1.55; color: #94a3b8;">
+          ${data.desc}
+        </p>
+        <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 12px;">
+          <div style="display: flex; gap: 5px; align-items: center;">
+            ${[1, 2, 3]
+              .map(
+                (i) => `
+              <div style="width: ${i === stepIndex ? "14px" : "6px"}; height: 6px; border-radius: 3px; background: ${
+                i === stepIndex ? "#818cf8" : "rgba(255,255,255,0.18)"
+              }; transition: all 200ms ease;"></div>
+            `,
+              )
+              .join("")}
           </div>
-          <div style="width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 4px solid #7c3aed; margin-top: -1px;"></div>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            ${
+              stepIndex > 1
+                ? `<button id="sl-tour-back" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: #cbd5e1; padding: 5px 12px; border-radius: 8px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 150ms ease;">Back</button>`
+                : `<button id="sl-tour-skip" style="background: transparent; border: none; color: #64748b; padding: 5px 8px; font-size: 11px; font-weight: 600; cursor: pointer; transition: color 150ms ease;">Skip</button>`
+            }
+            <button id="sl-tour-next" style="background: linear-gradient(135deg, #4f46e5, #7c3aed, #2563eb); border: 1px solid rgba(255,255,255,0.2); color: #ffffff; padding: 5px 14px; border-radius: 8px; font-size: 11px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4); transition: transform 150ms ease;">
+              ${stepIndex === totalSteps ? "Get Started ✨" : "Next →"}
+            </button>
+          </div>
         </div>
       `;
-    } else {
-      intro.innerHTML = `
-        <div style="flex: 1; display: flex; flex-direction: column; align-items: center; margin-left: 36px;">
-          <div style="width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-bottom: 4px solid #059669; margin-bottom: -1px;"></div>
-          <div style="background: #059669; color: #ffffff; padding: 2.5px 7px; border-radius: 6px; font-size: 9px; font-weight: 700; letter-spacing: 0.2px; white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,0.35);">
-            Drag to move
-          </div>
-        </div>
-        <div style="display: flex; flex-direction: column; align-items: center; margin-right: 4px;">
-          <div style="width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-bottom: 4px solid #7c3aed; margin-bottom: -1px;"></div>
-          <div style="background: #7c3aed; color: #ffffff; padding: 2.5px 7px; border-radius: 6px; font-size: 9px; font-weight: 700; letter-spacing: 0.2px; white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,0.35);">
-            Click to chat
-          </div>
-        </div>
-      `;
+
+      // Attach button events
+      card.querySelector("#sl-tour-skip-x")?.addEventListener("click", removeIntroOverlay);
+      card.querySelector("#sl-tour-skip")?.addEventListener("click", removeIntroOverlay);
+      card.querySelector("#sl-tour-back")?.addEventListener("click", () => {
+        if (currentStep > 1) {
+          currentStep--;
+          renderStep(currentStep);
+        }
+      });
+      card.querySelector("#sl-tour-next")?.addEventListener("click", () => {
+        if (currentStep < totalSteps) {
+          currentStep++;
+          renderStep(currentStep);
+        } else {
+          removeIntroOverlay();
+        }
+      });
     }
 
-    document.body.appendChild(intro);
+    overlay.appendChild(spotlight);
+    overlay.appendChild(card);
 
+    // Clicking anywhere on backdrop outside the card closes guide
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) {
+        removeIntroOverlay();
+      }
+    });
+
+    // Pressing Escape closes guide
+    const handleKeydown = (e) => {
+      if (e.key === "Escape") {
+        removeIntroOverlay();
+        window.removeEventListener("keydown", handleKeydown);
+      }
+    };
+    window.addEventListener("keydown", handleKeydown);
+
+    document.body.appendChild(overlay);
+
+    // Initial step render
+    renderStep(1);
+
+    // Smooth fade in
     setTimeout(() => {
-      removeIntroOverlay();
-    }, 2500);
+      overlay.style.opacity = "1";
+    }, 40);
   });
 }
 
@@ -513,7 +624,7 @@ window.addEventListener("message", async (event) => {
   if (msgType === "IF_B_CAPTURE_SCREEN") {
     console.log(`[SpectraLens:ContentBridge] 📸 Hiding extension UI for clean screen capture...`);
     const framesToHide = Array.from(
-      document.querySelectorAll("#__menuWindowIframe, #screenSelectorIframe, #spectralens-widget-intro, iframe[id*='menuWindow']"),
+      document.querySelectorAll("#__menuWindowIframe, #screenSelectorIframe, #spectralens-widget-intro, #spectralens-tour-overlay, iframe[id*='menuWindow']"),
     );
     const savedStyles = framesToHide.map((f) => ({
       frame: f,
@@ -587,7 +698,7 @@ window.addEventListener("message", async (event) => {
 
       // Temporarily hide frames to capture clean top-section screenshot
       const framesToHide = Array.from(
-        document.querySelectorAll("#__menuWindowIframe, #screenSelectorIframe, #spectralens-widget-intro, iframe[id*='menuWindow']"),
+        document.querySelectorAll("#__menuWindowIframe, #screenSelectorIframe, #spectralens-widget-intro, #spectralens-tour-overlay, iframe[id*='menuWindow']"),
       );
       const savedStyles = framesToHide.map((f) => ({
         frame: f,
