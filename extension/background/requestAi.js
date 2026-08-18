@@ -350,18 +350,6 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
             safeResolve(cleanedHtml);
           } else {
             isExecuting = false;
-            if (chrome.tabs?.get) {
-              chrome.tabs.get(tabId, (currentTab) => {
-                void chrome.runtime?.lastError;
-                if (currentTab && currentTab.status === "complete" && !isResolved) {
-                  console.log(
-                    `%c[SpectraLens:Pipeline] 🔄 Tab #${tabId} status is complete. Retrying adapter...`,
-                    "color: #3b82f6;",
-                  );
-                  runInjection();
-                }
-              });
-            }
           }
         },
         extractArgs,
@@ -369,13 +357,12 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
     }
 
     function listener(updatedTabId, info) {
-      if (isResolved) return;
+      if (isResolved || isExecuting) return;
       if (updatedTabId === tabId && info.status === "complete") {
         console.log(
           `%c[SpectraLens:Pipeline] 🌐 [PAGE LOAD COMPLETE] Tab #${tabId} status is "complete". Running adapter injection...`,
           "color: #3b82f6; font-weight: bold;",
         );
-        isExecuting = false;
         runInjection();
       }
     }
@@ -545,9 +532,9 @@ function runTabAdapter(providerId, prompt, image = null) {
 }
 
 async function getGoogleAiAnswer(q, requestId, image = null) {
-  const url = "https://www.google.com/?hl=en";
+  const url = `https://www.google.com/search?q=${encodeURIComponent(q)}&hl=en`;
   console.log(
-    `[SpectraLens:Background] 🔍 getGoogleAiAnswer (opening google.com -> AI Mode ON -> typing & sending prompt) for: "${q.slice(0, 30)}..."${image ? " (with image)" : ""} (requestId: ${requestId})`,
+    `[SpectraLens:Background] 🔍 getGoogleAiAnswer (direct search URL) for: "${q.slice(0, 30)}..."${image ? " (with image)" : ""} (requestId: ${requestId})`,
   );
 
   return fetchAiAnswer(url, runTabAdapter, ["google", q, image], requestId);
