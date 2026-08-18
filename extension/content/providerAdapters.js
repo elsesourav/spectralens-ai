@@ -1292,7 +1292,7 @@
         while (n--) {
           u8arr[n] = bstr.charCodeAt(n);
         }
-        const file = new File([u8arr], "attachment.png", {
+        const file = new File([u8arr], "screenshot.png", {
           type: mime,
           lastModified: Date.now(),
         });
@@ -1301,15 +1301,17 @@
         const fileInput = document.querySelector(
           'input[type="file"], input[accept*="image"]',
         );
+        let dispatched = false;
         if (fileInput) {
-          const dt = new DataTransfer();
-          dt.items.add(file);
-          fileInput.files = dt.files;
-          fileInput.dispatchEvent(new Event("change", { bubbles: true }));
-          fileInput.dispatchEvent(new Event("input", { bubbles: true }));
-          tabLog("GeminiTab", "📁 Dispatched image to file input!");
-          await new Promise((r) => setTimeout(r, 600));
-          return true;
+          try {
+            const dt = new DataTransfer();
+            dt.items.add(file);
+            fileInput.files = dt.files;
+            fileInput.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
+            fileInput.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+            tabLog("GeminiTab", "📁 Dispatched image to file input!");
+            dispatched = true;
+          } catch {}
         }
 
         // 2. Synthetic ClipboardEvent paste onto input editor
@@ -1325,9 +1327,46 @@
           });
           input.dispatchEvent(pasteEv);
           tabLog("GeminiTab", "📋 Dispatched synthetic paste event to Gemini input!");
-          await new Promise((r) => setTimeout(r, 600));
-          return true;
+          dispatched = true;
         }
+
+        if (!dispatched) return false;
+
+        // 3. Wait for image upload / processing in Gemini UI
+        tabLog("GeminiTab", "⏳ Waiting for Gemini image attachment to upload and finalize...");
+        const uploadStart = Date.now();
+        const maxWaitMs = 10000;
+
+        while (Date.now() - uploadStart < maxWaitMs) {
+          await new Promise((r) => setTimeout(r, 400));
+
+          // Check if image thumbnail / file card has appeared
+          const hasImageThumbnail = Boolean(
+            document.querySelector(
+              'uploader-file-card, div.file-preview, div.image-preview, img[src*="blob:"], img[src*="data:"], div.uploaded-image, .attachment-card, div[role="img"]',
+            ),
+          );
+
+          // Check if uploading progress bar has vanished
+          const isUploading = Boolean(
+            document.querySelector(
+              'mat-progress-bar, .upload-progress, div.loading-spinner, div[role="progressbar"]',
+            ),
+          );
+
+          if (hasImageThumbnail && !isUploading) {
+            tabLog(
+              "GeminiTab",
+              `✨ Image successfully uploaded & verified in ${Date.now() - uploadStart}ms!`,
+            );
+            await new Promise((r) => setTimeout(r, 400));
+            return true;
+          }
+        }
+
+        tabLog("GeminiTab", "⏱️ Image attachment wait completed. Proceeding with prompt...");
+        await new Promise((r) => setTimeout(r, 600));
+        return true;
       } catch (err) {
         tabLog("GeminiTab", "❌ attachImage error:", err?.message);
       }
