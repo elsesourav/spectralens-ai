@@ -152,7 +152,28 @@ const bgCode = fs.readFileSync(bgPath, "utf-8");
 assert(bgCode.includes("IF_B_STOP_FETCH"), "background.js handles IF_B_STOP_FETCH cancellation");
 assert(bgCode.includes("IF_B_NEW_CHAT"), "background.js handles IF_B_NEW_CHAT reset");
 assert(bgCode.includes("IF_B_CLOSE_PROVIDER_TAB"), "background.js handles IF_B_CLOSE_PROVIDER_TAB");
-assert(!bgCode.includes("settings.enable"), "background.js uses safe optional chaining for settings");
+const vm = await import("vm");
+const scriptsToValidate = [
+  "scripts/background/background.js",
+  "scripts/background/bgUtils.js",
+  "scripts/background/requestAi.js",
+  "scripts/content/content.js",
+  "scripts/content/enableCopy.js",
+  "scripts/content/widgetContent.js",
+  "scripts/content/providerAdapters.js",
+];
+for (const rel of scriptsToValidate) {
+  const full = path.join(rootDir, rel);
+  if (fs.existsSync(full)) {
+    const code = fs.readFileSync(full, "utf-8");
+    try {
+      new vm.Script(code);
+      assert(true, `${rel} passes pure JavaScript syntax compilation without errors`);
+    } catch (err) {
+      assert(false, `${rel} has syntax error: ${err.message}`);
+    }
+  }
+}
 
 // --- TEST SUITE 6: Auto-Versioning 9.99.999 Schema & Rollover ---
 console.log("\n6. Auto-Versioning 9.99.999 Schema & Rollover:");

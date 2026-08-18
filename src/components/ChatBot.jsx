@@ -47,27 +47,24 @@ export default function ChatBot({
   const { contrastMode } = useTheme();
   const [input, setInput] = useState(pendingInput || "");
   const [isLoading, setIsLoading] = useState(false);
-  const [lastQuestion, setLastQuestion] = useState("");
-  const [answers, setAnswers] = useState({});
+  
+  // Continuous Conversation Turns: Array<{ id, question, questionImage, questionPage, messageTime, answers, isLoading, selectedProvider }>
+  const [turns, setTurns] = useState([]);
   const [selectedProvider, setSelectedProvider] = useState(
     initialHistoryItem
       ? Object.keys(initialHistoryItem.answers || {})[0] || null
       : null,
   );
   const [viewedProviders, setViewedProviders] = useState(new Set());
-  const [messageTime, setMessageTime] = useState("");
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
-  const [isUserCopied, setIsUserCopied] = useState(false);
+  const [copiedTurnId, setCopiedTurnId] = useState(null);
   const [copiedProviderId, setCopiedProviderId] = useState(null);
   const currentRequestIdRef = useRef(null);
-  const lastQuestionRef = useRef("");
 
   // Screen/Context attachment state
   const [attachedImage, setAttachedImage] = useState(null);
   const [attachedPage, setAttachedPage] = useState(null);
   const [attachedContextType, setAttachedContextType] = useState(null);
-  const [lastQuestionImage, setLastQuestionImage] = useState(null);
-  const [lastQuestionPage, setLastQuestionPage] = useState(null);
 
   // '@' mention autocomplete state
   const [showMentionMenu, setShowMentionMenu] = useState(false);
@@ -92,92 +89,103 @@ export default function ChatBot({
     }
   }, []);
 
-  const handleCopyUserQuestion = useCallback(
-    (e) => {
-      e?.stopPropagation();
-      if (!lastQuestion) return;
+  const formatDateTimeBadge = (timestamp) => {
+    if (!timestamp) return "";
+    try {
+      const date = new Date(timestamp);
+      if (isNaN(date.getTime())) return "";
+
+      const timeStr = date.toLocaleTimeString([], {
+        hour: "numeric",
+        minute: "2-digit",
+      });
+
+      const day = date.getDate();
+      const monthStr = date.toLocaleString("en-US", { month: "short" });
+      const year = date.getFullYear();
+      const currentYear = new Date().getFullYear();
+
+      if (year === currentYear) {
+        return `${timeStr} • ${day} ${monthStr}`;
+      }
+      return `${timeStr} • ${day} ${monthStr} ${year}`;
+    } catch {
+      return "";
+    }
+  };
+
+  const getFormattedTimeBadge = () => formatDateTimeBadge(new Date());
+
+  const handleCopyUserQuestion = useCallback((questionText, turnId) => {
+    if (!questionText) return;
+    navigator.clipboard
+      .writeText(questionText)
+      .then(() => {
+        setCopiedTurnId(turnId);
+        setTimeout(() => setCopiedTurnId(null), 2000);
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleCopyAiResponse = useCallback((activeAiResponseContent, providerId) => {
+    if (!activeAiResponseContent) return;
+    
+    let cleanText = activeAiResponseContent;
+    if (typeof activeAiResponseContent === "string" && /<[a-z][\s\S]*>/i.test(activeAiResponseContent)) {
+      try {
+        const tempEl = document.createElement("div");
+        tempEl.innerHTML = activeAiResponseContent;
+        cleanText = (tempEl.innerText || tempEl.textContent || "").trim();
+      } catch {
+        cleanText = activeAiResponseContent;
+      }
+    }
+
+    const fallbackCopy = (text) => {
+      try {
+        const tempArea = document.createElement("textarea");
+        tempArea.value = text;
+        tempArea.style.position = "fixed";
+        tempArea.style.left = "-9999px";
+        tempArea.style.top = "-9999px";
+        document.body.appendChild(tempArea);
+        tempArea.focus();
+        tempArea.select();
+        const success = document.execCommand("copy");
+        document.body.removeChild(tempArea);
+        if (success) {
+          setCopiedProviderId(providerId);
+          setTimeout(() => setCopiedProviderId(null), 2000);
+        }
+      } catch (err) {
+        console.warn("[SpectraLens:ChatBot] fallbackCopy failed:", err);
+      }
+    };
+
+    if (
+      navigator.clipboard &&
+      typeof navigator.clipboard.writeText === "function"
+    ) {
       navigator.clipboard
-        .writeText(lastQuestion)
+        .writeText(cleanText)
         .then(() => {
-          setIsUserCopied(true);
-          setTimeout(() => setIsUserCopied(false), 2000);
+          setCopiedProviderId(providerId);
+          setTimeout(() => setCopiedProviderId(null), 2000);
         })
-        .catch(() => {});
-    },
-    [lastQuestion],
-  );
-
-  const activeAiResponseContent = useMemo(() => {
-    if (!selectedProvider) return "";
-    const pAns = answers[selectedProvider];
-    return pAns?.content || pAns?.answer || (typeof pAns === "string" ? pAns : "");
-  }, [answers, selectedProvider]);
-
-  const handleCopyAiResponse = useCallback(
-    (e) => {
-      e?.stopPropagation();
-      if (!activeAiResponseContent) return;
-      
-      let cleanText = activeAiResponseContent;
-      if (typeof activeAiResponseContent === "string" && /<[a-z][\s\S]*>/i.test(activeAiResponseContent)) {
-        try {
-          const tempEl = document.createElement("div");
-          tempEl.innerHTML = activeAiResponseContent;
-          cleanText = (tempEl.innerText || tempEl.textContent || "").trim();
-        } catch {
-          cleanText = activeAiResponseContent;
-        }
-      }
-
-      const fallbackCopy = (text) => {
-        try {
-          const tempArea = document.createElement("textarea");
-          tempArea.value = text;
-          tempArea.style.position = "fixed";
-          tempArea.style.left = "-9999px";
-          tempArea.style.top = "-9999px";
-          document.body.appendChild(tempArea);
-          tempArea.focus();
-          tempArea.select();
-          const success = document.execCommand("copy");
-          document.body.removeChild(tempArea);
-          if (success) {
-            setCopiedProviderId(selectedProvider);
-            setTimeout(() => setCopiedProviderId(null), 2000);
-          }
-        } catch (err) {
-          console.warn("[SpectraLens:ChatBot] fallbackCopy failed:", err);
-        }
-      };
-
-      if (
-        navigator.clipboard &&
-        typeof navigator.clipboard.writeText === "function"
-      ) {
-        navigator.clipboard
-          .writeText(cleanText)
-          .then(() => {
-            setCopiedProviderId(selectedProvider);
-            setTimeout(() => setCopiedProviderId(null), 2000);
-          })
-          .catch(() => {
-            fallbackCopy(cleanText);
-          });
-      } else {
-        fallbackCopy(cleanText);
-      }
-    },
-    [activeAiResponseContent, selectedProvider],
-  );
+        .catch(() => {
+          fallbackCopy(cleanText);
+        });
+    } else {
+      fallbackCopy(cleanText);
+    }
+  }, []);
 
   const appIconUrl =
     typeof chrome !== "undefined" && chrome.runtime?.getURL
       ? chrome.runtime.getURL("assets/icons/128.png")
       : "";
 
-  const hasAnyActivity = Boolean(
-    lastQuestion || isLoading || Object.keys(answers).length > 0,
-  );
+  const hasAnyActivity = Boolean(turns.length > 0 || isLoading);
 
   const [isMultiLineInput, setIsMultiLineInput] = useState(false);
 
@@ -249,18 +257,17 @@ export default function ChatBot({
       const cursor = textareaRef.current?.selectionStart || currentInput.length;
       const textBeforeCursor = currentInput.slice(0, cursor);
       const textAfterCursor = currentInput.slice(cursor);
-      const cleanedBefore = textBeforeCursor.replace(/(?:^|\s)@[a-zA-Z0-9_-]*$/, "");
-      const newInput = (cleanedBefore + (cleanedBefore && !cleanedBefore.endsWith(" ") ? " " : "") + textAfterCursor).trimStart();
-      setInput(newInput);
+      const cleanBefore = textBeforeCursor.replace(/(?:^|\s)@([a-zA-Z0-9_-]*)$/, " ").trimStart();
+      const finalInput = (cleanBefore + (textAfterCursor ? " " + textAfterCursor : "")).trim();
+
+      setInput(finalInput);
 
       if (option.id === "screen") {
-        console.log("[SpectraLens:ChatBot] 📸 Requesting silent screen capture via IF_B_CAPTURE_SCREEN...");
-        UTILS.pagePostMessage("IF_B_CAPTURE_SCREEN", {}, window.parent);
         setAttachedContextType("screen");
+        UTILS.pagePostMessage("IF_B_CAPTURE_SCREEN", {}, window.parent);
       } else if (option.id === "page") {
-        console.log("[SpectraLens:ChatBot] 📄 Requesting page text context via IF_B_CAPTURE_PAGE...");
-        UTILS.pagePostMessage("IF_B_CAPTURE_PAGE", {}, window.parent);
         setAttachedContextType("page");
+        UTILS.pagePostMessage("IF_B_CAPTURE_PAGE", {}, window.parent);
       } else if (option.id === "area") {
         if (onOpenSelector) {
           onOpenSelector();
@@ -274,131 +281,91 @@ export default function ChatBot({
     [input, onOpenSelector],
   );
 
-  // Close menus when clicking outside
+  // Close more menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target)) {
+      if (
+        moreMenuRef.current &&
+        !moreMenuRef.current.contains(e.target) &&
+        !e.target.closest("#more-models-btn")
+      ) {
         setIsMoreMenuOpen(false);
       }
-      if (mentionMenuRef.current && !mentionMenuRef.current.contains(e.target)) {
-        setShowMentionMenu(false);
-      }
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("pointerdown", handleClickOutside);
+    return () => document.removeEventListener("pointerdown", handleClickOutside);
   }, []);
 
-  // Listen for IF_B_CAPTURE_SCREEN & IF_B_CAPTURE_PAGE response
+  // Context response listener (screen capture / page capture)
   useEffect(() => {
     UTILS.pageOnMessage("IF_B_CAPTURE_SCREEN", (data) => {
       if (data?.image) {
-        console.log("[SpectraLens:ChatBot] 📸 Screen image attached to chat successfully!");
         setAttachedImage(data.image);
-        setAttachedPage(null);
         setAttachedContextType("screen");
       }
     });
 
     UTILS.pageOnMessage("IF_B_CAPTURE_PAGE", (data) => {
-      if (data?.success && (data?.text || data?.title)) {
-        console.log(
-          `[SpectraLens:ChatBot] 📄 Page attached: "${data.title}" (${data.wordCount} words, screenshot: ${Boolean(data.image)})`,
-        );
-        setAttachedPage({
-          title: data.title || "Page Context",
-          url: data.url || "",
-          hostname: data.hostname || "",
-          description: data.description || "",
-          keywords: data.keywords || "",
-          author: data.author || "",
-          favicon: data.favicon || "",
-          text: data.text || "",
-          wordCount: data.wordCount || 0,
-          image: data.image || null,
-        });
-        setAttachedImage(null);
+      if (data && data.success) {
+        setAttachedPage(data);
+        if (data.image) {
+          setAttachedImage(data.image);
+        }
         setAttachedContextType("page");
       }
     });
   }, []);
 
-  // Format date & time (e.g. 4:15 PM • 18 Aug)
-  const formatDateTimeBadge = (timestamp) => {
-    if (!timestamp) return "";
-    try {
-      const date = new Date(timestamp);
-      if (isNaN(date.getTime())) return "";
-
-      const timeStr = date.toLocaleTimeString([], {
-        hour: "numeric",
-        minute: "2-digit",
-      });
-
-      const day = date.getDate();
-      const monthStr = date.toLocaleString("en-US", { month: "short" });
-      const year = date.getFullYear();
-      const currentYear = new Date().getFullYear();
-
-      if (year === currentYear) {
-        return `${timeStr} • ${day} ${monthStr}`;
-      }
-      return `${timeStr} • ${day} ${monthStr} ${year}`;
-    } catch {
-      return "";
-    }
-  };
-
-  const getFormattedTimeBadge = () => formatDateTimeBadge(new Date());
-
   // Load history item if requested from outside
   useEffect(() => {
     if (initialHistoryItem) {
       setInput("");
-      setLastQuestion(initialHistoryItem.question || "");
-      lastQuestionRef.current = initialHistoryItem.question || "";
-      setLastQuestionImage(initialHistoryItem.image || null);
-      setAnswers(initialHistoryItem.answers || {});
-      setViewedProviders(
-        new Set(Object.keys(initialHistoryItem.answers || {})),
-      );
-      if (initialHistoryItem.timestamp) {
-        setMessageTime(formatDateTimeBadge(initialHistoryItem.timestamp));
-      }
-      const availableProviders = Object.keys(initialHistoryItem.answers || {});
-      if (availableProviders.length > 0) {
-        if (!initialHistoryItem.answers[selectedProvider]) {
-          setSelectedProvider(availableProviders[0]);
-        }
+      if (Array.isArray(initialHistoryItem.turns) && initialHistoryItem.turns.length > 0) {
+        setTurns(initialHistoryItem.turns);
+        const lastTurn = initialHistoryItem.turns[initialHistoryItem.turns.length - 1];
+        const avail = Object.keys(lastTurn?.answers || {});
+        if (avail.length > 0) setSelectedProvider(avail[0]);
+      } else if (initialHistoryItem.question || initialHistoryItem.answers) {
+        // Legacy history format
+        const legacyTurn = {
+          id: initialHistoryItem.id || Date.now().toString(),
+          question: initialHistoryItem.question || "",
+          questionImage: initialHistoryItem.image || null,
+          questionPage: initialHistoryItem.page || null,
+          messageTime: formatDateTimeBadge(initialHistoryItem.timestamp),
+          answers: initialHistoryItem.answers || {},
+          isLoading: false,
+          selectedProvider: Object.keys(initialHistoryItem.answers || {})[0] || "google",
+        };
+        setTurns([legacyTurn]);
+        const avail = Object.keys(initialHistoryItem.answers || {});
+        if (avail.length > 0) setSelectedProvider(avail[0]);
       }
       if (onClearLoadedHistory) {
         onClearLoadedHistory();
       }
     }
-  }, [initialHistoryItem, onClearLoadedHistory, selectedProvider]);
+  }, [initialHistoryItem, onClearLoadedHistory]);
 
   // Stop active AI fetching
   const handleStopFetch = useCallback(() => {
     currentRequestIdRef.current = "stopped_" + Date.now();
     setIsLoading(false);
+    setTurns((prev) => prev.map((t) => ({ ...t, isLoading: false })));
     UTILS.pagePostMessage("IF_B_STOP_FETCH", {}, window.parent);
   }, []);
 
-  // Start fresh chat session
+  // Start fresh chat session (clears the continuous chat thread and resets background sessions)
   const handleNewChat = useCallback(() => {
     if (isLoading) {
       handleStopFetch();
     }
     setInput("");
-    setAnswers({});
-    setLastQuestion("");
+    setTurns([]);
     setAttachedImage(null);
     setAttachedPage(null);
     setAttachedContextType(null);
-    setLastQuestionImage(null);
-    setLastQuestionPage(null);
     setShowMentionMenu(false);
-    setSelectedProvider(null);
-    setViewedProviders(new Set());
     setIsLoading(false);
     currentRequestIdRef.current = null;
     UTILS.pagePostMessage("IF_B_NEW_CHAT", {}, window.parent);
@@ -414,32 +381,13 @@ export default function ChatBot({
     UTILS.pageOnMessage("IF_C_GET_CURRENT_CONTROLS", (data) => {
       const { aiProviders: storedProviders, concurrentRequests } =
         data?.controls || {};
-      if (storedProviders && Array.isArray(storedProviders)) {
-        const enabledProviders = storedProviders.filter((p) => p.enabled);
-        setAiProviders(enabledProviders);
-        if (
-          selectedProvider &&
-          enabledProviders.length > 0 &&
-          !enabledProviders.some((p) => p.id === selectedProvider)
-        ) {
-          setSelectedProvider(enabledProviders[0].id);
-        }
-      }
-      if (concurrentRequests) {
-        setMaxConcurrentRequest(concurrentRequests);
-      }
-    });
 
-    // Also load directly from storage
-    UTILS.chromeStorageGetLocal(UTILS.KEYS.CONTROLS, (data) => {
-      const { aiProviders: storedProviders, concurrentRequests } = data || {};
       if (storedProviders && Array.isArray(storedProviders)) {
+        setAiProviders(storedProviders);
         const enabledProviders = storedProviders.filter((p) => p.enabled);
-        setAiProviders(enabledProviders);
         if (
-          selectedProvider &&
-          enabledProviders.length > 0 &&
-          !enabledProviders.some((p) => p.id === selectedProvider)
+          !selectedProvider &&
+          enabledProviders.length > 0
         ) {
           setSelectedProvider(enabledProviders[0].id);
         }
@@ -481,13 +429,14 @@ export default function ChatBot({
               return;
             }
 
-            setAnswers((current) => {
-              if (current[provider.id]) {
+            setTurns((currentTurns) => {
+              const currentTurn = currentTurns.find((t) => t.id === requestId);
+              if (currentTurn?.answers?.[provider.id]) {
                 resolve({ provider, completed: true });
               } else {
                 setTimeout(checkAnswer, 400);
               }
-              return current;
+              return currentTurns;
             });
           };
           checkAnswer();
@@ -521,19 +470,22 @@ export default function ChatBot({
     [aiProviders, maxConcurrentRequest],
   );
 
-  // Combine active providers with historical answers
+  // Combine active providers with all answers across turns
   const availableProviderTabs = useMemo(() => {
     const combined = [...aiProviders];
     const existingIds = new Set(aiProviders.map((p) => p.id));
 
-    Object.keys(answers).forEach((providerId) => {
-      if (!existingIds.has(providerId)) {
-        combined.push({
-          id: providerId,
-          name: providerId.charAt(0).toUpperCase() + providerId.slice(1),
-          enabled: false,
-        });
-      }
+    turns.forEach((turn) => {
+      Object.keys(turn.answers || {}).forEach((providerId) => {
+        if (!existingIds.has(providerId)) {
+          combined.push({
+            id: providerId,
+            name: providerId.charAt(0).toUpperCase() + providerId.slice(1),
+            enabled: false,
+          });
+          existingIds.add(providerId);
+        }
+      });
     });
 
     if (combined.length === 0) {
@@ -544,7 +496,7 @@ export default function ChatBot({
       ];
     }
     return combined;
-  }, [aiProviders, answers]);
+  }, [aiProviders, turns]);
 
   // Providers shown as primary pills (first 3) vs overflow menu
   const primaryProviderTabs = availableProviderTabs.slice(0, 3);
@@ -589,19 +541,28 @@ export default function ChatBot({
         sentQuestion = "Explain what is on this screen";
       }
 
-      setLastQuestion(
+      const displayQuestion =
         actualInput ||
-          (attachedPage
-            ? "Summarize and explain this page"
-            : attachedImage
-              ? "Explain what is on this screen"
-              : ""),
-      );
-      lastQuestionRef.current = sentQuestion;
-      setLastQuestionImage(currentImage);
-      setLastQuestionPage(attachedPage);
+        (attachedPage
+          ? "Summarize and explain this page"
+          : attachedImage
+            ? "Explain what is on this screen"
+            : "");
 
-      setMessageTime(getFormattedTimeBadge());
+      // Append new Turn to continuous conversation list (one after one)
+      const newTurn = {
+        id: requestId,
+        question: displayQuestion,
+        questionImage: currentImage,
+        questionPage: attachedPage,
+        messageTime: getFormattedTimeBadge(),
+        answers: {},
+        isLoading: true,
+        selectedProvider: targetProvider,
+      };
+
+      setTurns((prev) => [...prev, newTurn]);
+
       setInput("");
       setAttachedImage(null);
       setAttachedPage(null);
@@ -612,7 +573,6 @@ export default function ChatBot({
         textareaRef.current.style.height = "24px";
       }
       setIsLoading(true);
-      setAnswers({});
 
       // Scroll to maximum bottom immediately on send
       scrollToBottom(false);
@@ -681,14 +641,11 @@ export default function ChatBot({
     }
   };
 
+  // Receive streaming / final AI answers and update corresponding turn in the conversation
   useEffect(() => {
     UTILS.pageOnMessage("IF_B_GET_ANSWER", (data) => {
       console.log("[SpectraLens:ChatBot] 📥 Received IF_B_GET_ANSWER in UI:", data);
       if (!data || typeof data !== "object") return;
-      if (data.requestId && data.requestId !== currentRequestIdRef.current) {
-        console.warn(`[SpectraLens:ChatBot] ⚠️ Discarding outdated response for requestId: ${data.requestId} (current: ${currentRequestIdRef.current})`);
-        return;
-      }
 
       const provider = data.provider || "google";
       const answerText =
@@ -696,16 +653,17 @@ export default function ChatBot({
 
       console.log(`[SpectraLens:ChatBot] ✅ Updating answer for "${provider}", text length: ${answerText.length}`);
 
-      setAnswers((prev) => {
-        const isFirstAnswer = Object.keys(prev).length === 0;
-        if (isFirstAnswer) {
-          setSelectedProvider(provider);
-          setViewedProviders((v) => new Set([...v, provider]));
-          setIsLoading(false);
-        }
+      setTurns((prevTurns) => {
+        const turnIndex = prevTurns.findIndex((t) => t.id === (data.requestId || currentRequestIdRef.current));
+        if (turnIndex === -1 && prevTurns.length === 0) return prevTurns;
 
-        const newAnswers = {
-          ...prev,
+        const targetIndex = turnIndex >= 0 ? turnIndex : prevTurns.length - 1;
+        const targetTurn = prevTurns[targetIndex];
+        if (!targetTurn) return prevTurns;
+
+        const isFirstAnswerForTurn = Object.keys(targetTurn.answers || {}).length === 0;
+        const updatedAnswers = {
+          ...targetTurn.answers,
           [provider]: {
             ...data,
             answer: answerText,
@@ -715,44 +673,53 @@ export default function ChatBot({
           },
         };
 
-        // Save complete response to Chrome local storage history
+        const updatedTurn = {
+          ...targetTurn,
+          answers: updatedAnswers,
+          isLoading: false,
+        };
+
+        if (isFirstAnswerForTurn) {
+          setSelectedProvider(provider);
+          setViewedProviders((v) => new Set([...v, provider]));
+          setIsLoading(false);
+        }
+
+        const newTurns = [...prevTurns];
+        newTurns[targetIndex] = updatedTurn;
+
+        // Save complete conversation thread to Chrome local storage history
         UTILS.chromeStorageGetLocal(UTILS.KEYS.HISTORY, (prevHistory = []) => {
           const historyList = Array.isArray(prevHistory) ? prevHistory : [];
-          const reqId = data.requestId || currentRequestIdRef.current;
-          const existingIndex = historyList.findIndex(
-            (item) => item.id === reqId,
-          );
+          const sessionId = newTurns[0]?.id || Date.now().toString();
+          const existingIndex = historyList.findIndex((item) => item.id === sessionId);
+
+          const updatedHistoryItem = {
+            id: sessionId,
+            question: newTurns[0]?.question || "Conversation",
+            timestamp: Date.now(),
+            turns: newTurns,
+            answers: updatedAnswers,
+          };
 
           let updatedHistory;
           if (existingIndex >= 0) {
             updatedHistory = [...historyList];
-            updatedHistory[existingIndex] = {
-              ...updatedHistory[existingIndex],
-              answers: newAnswers,
-            };
+            updatedHistory[existingIndex] = updatedHistoryItem;
           } else {
-            const newHistoryItem = {
-              id: reqId || Date.now().toString(),
-              question: lastQuestionRef.current,
-              timestamp: Date.now(),
-              answers: newAnswers,
-            };
-            updatedHistory = [newHistoryItem, ...historyList].slice(0, 50);
+            updatedHistory = [updatedHistoryItem, ...historyList].slice(0, 50);
           }
 
-          UTILS.chromeStorageSetLocal(
-            UTILS.KEYS.HISTORY,
-            updatedHistory,
-            () => {},
-          );
+          UTILS.chromeStorageSetLocal(UTILS.KEYS.HISTORY, updatedHistory, () => {});
         });
 
-        return newAnswers;
+        return newTurns;
       });
     });
 
     UTILS.pageOnMessage("IF_B_AI_REQUEST_COMPLETE", () => {
       setIsLoading(false);
+      setTurns((prev) => prev.map((t) => ({ ...t, isLoading: false })));
     });
 
     UTILS.pageOnMessage("C_IF_SET_INPUTS", (data) => {
@@ -791,30 +758,27 @@ export default function ChatBot({
   const allProvidersList = useMemo(() => {
     const list = [...aiProviders];
     const existingIds = new Set(aiProviders.map((p) => p.id));
-    Object.keys(answers).forEach((id) => {
-      if (!existingIds.has(id)) {
-        list.push({
-          id,
-          name: id.charAt(0).toUpperCase() + id.slice(1),
-          enabled: false,
-        });
-      }
+    turns.forEach((turn) => {
+      Object.keys(turn.answers || {}).forEach((id) => {
+        if (!existingIds.has(id)) {
+          list.push({
+            id,
+            name: id.charAt(0).toUpperCase() + id.slice(1),
+            enabled: false,
+          });
+          existingIds.add(id);
+        }
+      });
     });
     return list;
-  }, [aiProviders, answers]);
+  }, [aiProviders, turns]);
 
-  const activeAiProviderMetadata = useMemo(() => {
-    return (
-      allProvidersList.find((p) => p.id === selectedProvider) || {
-        id: selectedProvider || "google",
-        name:
-          selectedProvider
-            ? selectedProvider.charAt(0).toUpperCase() +
-              selectedProvider.slice(1)
-            : "Google AI",
-      }
-    );
-  }, [allProvidersList, selectedProvider]);
+  // Combined answers for top model tabs
+  const combinedAnswers = useMemo(() => {
+    if (turns.length === 0) return {};
+    const lastTurn = turns[turns.length - 1];
+    return lastTurn?.answers || {};
+  }, [turns]);
 
   return (
     <div
@@ -827,7 +791,7 @@ export default function ChatBot({
         overflowProviderTabs={overflowProviderTabs}
         selectedProvider={selectedProvider}
         viewedProviders={viewedProviders}
-        answers={answers}
+        answers={combinedAnswers}
         hasAnyActivity={hasAnyActivity}
         contrastMode={contrastMode}
         isMoreMenuOpen={isMoreMenuOpen}
@@ -836,13 +800,13 @@ export default function ChatBot({
         moreMenuRef={moreMenuRef}
       />
 
-      {/* Main Messages Scroll Area */}
+      {/* Main Messages Scroll Area (One after one continuous chat) */}
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto custom-scrollbar p-3.5 space-y-3.5"
+        className="flex-1 overflow-y-auto custom-scrollbar p-3.5 space-y-4"
       >
         {/* Welcome Empty State */}
-        {!lastQuestion && !isLoading && Object.keys(answers).length === 0 && (
+        {turns.length === 0 && !isLoading && (
           <div className="flex flex-col items-center justify-center h-full text-center px-4 py-8 space-y-3">
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600/15 via-indigo-600/15 to-purple-600/15 border border-blue-500/20 flex items-center justify-center shadow-xs">
               {appIconUrl ? (
@@ -866,27 +830,42 @@ export default function ChatBot({
           </div>
         )}
 
-        {/* User Question Message Bubble */}
-        <ChatMessageBubble
-          lastQuestion={lastQuestion}
-          lastQuestionImage={lastQuestionImage}
-          lastQuestionPage={lastQuestionPage}
-          messageTime={messageTime || getFormattedTimeBadge()}
-          isUserCopied={isUserCopied}
-          onCopyUserQuestion={handleCopyUserQuestion}
-        />
+        {/* Sequential Conversation Turns (One after one) */}
+        {turns.map((turn) => {
+          const activeProviderId = turn.selectedProvider || selectedProvider || "google";
+          const pAns = turn.answers?.[activeProviderId];
+          const activeContent = pAns?.content || pAns?.answer || (typeof pAns === "string" ? pAns : "");
+          const providerMeta = allProvidersList.find((p) => p.id === activeProviderId) || {
+            id: activeProviderId,
+            name: activeProviderId.charAt(0).toUpperCase() + activeProviderId.slice(1),
+          };
 
-        {/* AI Response Card */}
-        <ChatAiResponseCard
-          activeAiResponseContent={activeAiResponseContent}
-          isLoading={isLoading}
-          activeAiProviderMetadata={activeAiProviderMetadata}
-          copiedProviderId={copiedProviderId}
-          selectedProvider={selectedProvider}
-          messageTime={messageTime || getFormattedTimeBadge()}
-          contrastMode={contrastMode}
-          onCopyAiResponse={handleCopyAiResponse}
-        />
+          return (
+            <div key={turn.id} className="space-y-3.5">
+              {/* User Question Message Bubble */}
+              <ChatMessageBubble
+                lastQuestion={turn.question}
+                lastQuestionImage={turn.questionImage}
+                lastQuestionPage={turn.questionPage}
+                messageTime={turn.messageTime}
+                isUserCopied={copiedTurnId === turn.id}
+                onCopyUserQuestion={() => handleCopyUserQuestion(turn.question, turn.id)}
+              />
+
+              {/* AI Response Card for this Turn */}
+              <ChatAiResponseCard
+                activeAiResponseContent={activeContent}
+                isLoading={turn.isLoading}
+                activeAiProviderMetadata={providerMeta}
+                copiedProviderId={copiedProviderId === activeProviderId ? activeProviderId : null}
+                selectedProvider={activeProviderId}
+                messageTime={turn.messageTime}
+                contrastMode={contrastMode}
+                onCopyAiResponse={() => handleCopyAiResponse(activeContent, activeProviderId)}
+              />
+            </div>
+          );
+        })}
       </div>
 
       {/* Bottom Input Dock Bar */}

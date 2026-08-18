@@ -32,42 +32,76 @@ if (typeof chrome !== "undefined" && chrome.tabs?.onRemoved) {
 }
 
 /**
- * Returns an existing background worker window, or creates a new
- * unfocused, minimized/offscreen window dedicated exclusively to AI scraper tabs.
+ * Opens or retrieves a dedicated background worker tab for an AI provider.
+ * When the worker window does not exist yet, it creates the window with the provider's URL directly,
+ * preventing any extra blank new tabs from ever being opened!
  */
-async function getOrCreateWorkerWindow() {
+async function openOrReuseProviderTab(providerId, url) {
+  // 1. Check if an active persistent tab exists for this provider
+  const existingEntry = persistentProviderTabs.get(providerId);
+  if (existingEntry && existingEntry.tabId && typeof chrome !== "undefined" && chrome.tabs?.get) {
+    try {
+      const tab = await chrome.tabs.get(existingEntry.tabId);
+      if (tab && tab.id) {
+        return { tab, isReused: true };
+      }
+    } catch {
+      persistentProviderTabs.delete(providerId);
+    }
+  }
+
+  // 2. Check if worker window is already open and valid
   if (workerWindowId && typeof chrome !== "undefined" && chrome.windows?.get) {
     try {
       const win = await chrome.windows.get(workerWindowId);
-      if (win && win.id) return win.id;
+      if (win && win.id) {
+        // Window already exists, create tab inside this worker window
+        return new Promise((resolve) => {
+          chrome.tabs.create({ url, windowId: win.id, active: false }, (tab) => {
+            if (chrome.runtime?.lastError || !tab) {
+              resolve({ tab: null, isReused: false });
+            } else {
+              resolve({ tab, isReused: false });
+            }
+          });
+        });
+      }
     } catch {
       workerWindowId = null;
     }
   }
 
-  if (workerWindowPromise) return workerWindowPromise;
-
-  workerWindowPromise = new Promise((resolve) => {
+  // 3. No worker window exists yet: create window directly with url (NO extra blank tab!)
+  return new Promise((resolve) => {
     if (typeof chrome === "undefined" || !chrome.windows?.create) {
-      resolve(null);
+      chrome.tabs.create({ url, active: false }, (tab) => {
+        resolve({ tab: tab || null, isReused: false });
+      });
       return;
     }
 
-    // Strategy 1: Minimized normal window (unfocused)
+    // Strategy 1: Minimized normal window created directly with the AI provider's URL
     chrome.windows.create(
       {
+        url,
         focused: false,
         state: "minimized",
       },
       (win1) => {
         if (!chrome.runtime?.lastError && win1 && win1.id) {
           workerWindowId = win1.id;
-          workerWindowPromise = null;
           console.log(
-            `%c[SpectraLens:Pipeline] 🪟 Created Minimized Worker Window #${workerWindowId}`,
+            `%c[SpectraLens:Pipeline] 🪟 Created Minimized Worker Window #${workerWindowId} directly with "${providerId}" URL`,
             "color: #8b5cf6; font-weight: bold;",
           );
-          resolve(workerWindowId);
+          const tab = win1.tabs?.[0] || null;
+          if (tab) {
+            resolve({ tab, isReused: false });
+            return;
+          }
+          chrome.tabs.query({ windowId: win1.id }, (tabs) => {
+            resolve({ tab: tabs?.[0] || null, isReused: false });
+          });
           return;
         }
 
@@ -77,9 +111,10 @@ async function getOrCreateWorkerWindow() {
           "- trying Strategy 2 (off-screen popup)...",
         );
 
-        // Strategy 2: Off-screen popup window (positioned outside visible screen bounds)
+        // Strategy 2: Off-screen popup window created directly with the AI provider's URL
         chrome.windows.create(
           {
+            url,
             focused: false,
             left: 25000,
             top: 25000,
@@ -90,54 +125,36 @@ async function getOrCreateWorkerWindow() {
           (win2) => {
             if (!chrome.runtime?.lastError && win2 && win2.id) {
               workerWindowId = win2.id;
-              workerWindowPromise = null;
               console.log(
-                `%c[SpectraLens:Pipeline] 🪟 Created Off-screen Worker Window #${workerWindowId}`,
+                `%c[SpectraLens:Pipeline] 🪟 Created Off-screen Worker Window #${workerWindowId} directly with "${providerId}" URL`,
                 "color: #8b5cf6; font-weight: bold;",
               );
-              resolve(workerWindowId);
+              const tab = win2.tabs?.[0] || null;
+              if (tab) {
+                resolve({ tab, isReused: false });
+                return;
+              }
+              chrome.tabs.query({ windowId: win2.id }, (tabs) => {
+                resolve({ tab: tabs?.[0] || null, isReused: false });
+              });
               return;
             }
 
             console.warn(
               "[SpectraLens:Pipeline] Strategy 2 (offscreen) failed:",
               chrome.runtime?.lastError?.message,
-              "- trying Strategy 3 (unfocused normal)...",
+              "- fallback to regular tab creation...",
             );
 
-            // Strategy 3: Standard unfocused window
-            chrome.windows.create(
-              {
-                focused: false,
-              },
-              (win3) => {
-                if (!chrome.runtime?.lastError && win3 && win3.id) {
-                  workerWindowId = win3.id;
-                  workerWindowPromise = null;
-                  console.log(
-                    `%c[SpectraLens:Pipeline] 🪟 Created Unfocused Worker Window #${workerWindowId}`,
-                    "color: #8b5cf6; font-weight: bold;",
-                  );
-                  resolve(workerWindowId);
-                  return;
-                }
-
-                console.warn(
-                  "[SpectraLens:Pipeline] ⚠️ All window creation strategies failed, fallback to current window:",
-                  chrome.runtime?.lastError?.message,
-                );
-                workerWindowId = null;
-                workerWindowPromise = null;
-                resolve(null);
-              },
-            );
+            // Fallback: standard tab in current window
+            chrome.tabs.create({ url, active: false }, (tab3) => {
+              resolve({ tab: tab3 || null, isReused: false });
+            });
           },
         );
       },
     );
   });
-
-  return workerWindowPromise;
 }
 
 /** Immediately cancel all ongoing AI scraper requests */
@@ -249,195 +266,142 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
     let timeoutId = null;
     let isExecuting = false;
 
-    // Check if we already have an active persistent tab for this provider
-    const existingEntry = persistentProviderTabs.get(providerId);
-    let existingTab = null;
+    // Retrieve or instantiate dedicated background worker tab directly with provider URL
+    const { tab, isReused } = await openOrReuseProviderTab(providerId, url);
 
-    if (existingEntry && existingEntry.tabId && typeof chrome !== "undefined" && chrome.tabs?.get) {
-      try {
-        existingTab = await chrome.tabs.get(existingEntry.tabId);
-      } catch {
-        existingTab = null;
-        persistentProviderTabs.delete(providerId);
+    if (!tab || !tab.id) {
+      console.error(
+        `%c[SpectraLens:Pipeline] ❌ [STEP 2/5 FAILED] Failed to get background tab for "${providerId}" (${url})`,
+        "color: #ef4444; font-weight: bold;",
+      );
+      resolve(formatProviderError(providerId, "Tab creation failed"));
+      return;
+    }
+
+    const tabId = tab.id;
+    if (!activeAiTabs.includes(tabId)) {
+      activeAiTabs.push(tabId);
+    }
+    persistentProviderTabs.set(providerId, {
+      tabId,
+      windowId: tab.windowId,
+      providerId,
+      lastActive: Date.now(),
+    });
+
+    console.log(
+      `%c[SpectraLens:Pipeline] 📑 [STEP 3/5] Background Tab #${tabId} ready (Window #${tab.windowId}, reused: ${isReused}). Listening for stream completion...`,
+      "color: #10b981; font-weight: bold;",
+    );
+    chromeTabMediaAccess(tabId, true);
+
+    // If reusing a tab and the provider uses direct URL search parameters (Perplexity, Bing, Grok), update URL if needed
+    if (isReused && (providerId === "perplexity" || providerId === "bing" || providerId === "grok")) {
+      chrome.tabs.update(tabId, { url, active: false });
+    }
+
+    function detachTurnListeners() {
+      if (timeoutId) clearTimeout(timeoutId);
+      chrome.tabs.onUpdated.removeListener(listener);
+      chrome.tabs.onRemoved.removeListener(onRemoved);
+    }
+
+    function safeResolve(val) {
+      if (!isResolved) {
+        isResolved = true;
+        detachTurnListeners();
+        console.log(
+          `%c[SpectraLens:Pipeline] ✅ [STEP 5/5] fetchAiAnswer resolved for Tab #${tabId} (Content Length: ${val?.length || 0} chars). Tab preserved for context memory.`,
+          "color: #10b981; font-weight: bold;",
+        );
+        resolve(val);
       }
     }
 
-    if (existingTab && existingTab.id) {
-      console.log(
-        `%c[SpectraLens:Pipeline] 🔁 [STEP 2/5 REUSE] Reusing active background Tab #${existingTab.id} for "${providerId}" (preserving session context)...`,
-        "color: #8b5cf6; font-weight: bold;",
+    // 25s timeout protection per query
+    timeoutId = setTimeout(() => {
+      console.warn(
+        `%c[SpectraLens:Pipeline] ⏱️ [TIMEOUT] 25s timeout reached for Tab #${tabId}`,
+        "color: #ef4444; font-weight: bold;",
       );
-      handleTabReady(existingTab, true);
-    } else {
-      // Retrieve or instantiate dedicated background worker window
-      const targetWindowId = await getOrCreateWorkerWindow();
+      safeResolve(formatProviderError(providerId, "Request timed out"));
+    }, 25000);
+
+    function runInjection() {
+      if (isResolved || isExecuting) return;
+      isExecuting = true;
 
       console.log(
-        `%c[SpectraLens:Pipeline] 📑 [STEP 2/5 NEW] Creating background tab inside isolated Worker Window #${targetWindowId || "default"} (active: false)...`,
-        "color: #3b82f6;",
+        `%c[SpectraLens:Pipeline] 💉 [STEP 4/5] Injecting "${providerId}" adapter script into Tab #${tabId}...`,
+        "color: #f59e0b; font-weight: bold;",
       );
-
-      const tabCreateOptions = { url, active: false };
-      if (targetWindowId) {
-        tabCreateOptions.windowId = targetWindowId;
-      }
-
-      chrome.tabs.create(tabCreateOptions, (tab) => {
-        if (chrome.runtime?.lastError || !tab || !tab.id) {
-          if (targetWindowId) {
-            console.warn("[SpectraLens:Pipeline] ⚠️ Failed creating tab in worker window, retrying with fallback:", chrome.runtime?.lastError?.message);
-            workerWindowId = null;
-            chrome.tabs.create({ url, active: false }, (fallbackTab) => {
-              if (!fallbackTab || !fallbackTab.id) {
-                resolve(formatProviderError(providerId, "Tab creation failed"));
-                return;
-              }
-              handleTabReady(fallbackTab, false);
-            });
-            return;
-          }
-          console.error(
-            `%c[SpectraLens:Pipeline] ❌ [STEP 2/5 FAILED] Failed to create background tab for ${url}`,
-            "color: #ef4444; font-weight: bold;",
-          );
-          resolve(formatProviderError(providerId, "Tab creation failed"));
-          return;
-        }
-        handleTabReady(tab, false);
-      });
-    }
-
-    function handleTabReady(tab, isReused = false) {
-      if (!tab || !tab.id) {
-        resolve(formatProviderError(providerId, "Tab creation failed"));
-        return;
-      }
-
-      const tabId = tab.id;
-      if (!activeAiTabs.includes(tabId)) {
-        activeAiTabs.push(tabId);
-      }
-      persistentProviderTabs.set(providerId, {
+      executeScriptReturn(
         tabId,
-        windowId: tab.windowId,
-        providerId,
-        lastActive: Date.now(),
-      });
-
-      console.log(
-        `%c[SpectraLens:Pipeline] 📑 [STEP 3/5] Background Tab #${tabId} ready (Window #${tab.windowId}, reused: ${isReused}). Listening for stream completion...`,
-        "color: #10b981; font-weight: bold;",
-      );
-      chromeTabMediaAccess(tabId, true);
-
-      // If reusing a tab and the provider uses direct URL search parameters (Perplexity, Bing, Grok), update URL if needed
-      if (isReused && (providerId === "perplexity" || providerId === "bing" || providerId === "grok")) {
-        chrome.tabs.update(tabId, { url, active: false });
-      }
-
-      function detachTurnListeners() {
-        if (timeoutId) clearTimeout(timeoutId);
-        chrome.tabs.onUpdated.removeListener(listener);
-        chrome.tabs.onRemoved.removeListener(onRemoved);
-      }
-
-      function safeResolve(val) {
-        if (!isResolved) {
-          isResolved = true;
-          detachTurnListeners();
+        extractFn,
+        (injectResult) => {
+          if (isResolved) return;
           console.log(
-            `%c[SpectraLens:Pipeline] ✅ [STEP 5/5] fetchAiAnswer resolved for Tab #${tabId} (Content Length: ${val?.length || 0} chars). Tab preserved for context memory.`,
-            "color: #10b981; font-weight: bold;",
+            `%c[SpectraLens:Pipeline] 📥 [STEP 4/5 COMPLETE] Received execution response from Tab #${tabId}:`,
+            "color: #10b981;",
+            injectResult,
           );
-          resolve(val);
-        }
-      }
-
-      // 25s timeout protection per query
-      timeoutId = setTimeout(() => {
-        console.warn(
-          `%c[SpectraLens:Pipeline] ⏱️ [TIMEOUT] 25s timeout reached for Tab #${tabId}`,
-          "color: #ef4444; font-weight: bold;",
-        );
-        safeResolve(formatProviderError(providerId, "Request timed out"));
-      }, 25000);
-
-      function runInjection() {
-        if (isResolved || isExecuting) return;
-        isExecuting = true;
-
-        console.log(
-          `%c[SpectraLens:Pipeline] 💉 [STEP 4/5] Injecting "${providerId}" adapter script into Tab #${tabId}...`,
-          "color: #f59e0b; font-weight: bold;",
-        );
-        executeScriptReturn(
-          tabId,
-          extractFn,
-          (injectResult) => {
-            if (isResolved) return;
-            console.log(
-              `%c[SpectraLens:Pipeline] 📥 [STEP 4/5 COMPLETE] Received execution response from Tab #${tabId}:`,
-              "color: #10b981;",
-              injectResult,
-            );
-            const cleanedHtml = injectResult?.[0]?.result;
-            if (cleanedHtml) {
-              safeResolve(cleanedHtml);
-            } else {
-              isExecuting = false;
-              if (chrome.tabs?.get) {
-                chrome.tabs.get(tabId, (currentTab) => {
-                  void chrome.runtime?.lastError;
-                  if (currentTab && currentTab.status === "complete" && !isResolved) {
-                    console.log(
-                      `%c[SpectraLens:Pipeline] 🔄 Tab #${tabId} status is complete. Retrying adapter...`,
-                      "color: #3b82f6;",
-                    );
-                    runInjection();
-                  }
-                });
-              }
+          const cleanedHtml = injectResult?.[0]?.result;
+          if (cleanedHtml) {
+            safeResolve(cleanedHtml);
+          } else {
+            isExecuting = false;
+            if (chrome.tabs?.get) {
+              chrome.tabs.get(tabId, (currentTab) => {
+                void chrome.runtime?.lastError;
+                if (currentTab && currentTab.status === "complete" && !isResolved) {
+                  console.log(
+                    `%c[SpectraLens:Pipeline] 🔄 Tab #${tabId} status is complete. Retrying adapter...`,
+                    "color: #3b82f6;",
+                  );
+                  runInjection();
+                }
+              });
             }
-          },
-          extractArgs,
-        );
-      }
+          }
+        },
+        extractArgs,
+      );
+    }
 
-      function listener(updatedTabId, info) {
-        if (isResolved) return;
-        if (updatedTabId === tabId && info.status === "complete") {
-          console.log(
-            `%c[SpectraLens:Pipeline] 🌐 [PAGE LOAD COMPLETE] Tab #${tabId} status is "complete". Running adapter injection...`,
-            "color: #3b82f6; font-weight: bold;",
-          );
-          isExecuting = false;
-          runInjection();
-        }
-      }
-
-      chrome.tabs.onUpdated.addListener(listener);
-
-      // If tab is already complete (or reused), run immediately
-      if (tab.status === "complete" || isReused) {
+    function listener(updatedTabId, info) {
+      if (isResolved) return;
+      if (updatedTabId === tabId && info.status === "complete") {
         console.log(
-          `%c[SpectraLens:Pipeline] ⚡ Tab #${tabId} is ready. Running adapter immediately...`,
-          "color: #3b82f6;",
+          `%c[SpectraLens:Pipeline] 🌐 [PAGE LOAD COMPLETE] Tab #${tabId} status is "complete". Running adapter injection...`,
+          "color: #3b82f6; font-weight: bold;",
         );
+        isExecuting = false;
         runInjection();
       }
-
-      function onRemoved(removedTabId) {
-        if (removedTabId === tabId) {
-          console.log(
-            `%c[SpectraLens:Pipeline] 🚪 Tab #${tabId} was closed externally.`,
-            "color: #ef4444;",
-          );
-          persistentProviderTabs.delete(providerId);
-          safeResolve("");
-        }
-      }
-      chrome.tabs.onRemoved.addListener(onRemoved);
     }
+
+    chrome.tabs.onUpdated.addListener(listener);
+
+    // If tab is already complete (or reused), run immediately
+    if (tab.status === "complete" || isReused) {
+      console.log(
+        `%c[SpectraLens:Pipeline] ⚡ Tab #${tabId} is ready. Running adapter immediately...`,
+        "color: #3b82f6;",
+      );
+      runInjection();
+    }
+
+    function onRemoved(removedTabId) {
+      if (removedTabId === tabId) {
+        console.log(
+          `%c[SpectraLens:Pipeline] 🚪 Tab #${tabId} was closed externally.`,
+          "color: #ef4444;",
+        );
+        persistentProviderTabs.delete(providerId);
+        safeResolve("");
+      }
+    }
+    chrome.tabs.onRemoved.addListener(onRemoved);
   });
 }
 
