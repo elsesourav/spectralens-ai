@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import PropTypes from "prop-types";
-import { HistoryIcon } from "./Icons.jsx";
+import { HistoryIcon, ProviderIcon } from "./Icons.jsx";
 import {
   IoTrashOutline,
   IoTimeOutline,
   IoChevronForward,
   IoAlertCircleOutline,
+  IoChatbubblesOutline,
 } from "react-icons/io5";
 import UTILS from "../utils/utilsModule.js";
 import { useTheme } from "../hooks/useThemeHook.jsx";
@@ -120,30 +121,71 @@ export default function HistoryView({ onLoadQuery, isMenuOpen = true }) {
             </p>
           </div>
         ) : (
-          history.map((item, idx) => (
-            <div
-              key={idx}
-              onClick={() => onLoadQuery && onLoadQuery(item)}
-              className={`group relative flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer shadow-xs ${
-                contrastMode === "solid"
-                  ? "bg-white dark:bg-[#191c25] hover:bg-blue-50/70 dark:hover:bg-[#202430]/90 border-slate-200/90 dark:border-white/[0.08]"
-                  : contrastMode === "medium"
-                    ? "bg-white/80 dark:bg-[#191c25]/75 backdrop-blur-md hover:bg-blue-50/70 dark:hover:bg-white/[0.12] border-slate-200/60 dark:border-white/[0.07]"
-                    : "bg-white/50 dark:bg-white/[0.06] backdrop-blur-sm hover:bg-white/70 dark:hover:bg-white/[0.12] border-slate-200/40 dark:border-white/[0.06]"
-              }`}
-            >
-              <div className="flex flex-col gap-1 pr-2 overflow-hidden flex-1">
-                <span className="text-xs font-bold text-slate-900 dark:text-white line-clamp-2 leading-relaxed">
-                  {item.question}
-                </span>
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1">
-                  <IoTimeOutline className="w-3 h-3 shrink-0" />
-                  <span>{formatDateTimeBadge(item.timestamp || item.date)}</span>
-                </span>
+          history.map((item, idx) => {
+            const itemProviders =
+              Array.isArray(item.providers) && item.providers.length > 0
+                ? item.providers
+                : Array.isArray(item.turns)
+                  ? Array.from(
+                      new Set(
+                        item.turns.flatMap((t) =>
+                          Object.keys(t.answers || {}),
+                        ),
+                      ),
+                    )
+                  : Object.keys(item.answers || {});
+
+            const turnCount = Array.isArray(item.turns) ? item.turns.length : 1;
+
+            return (
+              <div
+                key={item.id || idx}
+                onClick={() => onLoadQuery && onLoadQuery(item)}
+                className={`group relative flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer shadow-xs ${
+                  contrastMode === "solid"
+                    ? "bg-white dark:bg-[#191c25] hover:bg-blue-50/70 dark:hover:bg-[#202430]/90 border-slate-200/90 dark:border-white/[0.08]"
+                    : contrastMode === "medium"
+                      ? "bg-white/80 dark:bg-[#191c25]/75 backdrop-blur-md hover:bg-blue-50/70 dark:hover:bg-white/[0.12] border-slate-200/60 dark:border-white/[0.07]"
+                      : "bg-white/50 dark:bg-white/[0.06] backdrop-blur-sm hover:bg-white/70 dark:hover:bg-white/[0.12] border-slate-200/40 dark:border-white/[0.06]"
+                }`}
+              >
+                <div className="flex flex-col gap-1.5 pr-2 overflow-hidden flex-1">
+                  <span className="text-xs font-bold text-slate-900 dark:text-white line-clamp-2 leading-relaxed">
+                    {item.question}
+                  </span>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1">
+                      <IoTimeOutline className="w-3 h-3 shrink-0" />
+                      <span>{formatDateTimeBadge(item.timestamp || item.date)}</span>
+                    </span>
+
+                    {turnCount > 1 && (
+                      <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold flex items-center gap-1">
+                        <IoChatbubblesOutline className="w-2.5 h-2.5" />
+                        <span>{turnCount} turns</span>
+                      </span>
+                    )}
+
+                    {itemProviders.length > 0 && (
+                      <div className="flex items-center gap-1 ml-auto">
+                        {itemProviders.slice(0, 4).map((pId) => (
+                          <div
+                            key={pId}
+                            className="w-4 h-4 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center p-0.5"
+                            title={pId}
+                          >
+                            <ProviderIcon id={pId} size={11} className="w-3 h-3" />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <IoChevronForward className="w-4 h-4 text-slate-500 group-hover:text-blue-500 group-hover:translate-x-0.5 transition-all shrink-0 ml-1.5" />
               </div>
-              <IoChevronForward className="w-4 h-4 text-slate-500 group-hover:text-blue-500 group-hover:translate-x-0.5 transition-all shrink-0" />
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 

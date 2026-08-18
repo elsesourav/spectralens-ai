@@ -1,5 +1,5 @@
 import PropTypes from "prop-types";
-import { IoCheckmark, IoCopyOutline } from "react-icons/io5";
+import { IoCheckmark, IoCopyOutline, IoSparklesOutline } from "react-icons/io5";
 import { ProviderIcon } from "../../components/Icons.jsx";
 import UTILS from "../../utils/utilsModule.js";
 
@@ -11,6 +11,9 @@ export default function ChatAiResponseCard({
   selectedProvider,
   messageTime,
   contrastMode,
+  isFallback = false,
+  requestedProviderMetadata = null,
+  onAskCurrentProvider = null,
   onCopyAiResponse,
 }) {
   if (!activeAiResponseContent && !isLoading) {
@@ -30,7 +33,7 @@ export default function ChatAiResponseCard({
       >
         {/* Provider Title Header */}
         <div className="flex items-center justify-between pb-1.5 border-b border-slate-100 dark:border-white/[0.04]">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <ProviderIcon
               id={activeAiProviderMetadata.id}
               className="w-4 h-4 shrink-0"
@@ -39,12 +42,28 @@ export default function ChatAiResponseCard({
             <span className="text-xs font-bold text-slate-900 dark:text-white">
               {activeAiProviderMetadata.name}
             </span>
+            {isFallback && requestedProviderMetadata && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium">
+                Answered by {activeAiProviderMetadata.name}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2">
             {isLoading && !activeAiResponseContent && (
               <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold animate-pulse">
                 Generating answer...
               </span>
+            )}
+            {isFallback && onAskCurrentProvider && !isLoading && (
+              <button
+                type="button"
+                onClick={onAskCurrentProvider}
+                className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-600/10 hover:bg-blue-600/20 text-blue-600 dark:text-blue-400 text-[10px] font-bold transition-all cursor-pointer focus:outline-none"
+                title={`Ask ${requestedProviderMetadata?.name || "this model"} for this message`}
+              >
+                <IoSparklesOutline className="w-3 h-3" />
+                <span>Ask {requestedProviderMetadata?.name || "Model"}</span>
+              </button>
             )}
           </div>
         </div>
@@ -95,7 +114,7 @@ export default function ChatAiResponseCard({
               className="flex items-center gap-1.5 px-2 py-0.5 rounded-md hover:bg-slate-100 dark:hover:bg-white/[0.08] hover:text-blue-600 dark:hover:text-blue-400 transition-all cursor-pointer focus:outline-none"
               title="Copy answer"
             >
-              {copiedProviderId === selectedProvider ? (
+              {copiedProviderId === activeAiProviderMetadata.id ? (
                 <>
                   <IoCheckmark className="w-3.5 h-3.5 text-emerald-500" />
                   <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
@@ -125,5 +144,8 @@ ChatAiResponseCard.propTypes = {
   selectedProvider: PropTypes.string,
   messageTime: PropTypes.string.isRequired,
   contrastMode: PropTypes.string,
+  isFallback: PropTypes.bool,
+  requestedProviderMetadata: PropTypes.object,
+  onAskCurrentProvider: PropTypes.func,
   onCopyAiResponse: PropTypes.func.isRequired,
 };

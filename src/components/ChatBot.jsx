@@ -355,8 +355,6 @@ export default function ChatBot({
     });
   }, []);
 
-  const prevEnabledIdsRef = useRef(null);
-
   // Load history item if requested from outside
   useEffect(() => {
     if (initialHistoryItem) {
@@ -451,17 +449,6 @@ export default function ChatBot({
         if (storedProviders && Array.isArray(storedProviders)) {
           const enabledProviders = storedProviders.filter((p) => p.enabled);
           const disabledProviders = storedProviders.filter((p) => !p.enabled);
-          const currentEnabledIds = enabledProviders.map((p) => p.id).sort().join(",");
-
-          // If enabled provider configuration changed while chat was active, auto-reset to clean new chat
-          if (
-            prevEnabledIdsRef.current !== null &&
-            prevEnabledIdsRef.current !== currentEnabledIds &&
-            (turns.length > 0 || isLoading)
-          ) {
-            handleNewChat();
-          }
-          prevEnabledIdsRef.current = currentEnabledIds;
 
           setAiProviders([...enabledProviders, ...disabledProviders]);
           if (enabledProviders.length > 0) {
@@ -490,7 +477,7 @@ export default function ChatBot({
       chrome.storage.onChanged.addListener(storageListener);
       return () => chrome.storage.onChanged.removeListener(storageListener);
     }
-  }, [turns.length, isLoading, handleNewChat]);
+  }, []);
 
   useEffect(() => {
     UTILS.pageOnMessage("IF_C_GET_CURRENT_CONTROLS", (data) => {
@@ -500,16 +487,6 @@ export default function ChatBot({
       if (storedProviders && Array.isArray(storedProviders)) {
         const enabledProviders = storedProviders.filter((p) => p.enabled);
         const disabledProviders = storedProviders.filter((p) => !p.enabled);
-        const currentEnabledIds = enabledProviders.map((p) => p.id).sort().join(",");
-
-        if (
-          prevEnabledIdsRef.current !== null &&
-          prevEnabledIdsRef.current !== currentEnabledIds &&
-          (turns.length > 0 || isLoading)
-        ) {
-          handleNewChat();
-        }
-        prevEnabledIdsRef.current = currentEnabledIds;
 
         setAiProviders([...enabledProviders, ...disabledProviders]);
         if (enabledProviders.length > 0) {
@@ -525,7 +502,35 @@ export default function ChatBot({
         setMaxConcurrentRequest(concurrentRequests);
       }
     });
-  }, [turns.length, isLoading, handleNewChat]);
+  }, []);
+
+  // Request answer on demand for an earlier turn (e.g. if provider was added later)
+  const handleAskProviderForTurn = useCallback(
+    (turnId, questionText, providerId) => {
+      if (!turnId || !questionText || !providerId) return;
+
+      setTurns((prev) =>
+        prev.map((t) => {
+          if (t.id !== turnId) return t;
+          const currentLoading = Array.isArray(t.loadingProviders)
+            ? [...t.loadingProviders]
+            : [];
+          if (!currentLoading.includes(providerId)) {
+            currentLoading.push(providerId);
+          }
+          return {
+            ...t,
+            loadingProviders: currentLoading,
+            isLoading: true,
+          };
+        }),
+      );
+      setIsLoading(true);
+
+      dispatchAiRequestToBackground(questionText, providerId, turnId);
+    },
+    [],
+  );
 
   // Get answer from background script
   const dispatchAiRequestToBackground = async (
@@ -851,12 +856,24 @@ export default function ChatBot({
           const sessionId = newTurns[0]?.id || Date.now().toString();
           const existingIndex = historyList.findIndex((item) => item.id === sessionId);
 
+          const allSessionProviders = new Set();
+          const mergedAllAnswers = {};
+          for (const t of newTurns) {
+            if (t.answers) {
+              for (const [pId, pVal] of Object.entries(t.answers)) {
+                allSessionProviders.add(pId);
+                mergedAllAnswers[pId] = pVal;
+              }
+            }
+          }
+
           const updatedHistoryItem = {
             id: sessionId,
             question: newTurns[0]?.question || "Conversation",
             timestamp: Date.now(),
             turns: newTurns,
-            answers: updatedAnswers,
+            answers: mergedAllAnswers,
+            providers: Array.from(allSessionProviders),
           };
 
           let updatedHistory;
@@ -891,10 +908,16 @@ export default function ChatBot({
             )}px`;
             textareaRef.current.focus();
           }
-        }, 60);
+        }, 50);
       }
     });
-  }, [setInput]);
+  }, [
+    handleSendMessage,
+    handleCopyUserQuestion,
+    handleCopyAiResponse,
+    handleSelectProvider,
+    allProvidersList,
+  ]);
 
   // Focus textarea when chat opens
   useEffect(() => {
@@ -1013,9 +1036,9 @@ export default function ChatBot({
               (typeof turnAnswers[k] === "string" && turnAnswers[k].trim()),
           );
 
-          let effectiveProviderId =
+          const requestedProviderId =
             selectedProvider || turn.selectedProvider || "google";
-          const pAns = turnAnswers[effectiveProviderId];
+          const pAns = turnAnswers[requestedProviderId];
           const hasDirectContent = Boolean(
             pAns?.content ||
               pAns?.answer ||
@@ -1026,8 +1049,11 @@ export default function ChatBot({
             !hasDirectContent &&
               (turn.isLoading ||
                 (Array.isArray(turn.loadingProviders) &&
-                  turn.loadingProviders.includes(effectiveProviderId))),
+                  turn.loadingProviders.includes(requestedProviderId))),
           );
+
+          let effectiveProviderId = requestedProviderId;
+          let isFallback = false;
 
           // If current tab has no answer and is not loading, but other providers answered this turn, fallback to the turn's answering provider
           if (!hasDirectContent && !isCardLoading && availableAnswerKeys.length > 0) {
@@ -1035,6 +1061,7 @@ export default function ChatBot({
               turn.selectedProvider && availableAnswerKeys.includes(turn.selectedProvider)
                 ? turn.selectedProvider
                 : availableAnswerKeys[0];
+            isFallback = effectiveProviderId !== requestedProviderId;
           }
 
           const finalAns = turnAnswers[effectiveProviderId];
@@ -1049,6 +1076,15 @@ export default function ChatBot({
             name:
               effectiveProviderId.charAt(0).toUpperCase() +
               effectiveProviderId.slice(1),
+          };
+
+          const requestedProviderMeta = allProvidersList.find(
+            (p) => p.id === requestedProviderId,
+          ) || {
+            id: requestedProviderId,
+            name:
+              requestedProviderId.charAt(0).toUpperCase() +
+              requestedProviderId.slice(1),
           };
 
           return (
@@ -1078,6 +1114,15 @@ export default function ChatBot({
                 selectedProvider={effectiveProviderId}
                 messageTime={turn.messageTime}
                 contrastMode={contrastMode}
+                isFallback={isFallback}
+                requestedProviderMetadata={requestedProviderMeta}
+                onAskCurrentProvider={() =>
+                  handleAskProviderForTurn(
+                    turn.id,
+                    turn.question,
+                    requestedProviderId,
+                  )
+                }
                 onCopyAiResponse={() =>
                   handleCopyAiResponse(activeContent, effectiveProviderId)
                 }
