@@ -1683,8 +1683,8 @@
             if (currentLength > 20) {
               if (currentLength === lastTextLength) {
                 idleCount++;
-                // Purely generous extra time: wait for >= 7 stable ticks (~2.5s) without any active stop/progress spinner
-                if (!isStreamingNow && idleCount >= 7) {
+                // Once text has stabilized for 5 consecutive checks (1.75s), extraction is complete!
+                if (idleCount >= 5) {
                   cleanUp();
                   const md = await this.getCurrentResponse();
                   tabLog(
