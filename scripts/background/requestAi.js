@@ -35,74 +35,12 @@ if (typeof chrome !== "undefined" && chrome.tabs?.onRemoved) {
   });
 }
 
-async function getOrCreateWorkerWindow(firstUrl, providerId) {
-  if (workerWindowId && typeof chrome !== "undefined" && chrome.windows?.get) {
-    try {
-      const win = await chrome.windows.get(workerWindowId);
-      if (win && win.id) {
-        return win;
-      }
-    } catch {
-      workerWindowId = null;
-    }
-  }
-
-  if (workerWindowPromise) {
-    return workerWindowPromise;
-  }
-
-  workerWindowPromise = new Promise((resolve) => {
-    if (typeof chrome === "undefined" || !chrome.windows?.create) {
-      resolve(null);
-      return;
-    }
-
-    const maxHeight =
-      typeof screen !== "undefined" && screen.availHeight
-        ? screen.availHeight
-        : 950;
-    chrome.windows.create(
-      {
-        url: firstUrl,
-        focused: false,
-        type: "popup",
-        width: 500,
-        height: maxHeight,
-      },
-      (win) => {
-        workerWindowPromise = null;
-        if (!chrome.runtime?.lastError && win && win.id) {
-          workerWindowId = win.id;
-          console.log(
-            `%c[SpectraLens:Pipeline] 🪟 Created Worker Window #${workerWindowId} (width: 500px, height: ${maxHeight}px) directly with "${providerId}" URL`,
-            "color: #8b5cf6; font-weight: bold;",
-          );
-          resolve(win);
-        } else {
-          // Fallback: normal window
-          chrome.windows.create(
-            { url: firstUrl, focused: false, width: 500, height: maxHeight },
-            (winFallback) => {
-              if (winFallback?.id) workerWindowId = winFallback.id;
-              resolve(winFallback || null);
-            },
-          );
-        }
-      },
-    );
-  });
-
-  return workerWindowPromise;
-}
-
 /**
- * Retrieves an existing provider tab or instantiates a new background tab
- * directly with the target URL inside the compact popup worker window (width: 500px, height: max).
- * When the worker window does not exist yet, it creates the window with the provider's URL directly,
- * preventing any extra blank new tabs from ever being opened!
+ * Opens or retrieves a dedicated separate popup window (width: 500px, height: max)
+ * for each AI provider, directly loading the target URL without blank tabs.
  */
 async function openOrReuseProviderTab(providerId, url) {
-  // 1. Check if an active persistent tab exists for this provider
+  // 1. Check if an active persistent window & tab exists for this provider
   const existingEntry = persistentProviderTabs.get(providerId);
   if (
     existingEntry &&
@@ -120,42 +58,59 @@ async function openOrReuseProviderTab(providerId, url) {
     }
   }
 
-  // 2. Get or create the shared worker window
-  const win = await getOrCreateWorkerWindow(url, providerId);
-  if (!win || !win.id) {
-    return new Promise((resolve) => {
+  // 2. Create a separate dedicated popup worker window for this provider
+  return new Promise((resolve) => {
+    if (typeof chrome === "undefined" || !chrome.windows?.create) {
       chrome.tabs.create({ url, active: false }, (tab) => {
         resolve({ tab: tab || null, isReused: false });
       });
-    });
-  }
-
-  // Check if the window was just created and its initial tab has matching URL or is unassigned
-  const existingTabs = await new Promise((res) =>
-    chrome.tabs.query({ windowId: win.id }, res),
-  );
-  const unassignedTab = existingTabs?.find(
-    (t) =>
-      !Array.from(persistentProviderTabs.values()).some(
-        (e) => e.tabId === t.id,
-      ),
-  );
-
-  if (unassignedTab && unassignedTab.id) {
-    if (
-      unassignedTab.url !== url &&
-      !unassignedTab.url?.startsWith(url.split("?")[0])
-    ) {
-      await chrome.tabs.update(unassignedTab.id, { url, active: false });
+      return;
     }
-    return { tab: unassignedTab, isReused: false };
-  }
 
-  // Window already has tabs for other providers, create a new tab in this shared window
-  return new Promise((resolve) => {
-    chrome.tabs.create({ url, windowId: win.id, active: false }, (tab) => {
-      resolve({ tab: tab || null, isReused: false });
-    });
+    const maxHeight =
+      typeof screen !== "undefined" && screen.availHeight
+        ? screen.availHeight
+        : 950;
+
+    chrome.windows.create(
+      {
+        url,
+        focused: false,
+        type: "popup",
+        width: 500,
+        height: maxHeight,
+      },
+      (win) => {
+        if (!chrome.runtime?.lastError && win && win.id) {
+          console.log(
+            `%c[SpectraLens:Pipeline] 🪟 Created Dedicated Worker Window #${win.id} (width: 500px, height: ${maxHeight}px) for "${providerId}"`,
+            "color: #8b5cf6; font-weight: bold;",
+          );
+          const tab = win.tabs?.[0] || null;
+          if (tab) {
+            resolve({ tab, isReused: false });
+            return;
+          }
+          chrome.tabs.query({ windowId: win.id }, (tabs) => {
+            resolve({ tab: tabs?.[0] || null, isReused: false });
+          });
+          return;
+        }
+
+        console.warn(
+          "[SpectraLens:Pipeline] Popup window creation failed, fallback to normal window:",
+          chrome.runtime?.lastError?.message,
+        );
+
+        // Fallback: normal window
+        chrome.windows.create(
+          { url, focused: false, width: 500, height: maxHeight },
+          (winFallback) => {
+            resolve({ tab: winFallback?.tabs?.[0] || null, isReused: false });
+          },
+        );
+      },
+    );
   });
 }
 
@@ -164,30 +119,28 @@ function cancelAllAiRequests() {
   currentRequestId = "cancelled_" + Date.now();
 }
 
-/** Closes a specific AI provider's background tab (e.g. when toggled OFF in Settings) */
+/** Closes a specific AI provider's background window & tab (e.g. when toggled OFF in Settings) */
 function closeProviderTab(providerId) {
   if (!providerId) return;
   const key = String(providerId).toLowerCase();
   const entry = persistentProviderTabs.get(key);
-  if (entry && entry.tabId) {
+  if (entry) {
     console.log(
-      `[SpectraLens:Pipeline] 🧹 Closing disabled AI provider tab: "${key}" (#${entry.tabId})`,
+      `[SpectraLens:Pipeline] 🧹 Closing disabled AI provider window: "${key}" (#${entry.tabId})`,
     );
-    chromeTabMediaAccess(entry.tabId, false);
-    chrome.tabs.remove(entry.tabId).catch(() => {});
+    if (entry.tabId) {
+      chromeTabMediaAccess(entry.tabId, false);
+      chrome.tabs.remove(entry.tabId).catch(() => {});
+    }
+    if (entry.windowId) {
+      chrome.windows.remove(entry.windowId).catch(() => {});
+    }
     persistentProviderTabs.delete(key);
   }
   activeAiTabs = activeAiTabs.filter((id) => id !== entry?.tabId);
-
-  // If no more persistent tabs remain, close the worker window to free RAM
-  if (persistentProviderTabs.size === 0 && workerWindowId) {
-    chrome.windows.remove(workerWindowId).catch(() => {});
-    workerWindowId = null;
-    workerWindowPromise = null;
-  }
 }
 
-/** Closes all provider tabs and worker window (e.g. on New Chat, page close, or full reset) */
+/** Closes all provider windows and tabs (e.g. on New Chat, page close, or full reset) */
 function resetAllProviderSessions() {
   console.log(
     "[SpectraLens:Pipeline] 🔄 Resetting all AI provider background sessions...",
@@ -198,6 +151,9 @@ function resetAllProviderSessions() {
       chromeTabMediaAccess(entry.tabId, false);
       chrome.tabs.remove(entry.tabId).catch(() => {});
     }
+    if (entry.windowId) {
+      chrome.windows.remove(entry.windowId).catch(() => {});
+    }
   }
   persistentProviderTabs.clear();
 
@@ -206,12 +162,6 @@ function resetAllProviderSessions() {
     chrome.tabs.remove(id).catch(() => {});
   });
   activeAiTabs = [];
-
-  if (workerWindowId) {
-    chrome.windows.remove(workerWindowId).catch(() => {});
-    workerWindowId = null;
-    workerWindowPromise = null;
-  }
 }
 
 /* --- Error Formatting Helper --- */
