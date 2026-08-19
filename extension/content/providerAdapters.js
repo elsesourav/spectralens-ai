@@ -710,6 +710,16 @@
       this.RESPONSE_START_TIMEOUT = 15000;
     }
 
+    /** Initialize provider adapter state */
+    initialize() {
+      return true;
+    }
+
+    /** Check if provider page is ready for interaction */
+    isReady() {
+      return Boolean(this.findInput());
+    }
+
     /** Check if the current page matches this provider */
     detect() {
       if (this.hostPattern instanceof RegExp) {
@@ -1420,6 +1430,11 @@
       return (container.innerHTML || container.textContent || "").trim();
     }
 
+    /** Alias for getCurrentResponse conforming to universal contract */
+    async extractResponse() {
+      return this.getCurrentResponse();
+    }
+
     /** Factory method to create provider-specific completion detector */
     createCompletionDetector() {
       return new BaseCompletionDetector(this);
@@ -1439,6 +1454,26 @@
         requestId,
       );
       return result.content || result.answer || "";
+    }
+
+    /** Cancel ongoing request observation and processing */
+    cancel(requestId = null) {
+      if (typeof window !== "undefined") {
+        window.postMessage({ type: "CANCEL_AI_REQUEST", requestId }, "*");
+      }
+    }
+
+    /** Perform self-health check of adapter and DOM bindings */
+    healthCheck() {
+      const input = this.findInput();
+      return {
+        id: this.id,
+        ready: Boolean(input),
+        isStreaming: this.isStreaming(),
+        inputFound: Boolean(input),
+        url: typeof window !== "undefined" ? window.location.href : "",
+        timestamp: Date.now(),
+      };
     }
 
     cleanup() {}

@@ -542,6 +542,15 @@ function fetchAiAnswer(
     let hasSubmittedForRequest = false;
     let currentPhase = "TAB_CREATE";
 
+    const timing = {
+      startTime: Date.now(),
+      tabReadyAt: null,
+      inputReadyAt: null,
+      submitAt: null,
+      firstResponseAt: null,
+      completedAt: null,
+    };
+
     setRequestState(
       requestId,
       providerId,
@@ -627,6 +636,7 @@ function fetchAiAnswer(
       return;
     }
 
+    timing.tabReadyAt = Date.now();
     const tabId = tab.id;
     if (!activeAiTabs.includes(tabId)) {
       activeAiTabs.push(tabId);
@@ -663,6 +673,7 @@ function fetchAiAnswer(
       if (!isResolved) {
         isResolved = true;
         detachTurnListeners();
+        timing.completedAt = Date.now();
         if (requestId && activeProviderLocks.get(providerId) === requestId) {
           activeProviderLocks.delete(providerId);
         }
@@ -689,8 +700,34 @@ function fetchAiAnswer(
           );
         }
 
+        // Timing Telemetry Calculations
+        const tabReadyMs = timing.tabReadyAt
+          ? timing.tabReadyAt - timing.startTime
+          : 0;
+        const inputMs =
+          timing.inputReadyAt && timing.tabReadyAt
+            ? timing.inputReadyAt - timing.tabReadyAt
+            : 0;
+        const submitMs =
+          timing.submitAt && timing.inputReadyAt
+            ? timing.submitAt - timing.inputReadyAt
+            : 0;
+        const firstResponseMs =
+          timing.firstResponseAt && timing.submitAt
+            ? timing.firstResponseAt - timing.submitAt
+            : 0;
+        const completionMs =
+          timing.completedAt && timing.firstResponseAt
+            ? timing.completedAt - timing.firstResponseAt
+            : 0;
+        const totalMs = timing.completedAt - timing.startTime;
+
         console.log(
-          `%c[SpectraLens:Pipeline] ✅ [STEP 5/5] fetchAiAnswer resolved for Tab #${tabId} (Length: ${textVal.length} chars).`,
+          `[SL TIMING] ${requestId} provider=${providerId} tabReadyMs=${tabReadyMs} inputMs=${inputMs} submitMs=${submitMs} firstResponseMs=${firstResponseMs} completionMs=${completionMs} totalMs=${totalMs}`,
+        );
+
+        console.log(
+          `%c[SpectraLens:Pipeline] ✅ [STEP 5/5] fetchAiAnswer resolved for Tab #${tabId} (Length: ${textVal.length} chars, totalMs: ${totalMs}ms).`,
           "color: #10b981; font-weight: bold;",
         );
         console.log(
@@ -733,6 +770,7 @@ function fetchAiAnswer(
       if (isResolved || isExecuting) return;
       isExecuting = true;
       currentPhase = "SENDING";
+      timing.inputReadyAt = Date.now();
       setRequestState(requestId, providerId, REQUEST_STATES.SENDING, "SENDING");
 
       console.log(
@@ -754,7 +792,9 @@ function fetchAiAnswer(
           if (resultVal === "__NAVIGATING__") {
             isExecuting = false;
             hasSubmittedForRequest = true;
+            timing.submitAt = Date.now();
             currentPhase = "RESPONSE_START";
+            timing.firstResponseAt = Date.now();
             setRequestState(
               requestId,
               providerId,
@@ -766,6 +806,8 @@ function fetchAiAnswer(
 
           if (typeof resultVal === "string" && resultVal.trim().length > 0) {
             hasSubmittedForRequest = true;
+            timing.submitAt = timing.submitAt || Date.now();
+            timing.firstResponseAt = timing.firstResponseAt || Date.now();
             currentPhase = "COMPLETION";
             safeResolve(resultVal);
           } else if (
@@ -774,6 +816,8 @@ function fetchAiAnswer(
             (resultVal.answer || resultVal.content)
           ) {
             hasSubmittedForRequest = true;
+            timing.submitAt = timing.submitAt || Date.now();
+            timing.firstResponseAt = timing.firstResponseAt || Date.now();
             currentPhase = "COMPLETION";
             safeResolve(resultVal.answer || resultVal.content);
           } else {
@@ -795,7 +839,9 @@ function fetchAiAnswer(
               return;
             }
             hasSubmittedForRequest = true;
+            timing.submitAt = Date.now();
             currentPhase = "RESPONSE_START";
+            timing.firstResponseAt = Date.now();
             setRequestState(
               requestId,
               providerId,
