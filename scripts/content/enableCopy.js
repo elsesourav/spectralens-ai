@@ -154,36 +154,14 @@
       (document.head || document.documentElement).appendChild(style);
     }
 
-    // Sweep all existing elements
-    setTimeout(() => {
-      document.querySelectorAll("*").forEach((el) => {
-        if (getComputedStyle(el).userSelect === "none") {
-          el.style.userSelect = "text";
-        }
-      });
-    }, 50);
-
-    setTimeout(() => {
-      document.querySelectorAll("*").forEach((el) => {
-        if (getComputedStyle(el).userSelect === "none") {
-          el.style.userSelect = "text";
-        }
-      });
-    }, 2000);
+    // CSS rule * { user-select: text !important; } natively handles all elements
+    // without expensive synchronous DOM traversal
   };
 
   const disableFunction = () => {
     isEnabled = false;
     const style = document.getElementById("__enable_copy_style__");
     if (style) style.remove();
-
-    setTimeout(() => {
-      document.querySelectorAll("*").forEach((el) => {
-        if (el.style.userSelect === "text") {
-          el.style.userSelect = "none";
-        }
-      });
-    }, 50);
   };
 
   /* 9. Auto-check storage on page load */
@@ -195,25 +173,31 @@
       hostname = null;
     }
 
-    if (typeof chrome !== "undefined" && chrome.storage?.local) {
-      chrome.storage.local.get(["enableCopyHosts"], (res) => {
-        let hosts = res?.enableCopyHosts;
-        if (typeof hosts === "string") {
-          try {
-            hosts = JSON.parse(hosts);
-          } catch (e) {
-            hosts = [];
+    try {
+      if (
+        typeof chrome !== "undefined" &&
+        Boolean(chrome?.runtime?.id) &&
+        chrome.storage?.local
+      ) {
+        chrome.storage.local.get(["enableCopyHosts"], (res) => {
+          let hosts = res?.enableCopyHosts;
+          if (typeof hosts === "string") {
+            try {
+              hosts = JSON.parse(hosts);
+            } catch (e) {
+              hosts = [];
+            }
           }
-        }
-        if (
-          Array.isArray(hosts) &&
-          hostname &&
-          (hosts.includes(hostname) || hosts.includes("*"))
-        ) {
-          enableFunction();
-        }
-      });
-    }
+          if (
+            Array.isArray(hosts) &&
+            hostname &&
+            (hosts.includes(hostname) || hosts.includes("*"))
+          ) {
+            enableFunction();
+          }
+        });
+      }
+    } catch {}
   })();
 
   /* 10. Listen for custom window events (dispatched by popup/executeScript) */
@@ -221,15 +205,23 @@
   window.addEventListener("__enableCopy__disable", () => disableFunction());
 
   /* 11. Listen for runtime messages (sent by popup/tabs.sendMessage) */
-  if (typeof chrome !== "undefined" && chrome.runtime?.onMessage) {
-    chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-      if (msg?.action === "enable_function") {
-        enableFunction();
-        if (sendResponse) sendResponse({ success: true });
-      } else if (msg?.action === "disable_function") {
-        disableFunction();
-        if (sendResponse) sendResponse({ success: true });
-      }
-    });
-  }
+  try {
+    if (
+      typeof chrome !== "undefined" &&
+      Boolean(chrome?.runtime?.id) &&
+      chrome.runtime?.onMessage
+    ) {
+      chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+        try {
+          if (msg?.action === "enable_function") {
+            enableFunction();
+            if (sendResponse) sendResponse({ success: true });
+          } else if (msg?.action === "disable_function") {
+            disableFunction();
+            if (sendResponse) sendResponse({ success: true });
+          }
+        } catch {}
+      });
+    }
+  } catch {}
 })();

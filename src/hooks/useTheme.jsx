@@ -21,68 +21,101 @@ export function ThemeProvider({
 
   // Sync from chrome storage on mount and live change
   useEffect(() => {
-    if (typeof chrome !== "undefined" && chrome.storage?.local) {
-      if (contextKey === "popup") {
-        chrome.storage.local.get(["popupTheme"]).then((res) => {
-          if (res?.popupTheme && res.popupTheme !== theme) {
-            setThemeState(res.popupTheme);
-          }
-        });
+    try {
+      if (
+        typeof chrome !== "undefined" &&
+        Boolean(chrome?.runtime?.id) &&
+        chrome.storage?.local
+      ) {
+        if (contextKey === "popup") {
+          chrome.storage.local
+            .get(["popupTheme"])
+            .then((res) => {
+              if (res?.popupTheme && res.popupTheme !== theme) {
+                setThemeState(res.popupTheme);
+              }
+            })
+            .catch(() => {});
 
-        const popupListener = (changes) => {
-          if (changes.popupTheme) {
-            const val = changes.popupTheme.newValue;
-            if (val) {
-              setThemeState((prev) => (prev !== val ? val : prev));
-            }
-          }
-        };
-        chrome.storage.onChanged.addListener(popupListener);
-        return () => chrome.storage.onChanged.removeListener(popupListener);
-      } else {
-        chrome.storage.local.get([CONTROLS_KEY]).then((res) => {
-          if (res && res[CONTROLS_KEY]) {
-            const controls =
-              typeof res[CONTROLS_KEY] === "string"
-                ? JSON.parse(res[CONTROLS_KEY])
-                : res[CONTROLS_KEY];
-            if (controls?.chatbotTheme && controls.chatbotTheme !== theme) {
-              setThemeState(controls.chatbotTheme);
-            }
-            if (
-              controls?.contrastMode &&
-              controls.contrastMode !== contrastMode
-            ) {
-              setContrastModeState(controls.contrastMode);
-            }
-          }
-        });
+          const popupListener = (changes) => {
+            try {
+              if (!chrome?.runtime?.id) return;
+              if (changes.popupTheme) {
+                const val = changes.popupTheme.newValue;
+                if (val) {
+                  setThemeState((prev) => (prev !== val ? val : prev));
+                }
+              }
+            } catch {}
+          };
+          chrome.storage.onChanged.addListener(popupListener);
+          return () => {
+            try {
+              if (chrome?.runtime?.id) {
+                chrome.storage.onChanged.removeListener(popupListener);
+              }
+            } catch {}
+          };
+        } else {
+          chrome.storage.local
+            .get([CONTROLS_KEY])
+            .then((res) => {
+              if (res && res[CONTROLS_KEY]) {
+                const controls =
+                  typeof res[CONTROLS_KEY] === "string"
+                    ? JSON.parse(res[CONTROLS_KEY])
+                    : res[CONTROLS_KEY];
+                if (controls?.chatbotTheme && controls.chatbotTheme !== theme) {
+                  setThemeState(controls.chatbotTheme);
+                }
+                if (
+                  controls?.contrastMode &&
+                  controls.contrastMode !== contrastMode
+                ) {
+                  setContrastModeState(controls.contrastMode);
+                }
+              }
+            })
+            .catch(() => {});
 
-        const listener = (changes) => {
-          if (changes[CONTROLS_KEY]) {
-            const val = changes[CONTROLS_KEY].newValue;
-            const controls = typeof val === "string" ? JSON.parse(val) : val;
-            if (controls?.chatbotTheme) {
-              setThemeState((prev) => {
-                if (prev !== controls.chatbotTheme) {
-                  return controls.chatbotTheme;
+          const listener = (changes) => {
+            try {
+              if (!chrome?.runtime?.id) return;
+              if (changes[CONTROLS_KEY]) {
+                const val = changes[CONTROLS_KEY].newValue;
+                const controls =
+                  typeof val === "string" ? JSON.parse(val) : val;
+                if (controls?.chatbotTheme) {
+                  setThemeState((prev) => {
+                    if (prev !== controls.chatbotTheme) {
+                      return controls.chatbotTheme;
+                    }
+                    return prev;
+                  });
                 }
-                return prev;
-              });
-            }
-            if (controls?.contrastMode) {
-              setContrastModeState((prev) => {
-                if (prev !== controls.contrastMode) {
-                  return controls.contrastMode;
+                if (controls?.contrastMode) {
+                  setContrastModeState((prev) => {
+                    if (prev !== controls.contrastMode) {
+                      return controls.contrastMode;
+                    }
+                    return prev;
+                  });
                 }
-                return prev;
-              });
-            }
-          }
-        };
-        chrome.storage.onChanged.addListener(listener);
-        return () => chrome.storage.onChanged.removeListener(listener);
+              }
+            } catch {}
+          };
+          chrome.storage.onChanged.addListener(listener);
+          return () => {
+            try {
+              if (chrome?.runtime?.id) {
+                chrome.storage.onChanged.removeListener(listener);
+              }
+            } catch {}
+          };
+        }
       }
+    } catch {
+      // Ignore extension context invalidation
     }
   }, [contextKey]);
 

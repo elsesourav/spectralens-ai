@@ -481,7 +481,10 @@ html.dark .spectralens-isolated-response {
   display: block !important;
   max-width: 100% !important;
   overflow-x: auto !important;
-  overflow-y: hidden !important;
+  overflow-y: visible !important;
+  overscroll-behavior-y: auto !important;
+  overscroll-behavior-x: contain !important;
+  touch-action: pan-y !important;
   white-space: pre !important;
   word-wrap: normal !important;
   overflow-wrap: normal !important;
@@ -503,7 +506,10 @@ html.dark .spectralens-isolated-response {
   display: block !important;
   max-width: 100% !important;
   overflow-x: auto !important;
-  overflow-y: hidden !important;
+  overflow-y: visible !important;
+  overscroll-behavior-y: auto !important;
+  overscroll-behavior-x: contain !important;
+  touch-action: pan-y !important;
   white-space: pre !important;
   word-wrap: normal !important;
   overflow-wrap: normal !important;
@@ -644,4 +650,89 @@ html.dark .spectralens-isolated-response {
   user-select: text !important;
   -webkit-user-select: text !important;
   cursor: text;
+}
+
+/* GitHub-Flavored Markdown & Response Card Polish */
+.markdown-body,
+.spectralens-response-wrapper {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--sl-text-primary, #0f172a);
+}
+
+.markdown-body h1,
+.spectralens-response-wrapper h1 {
+  font-size: 15px;
+  font-weight: 700;
+  margin-top: 14px;
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--sl-border-subtle, rgba(226, 232, 240, 0.8));
+  color: var(--sl-text-primary, #0f172a);
+}
+
+.markdown-body h2,
+.spectralens-response-wrapper h2 {
+  font-size: 13.5px;
+  font-weight: 700;
+  margin-top: 12px;
+  margin-bottom: 6px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid var(--sl-border-subtle, rgba(226, 232, 240, 0.6));
+  color: var(--sl-text-primary, #0f172a);
+}
+
+.markdown-body h3,
+.spectralens-response-wrapper h3 {
+  font-size: 12.5px;
+  font-weight: 700;
+  margin-top: 10px;
+  margin-bottom: 4px;
+  color: var(--sl-text-primary, #0f172a);
+}
+
+.markdown-body blockquote,
+.spectralens-response-wrapper blockquote {
+  margin: 8px 0;
+  padding: 4px 12px;
+  border-left: 3px solid var(--sl-accent, #3b82f6);
+  color: var(--sl-text-secondary, #475569);
+  background-color: rgba(59, 130, 246, 0.05);
+  border-radius: 0 8px 8px 0;
+}
+
+.markdown-body ul,
+.spectralens-response-wrapper ul {
+  list-style-type: disc;
+  margin: 6px 0 6px 18px;
+}
+
+.markdown-body ol,
+.spectralens-response-wrapper ol {
+  list-style-type: decimal;
+  margin: 6px 0 6px 18px;
+}
+
+.markdown-body li,
+.spectralens-response-wrapper li {
+  margin: 2px 0;
+}
+
+.spectralens-code-card {
+  max-height: none !important;
+  overscroll-behavior-y: auto !important;
+  touch-action: pan-y !important;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.spectralens-code-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.spectralens-code-copy-btn {
+  transition: all 0.15s ease;
+}
+
+.spectralens-code-copy-btn:hover {
+  transform: scale(1.04);
 }

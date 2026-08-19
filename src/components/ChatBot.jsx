@@ -8,11 +8,11 @@ import {
   useState,
 } from "react";
 import {
-  IoTimeOutline,
   IoAdd,
   IoCameraOutline,
-  IoDocumentTextOutline,
   IoCropOutline,
+  IoDocumentTextOutline,
+  IoTimeOutline,
 } from "react-icons/io5";
 import ChatAiResponseCard from "../features/chat/ChatAiResponseCard.jsx";
 import ChatMessageBubble from "../features/chat/ChatMessageBubble.jsx";
@@ -20,6 +20,33 @@ import ChatModelTabs from "../features/chat/ChatModelTabs.jsx";
 import ChatPromptInput from "../features/chat/ChatPromptInput.jsx";
 import { useTheme } from "../hooks/useThemeHook.jsx";
 import UTILS from "./../utils/utilsModule.js";
+
+/**
+ * =========================================================================
+ * ⚙️ SPECTRALENS AI PROVIDER CONFIGURATION
+ * =========================================================================
+ * Modify these variables to customize AI provider limits for testing or production:
+ *
+ * - MAX_PRIMARY_PROVIDER_TABS: Number of AI tabs displayed as primary buttons in the
+ *   chat header before placing additional ones into the "More" dropdown menu.
+ *   (Default: 3. Set higher e.g. 5, 8 or Infinity to display all providers at once)
+ *
+ * - MAX_CONCURRENT_AI_PROVIDERS: Maximum number of AI providers queried in parallel
+ *   simultaneously when submitting a question.
+ *   (Default: 3. Set to 1 for sequential, or 5, 8, Infinity for all at once)
+ * =========================================================================
+ */
+export const MAX_PRIMARY_PROVIDER_TABS = 3;
+export const MAX_CONCURRENT_AI_PROVIDERS = 3;
+
+export const DEFAULT_AI_PROVIDERS = [
+  { id: "google", name: "Google AI", enabled: true },
+  { id: "chatgpt", name: "ChatGPT", enabled: true },
+  { id: "gemini", name: "Gemini", enabled: true },
+  { id: "claude", name: "Claude", enabled: false },
+  { id: "perplexity", name: "Perplexity", enabled: false },
+  { id: "grok", name: "Grok AI", enabled: false },
+];
 
 const MENTION_OPTIONS = [
   {
@@ -62,7 +89,7 @@ export default function ChatBot({
   const [isLoading, setIsLoading] = useState(false);
   const [isViewingHistory, setIsViewingHistory] = useState(false);
   const lastHandledNewChatRef = useRef(0);
-  
+
   // Continuous Conversation Turns: Array<{ id, question, questionImage, questionPage, messageTime, answers, isLoading, selectedProvider }>
   const [turns, setTurns] = useState([]);
   const turnsRef = useRef(turns);
@@ -77,6 +104,8 @@ export default function ChatBot({
   const [copiedTurnId, setCopiedTurnId] = useState(null);
   const [copiedProviderId, setCopiedProviderId] = useState(null);
   const currentRequestIdRef = useRef(null);
+  const activeProviderResolversRef = useRef(new Map());
+  const historySaveTimeoutRef = useRef(null);
 
   // Screen/Context attachment state
   const [attachedImage, setAttachedImage] = useState(null);
@@ -89,8 +118,10 @@ export default function ChatBot({
   const [mentionQuery, setMentionQuery] = useState("");
   const mentionMenuRef = useRef(null);
 
-  const [aiProviders, setAiProviders] = useState([]);
-  const [maxConcurrentRequest, setMaxConcurrentRequest] = useState(3);
+  const [aiProviders, setAiProviders] = useState(DEFAULT_AI_PROVIDERS);
+  const [maxConcurrentRequest, setMaxConcurrentRequest] = useState(
+    MAX_CONCURRENT_AI_PROVIDERS,
+  );
 
   const scrollContainerRef = useRef(null);
   const rootRef = useRef(null);
@@ -99,7 +130,8 @@ export default function ChatBot({
 
   const scrollToBottom = useCallback((smooth = false) => {
     if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+      scrollContainerRef.current.scrollTop =
+        scrollContainerRef.current.scrollHeight;
     }
   }, []);
 
@@ -141,58 +173,71 @@ export default function ChatBot({
       .catch(() => {});
   }, []);
 
-  const handleCopyAiResponse = useCallback((activeAiResponseContent, providerId) => {
-    if (!activeAiResponseContent) return;
-    
-    let cleanText = activeAiResponseContent;
-    if (typeof activeAiResponseContent === "string" && /<[a-z][\s\S]*>/i.test(activeAiResponseContent)) {
-      try {
-        const tempEl = document.createElement("div");
-        tempEl.innerHTML = activeAiResponseContent;
-        cleanText = (tempEl.innerText || tempEl.textContent || "").trim();
-      } catch {
-        cleanText = activeAiResponseContent;
-      }
-    }
+  const handleCopyAiResponse = useCallback(
+    (activeAiResponseContent, providerId) => {
+      if (!activeAiResponseContent) return;
 
-    const fallbackCopy = (text) => {
-      try {
-        const tempArea = document.createElement("textarea");
-        tempArea.value = text;
-        tempArea.style.position = "fixed";
-        tempArea.style.left = "-9999px";
-        tempArea.style.top = "-9999px";
-        document.body.appendChild(tempArea);
-        tempArea.focus();
-        tempArea.select();
-        const success = document.execCommand("copy");
-        document.body.removeChild(tempArea);
-        if (success) {
-          setCopiedProviderId(providerId);
-          setTimeout(() => setCopiedProviderId(null), 2000);
+      let cleanText = activeAiResponseContent;
+      if (
+        typeof activeAiResponseContent === "string" &&
+        /<[a-z][\s\S]*>/i.test(activeAiResponseContent)
+      ) {
+        try {
+          cleanText =
+            typeof UTILS.htmlToMarkdown === "function"
+              ? UTILS.htmlToMarkdown(activeAiResponseContent)
+              : activeAiResponseContent;
+        } catch {
+          try {
+            const tempEl = document.createElement("div");
+            tempEl.innerHTML = activeAiResponseContent;
+            cleanText = (tempEl.innerText || tempEl.textContent || "").trim();
+          } catch {
+            cleanText = activeAiResponseContent;
+          }
         }
-      } catch (err) {
-        console.warn("[SpectraLens:ChatBot] fallbackCopy failed:", err);
       }
-    };
 
-    if (
-      navigator.clipboard &&
-      typeof navigator.clipboard.writeText === "function"
-    ) {
-      navigator.clipboard
-        .writeText(cleanText)
-        .then(() => {
-          setCopiedProviderId(providerId);
-          setTimeout(() => setCopiedProviderId(null), 2000);
-        })
-        .catch(() => {
-          fallbackCopy(cleanText);
-        });
-    } else {
-      fallbackCopy(cleanText);
-    }
-  }, []);
+      const fallbackCopy = (text) => {
+        try {
+          const tempArea = document.createElement("textarea");
+          tempArea.value = text;
+          tempArea.style.position = "fixed";
+          tempArea.style.left = "-9999px";
+          tempArea.style.top = "-9999px";
+          document.body.appendChild(tempArea);
+          tempArea.focus();
+          tempArea.select();
+          const success = document.execCommand("copy");
+          document.body.removeChild(tempArea);
+          if (success) {
+            setCopiedProviderId(providerId);
+            setTimeout(() => setCopiedProviderId(null), 2000);
+          }
+        } catch (err) {
+          console.warn("[SpectraLens:ChatBot] fallbackCopy failed:", err);
+        }
+      };
+
+      if (
+        navigator.clipboard &&
+        typeof navigator.clipboard.writeText === "function"
+      ) {
+        navigator.clipboard
+          .writeText(cleanText)
+          .then(() => {
+            setCopiedProviderId(providerId);
+            setTimeout(() => setCopiedProviderId(null), 2000);
+          })
+          .catch(() => {
+            fallbackCopy(cleanText);
+          });
+      } else {
+        fallbackCopy(cleanText);
+      }
+    },
+    [],
+  );
 
   const appIconUrl =
     typeof chrome !== "undefined" && chrome.runtime?.getURL
@@ -215,7 +260,9 @@ export default function ChatBot({
       const scrollHeight = textareaRef.current.scrollHeight;
       const targetHeight = Math.min(Math.max(24, scrollHeight), 120);
       textareaRef.current.style.height = `${targetHeight}px`;
-      setIsMultiLineInput(targetHeight >= 60 || (input.match(/\n/g) || []).length >= 2);
+      setIsMultiLineInput(
+        targetHeight >= 60 || (input.match(/\n/g) || []).length >= 2,
+      );
     }
   }, [input]);
 
@@ -230,7 +277,9 @@ export default function ChatBot({
           const scrollHeight = textareaRef.current.scrollHeight;
           const targetHeight = Math.min(Math.max(24, scrollHeight), 120);
           textareaRef.current.style.height = `${targetHeight}px`;
-          setIsMultiLineInput(targetHeight >= 60 || (pendingInput.match(/\n/g) || []).length >= 2);
+          setIsMultiLineInput(
+            targetHeight >= 60 || (pendingInput.match(/\n/g) || []).length >= 2,
+          );
           textareaRef.current.focus();
         }
       }, 50);
@@ -240,7 +289,8 @@ export default function ChatBot({
   // Auto scroll to bottom instantly when switching AI providers
   useLayoutEffect(() => {
     if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+      scrollContainerRef.current.scrollTop =
+        scrollContainerRef.current.scrollHeight;
     }
   }, [selectedProvider]);
 
@@ -262,7 +312,8 @@ export default function ChatBot({
       return next;
     });
     if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+      scrollContainerRef.current.scrollTop =
+        scrollContainerRef.current.scrollHeight;
     }
   }, []);
 
@@ -287,8 +338,12 @@ export default function ChatBot({
       const cursor = textareaRef.current?.selectionStart || currentInput.length;
       const textBeforeCursor = currentInput.slice(0, cursor);
       const textAfterCursor = currentInput.slice(cursor);
-      const cleanBefore = textBeforeCursor.replace(/(?:^|\s)@([a-zA-Z0-9_-]*)$/, " ").trimStart();
-      const finalInput = (cleanBefore + (textAfterCursor ? " " + textAfterCursor : "")).trim();
+      const cleanBefore = textBeforeCursor
+        .replace(/(?:^|\s)@([a-zA-Z0-9_-]*)$/, " ")
+        .trimStart();
+      const finalInput = (
+        cleanBefore + (textAfterCursor ? " " + textAfterCursor : "")
+      ).trim();
 
       setInput(finalInput);
 
@@ -323,7 +378,8 @@ export default function ChatBot({
       }
     };
     document.addEventListener("pointerdown", handleClickOutside);
-    return () => document.removeEventListener("pointerdown", handleClickOutside);
+    return () =>
+      document.removeEventListener("pointerdown", handleClickOutside);
   }, []);
 
   // Context response listener (screen capture / page capture / area crop capture)
@@ -361,22 +417,31 @@ export default function ChatBot({
     if (initialHistoryItem) {
       setInput("");
       setIsViewingHistory(true);
-      if (Array.isArray(initialHistoryItem.turns) && initialHistoryItem.turns.length > 0) {
+      if (
+        Array.isArray(initialHistoryItem.turns) &&
+        initialHistoryItem.turns.length > 0
+      ) {
         setTurns(initialHistoryItem.turns);
         turnsRef.current = initialHistoryItem.turns;
         const answeredProviders = [];
         for (const t of initialHistoryItem.turns) {
           if (t.answers) {
             for (const [k, ans] of Object.entries(t.answers)) {
-              if (ans?.content || ans?.answer || (typeof ans === "string" && ans.trim())) {
+              if (
+                ans?.content ||
+                ans?.answer ||
+                (typeof ans === "string" && ans.trim())
+              ) {
                 answeredProviders.push(k);
               }
             }
           }
         }
-        const lastTurn = initialHistoryItem.turns[initialHistoryItem.turns.length - 1];
+        const lastTurn =
+          initialHistoryItem.turns[initialHistoryItem.turns.length - 1];
         const targetProv =
-          lastTurn?.selectedProvider && answeredProviders.includes(lastTurn.selectedProvider)
+          lastTurn?.selectedProvider &&
+          answeredProviders.includes(lastTurn.selectedProvider)
             ? lastTurn.selectedProvider
             : answeredProviders[0] || "google";
         setSelectedProvider(targetProv);
@@ -404,9 +469,81 @@ export default function ChatBot({
     }
   }, [initialHistoryItem, onClearLoadedHistory]);
 
+  // Immediate history storage writer for state transitions (e.g. toggling models, starting new chat)
+  const saveHistoryImmediately = useCallback((turnsToSave) => {
+    if (!turnsToSave || turnsToSave.length === 0) return;
+    if (historySaveTimeoutRef.current) {
+      clearTimeout(historySaveTimeoutRef.current);
+    }
+    UTILS.chromeStorageGetLocal(UTILS.KEYS.HISTORY, (prevHistory = []) => {
+      const historyList = Array.isArray(prevHistory) ? prevHistory : [];
+      const sessionId = turnsToSave[0]?.id || Date.now().toString();
+      const existingIndex = historyList.findIndex(
+        (item) => item.id === sessionId,
+      );
+
+      const allSessionProviders = new Set();
+      const mergedAllAnswers = {};
+      for (const t of turnsToSave) {
+        if (t.answers) {
+          for (const [pId, pVal] of Object.entries(t.answers)) {
+            allSessionProviders.add(pId);
+            mergedAllAnswers[pId] = pVal;
+          }
+        }
+      }
+
+      const updatedHistoryItem = {
+        id: sessionId,
+        question: turnsToSave[0]?.question || "Conversation",
+        timestamp: Date.now(),
+        turns: turnsToSave,
+        answers: mergedAllAnswers,
+        providers: Array.from(allSessionProviders),
+      };
+
+      let updatedHistory;
+      if (existingIndex >= 0) {
+        updatedHistory = [...historyList];
+        updatedHistory[existingIndex] = updatedHistoryItem;
+      } else {
+        updatedHistory = [updatedHistoryItem, ...historyList].slice(0, 30);
+      }
+
+      UTILS.chromeStorageSetLocal(
+        UTILS.KEYS.HISTORY,
+        updatedHistory,
+        () => {},
+      );
+    });
+  }, []);
+
+  // Debounced history storage writer to prevent CPU & GC churn during high-frequency streaming
+  const saveHistoryDebounced = useCallback((updatedTurns) => {
+    if (!updatedTurns || updatedTurns.length === 0) return;
+    if (historySaveTimeoutRef.current) {
+      clearTimeout(historySaveTimeoutRef.current);
+    }
+    historySaveTimeoutRef.current = setTimeout(() => {
+      saveHistoryImmediately(updatedTurns);
+    }, 1200);
+  }, [saveHistoryImmediately]);
+
+  useEffect(() => {
+    return () => {
+      if (historySaveTimeoutRef.current) {
+        clearTimeout(historySaveTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // Stop active AI fetching
   const handleStopFetch = useCallback(() => {
     currentRequestIdRef.current = "stopped_" + Date.now();
+    activeProviderResolversRef.current.forEach((resolve) => {
+      resolve({ cancelled: true });
+    });
+    activeProviderResolversRef.current.clear();
     setIsLoading(false);
     setTurns((prev) => {
       const next = prev.map((t) => ({ ...t, isLoading: false }));
@@ -418,7 +555,14 @@ export default function ChatBot({
 
   // Start fresh chat session (clears the continuous chat thread and resets background sessions)
   const handleNewChat = useCallback(() => {
+    // Save current active conversation to history before resetting
+    if (turnsRef.current && turnsRef.current.length > 0) {
+      saveHistoryImmediately(turnsRef.current);
+    }
     handleStopFetch();
+    if (historySaveTimeoutRef.current) {
+      clearTimeout(historySaveTimeoutRef.current);
+    }
     setIsViewingHistory(false);
     setInput("");
     setTurns([]);
@@ -429,6 +573,7 @@ export default function ChatBot({
     setShowMentionMenu(false);
     setIsLoading(false);
     currentRequestIdRef.current = null;
+    activeProviderResolversRef.current.clear();
     setUnreadProviders(new Set());
     UTILS.pagePostMessage("IF_B_NEW_CHAT", {}, window.parent);
     if (textareaRef.current) {
@@ -437,7 +582,7 @@ export default function ChatBot({
     setTimeout(() => {
       textareaRef.current?.focus();
     }, 50);
-  }, [handleStopFetch]);
+  }, [handleStopFetch, saveHistoryImmediately]);
 
   // Listen for reset trigger from controls settings change
   useEffect(() => {
@@ -459,14 +604,20 @@ export default function ChatBot({
         if (storedProviders && Array.isArray(storedProviders)) {
           const enabledProviders = storedProviders.filter((p) => p.enabled);
           const disabledProviders = storedProviders.filter((p) => !p.enabled);
-          const enabledKey = enabledProviders.map((p) => p.id).sort().join(",");
+          const enabledKey = enabledProviders
+            .map((p) => p.id)
+            .sort()
+            .join(",");
 
-          // If enabled provider configuration changed, automatically start a fresh new chat
+          // If enabled provider configuration changed, save chat to history and start fresh chat
           if (
             prevEnabledProvidersKeyRef.current !== null &&
             prevEnabledProvidersKeyRef.current !== enabledKey &&
             (turns.length > 0 || isLoading)
           ) {
+            if (turnsRef.current && turnsRef.current.length > 0) {
+              saveHistoryImmediately(turnsRef.current);
+            }
             handleNewChat();
           }
           prevEnabledProvidersKeyRef.current = enabledKey;
@@ -489,16 +640,31 @@ export default function ChatBot({
 
     loadControls();
 
-    if (typeof chrome !== "undefined" && chrome.storage?.onChanged) {
-      const storageListener = (changes, areaName) => {
-        if (areaName === "local" && changes[UTILS.KEYS.CONTROLS]) {
-          loadControls();
-        }
-      };
-      chrome.storage.onChanged.addListener(storageListener);
-      return () => chrome.storage.onChanged.removeListener(storageListener);
-    }
-  }, [turns.length, isLoading, handleNewChat]);
+    try {
+      if (
+        typeof chrome !== "undefined" &&
+        Boolean(chrome?.runtime?.id) &&
+        chrome.storage?.onChanged
+      ) {
+        const storageListener = (changes, areaName) => {
+          try {
+            if (!chrome?.runtime?.id) return;
+            if (areaName === "local" && changes[UTILS.KEYS.CONTROLS]) {
+              loadControls();
+            }
+          } catch {}
+        };
+        chrome.storage.onChanged.addListener(storageListener);
+        return () => {
+          try {
+            if (chrome?.runtime?.id) {
+              chrome.storage.onChanged.removeListener(storageListener);
+            }
+          } catch {}
+        };
+      }
+    } catch {}
+  }, [turns.length, isLoading, handleNewChat, saveHistoryImmediately]);
 
   useEffect(() => {
     UTILS.pageOnMessage("IF_C_GET_CURRENT_CONTROLS", (data) => {
@@ -508,13 +674,19 @@ export default function ChatBot({
       if (storedProviders && Array.isArray(storedProviders)) {
         const enabledProviders = storedProviders.filter((p) => p.enabled);
         const disabledProviders = storedProviders.filter((p) => !p.enabled);
-        const enabledKey = enabledProviders.map((p) => p.id).sort().join(",");
+        const enabledKey = enabledProviders
+          .map((p) => p.id)
+          .sort()
+          .join(",");
 
         if (
           prevEnabledProvidersKeyRef.current !== null &&
           prevEnabledProvidersKeyRef.current !== enabledKey &&
           (turns.length > 0 || isLoading)
         ) {
+          if (turnsRef.current && turnsRef.current.length > 0) {
+            saveHistoryImmediately(turnsRef.current);
+          }
           handleNewChat();
         }
         prevEnabledProvidersKeyRef.current = enabledKey;
@@ -537,12 +709,7 @@ export default function ChatBot({
 
   // Get answer from background script
   const dispatchAiRequestToBackground = useCallback(
-    async (
-      question,
-      provider = "google",
-      requestId,
-      image = null,
-    ) => {
+    async (question, provider = "google", requestId, image = null) => {
       console.log(
         `[SpectraLens:ChatBot] 🚀 Posting IF_B_GET_ANSWER for provider: "${provider}", query: "${question.slice(0, 30)}..."${image ? " (with screen image attachment)" : ""} (requestId: ${requestId})`,
       );
@@ -555,7 +722,7 @@ export default function ChatBot({
     [],
   );
 
-  // Concurrent provider loading (only queries ENABLED providers!)
+  // Concurrent provider loading (reactive event-driven, zero polling timers!)
   const fetchAiResponsesWithConcurrency = useCallback(
     async (question, requestId, image = null) => {
       const enabledProviders = aiProviders.filter((p) => p.enabled);
@@ -569,23 +736,15 @@ export default function ChatBot({
         dispatchAiRequestToBackground(question, provider.id, requestId, image);
 
         const promise = new Promise((resolve) => {
-          const checkAnswer = () => {
-            if (currentRequestIdRef.current !== requestId) {
-              resolve({ cancelled: true });
-              return;
-            }
+          activeProviderResolversRef.current.set(provider.id, resolve);
 
-            // Read from ref instead of abusing setTurns as a state reader
-            // This avoids triggering React reconciliation on every poll tick
-            const currentTurns = turnsRef.current;
-            const currentTurn = currentTurns.find((t) => t.id === requestId);
-            if (currentTurn?.answers?.[provider.id]) {
-              resolve({ provider, completed: true });
-            } else {
-              setTimeout(checkAnswer, 400);
+          // Fallback safety timeout (45s) in case provider network drops
+          setTimeout(() => {
+            if (activeProviderResolversRef.current.has(provider.id)) {
+              activeProviderResolversRef.current.delete(provider.id);
+              resolve({ provider, completed: true, timeout: true });
             }
-          };
-          checkAnswer();
+          }, 45000);
         });
 
         activeRequests.set(provider.id, promise);
@@ -603,9 +762,11 @@ export default function ChatBot({
           Array.from(activeRequests.values()),
         );
 
-        if (finishedPromise.cancelled) break;
+        if (finishedPromise?.cancelled) break;
 
-        activeRequests.delete(finishedPromise.provider.id);
+        if (finishedPromise?.provider?.id) {
+          activeRequests.delete(finishedPromise.provider.id);
+        }
 
         if (providersToProcess.length > 0) {
           const nextProvider = providersToProcess.shift();
@@ -627,14 +788,15 @@ export default function ChatBot({
       gemini: "Gemini",
       grok: "Grok",
       perplexity: "Perplexity",
-      bing: "Bing Copilot",
     };
     turns.forEach((turn) => {
       Object.keys(turn.answers || {}).forEach((id) => {
         if (!existingIds.has(id)) {
           list.push({
             id,
-            name: defaultNames[id.toLowerCase()] || (id.charAt(0).toUpperCase() + id.slice(1)),
+            name:
+              defaultNames[id.toLowerCase()] ||
+              id.charAt(0).toUpperCase() + id.slice(1),
             enabled: false,
           });
           existingIds.add(id);
@@ -661,7 +823,7 @@ export default function ChatBot({
         const matching = aiProviders.find((p) => p.id === id);
         return {
           id,
-          name: matching?.name || (id.charAt(0).toUpperCase() + id.slice(1)),
+          name: matching?.name || id.charAt(0).toUpperCase() + id.slice(1),
           enabled: true,
         };
       });
@@ -678,9 +840,14 @@ export default function ChatBot({
     return enabled;
   }, [aiProviders, turns, isViewingHistory]);
 
-  // Providers shown as primary pills (first 3) vs overflow menu
-  const primaryProviderTabs = availableProviderTabs.slice(0, 3);
-  const overflowProviderTabs = availableProviderTabs.slice(3);
+  // Providers shown as primary pills vs overflow menu based on MAX_PRIMARY_PROVIDER_TABS
+  const primaryProviderTabs = availableProviderTabs.slice(
+    0,
+    MAX_PRIMARY_PROVIDER_TABS,
+  );
+  const overflowProviderTabs = availableProviderTabs.slice(
+    MAX_PRIMARY_PROVIDER_TABS,
+  );
 
   const handleSendMessage = useCallback(
     async (messageInput = null) => {
@@ -709,14 +876,20 @@ export default function ChatBot({
         }
 
         const metaLines = [];
-        if (attachedPage.title) metaLines.push(`Page Title: ${attachedPage.title}`);
+        if (attachedPage.title)
+          metaLines.push(`Page Title: ${attachedPage.title}`);
         if (attachedPage.url) metaLines.push(`Page Link: ${attachedPage.url}`);
-        if (attachedPage.description) metaLines.push(`Description: ${attachedPage.description}`);
-        if (attachedPage.author) metaLines.push(`Author: ${attachedPage.author}`);
-        if (attachedPage.keywords) metaLines.push(`Keywords: ${attachedPage.keywords}`);
+        if (attachedPage.description)
+          metaLines.push(`Description: ${attachedPage.description}`);
+        if (attachedPage.author)
+          metaLines.push(`Author: ${attachedPage.author}`);
+        if (attachedPage.keywords)
+          metaLines.push(`Keywords: ${attachedPage.keywords}`);
 
         const metadataBlock = metaLines.join("\n");
-        const userPrompt = actualInput || "Analyze and summarize this page based on the attached top-section screenshot and page metadata.";
+        const userPrompt =
+          actualInput ||
+          "Analyze and summarize this page based on the attached top-section screenshot and page metadata.";
         sentQuestion = `${userPrompt}\n\n[Web Page Metadata]\n${metadataBlock}`;
       } else if (!actualInput && attachedImage) {
         sentQuestion = "Explain what is on this screen";
@@ -732,9 +905,7 @@ export default function ChatBot({
 
       const enabledList = aiProviders.filter((p) => p.enabled);
       const requestedIds =
-        enabledList.length > 0
-          ? enabledList.map((p) => p.id)
-          : ["google"];
+        enabledList.length > 0 ? enabledList.map((p) => p.id) : ["google"];
 
       // Append new Turn to continuous conversation list (one after one)
       const newTurn = {
@@ -807,12 +978,18 @@ export default function ChatBot({
     if (showMentionMenu && filteredMentionOptions.length > 0) {
       if (e.key === "ArrowDown") {
         e.preventDefault();
-        setMentionSelectedIndex((prev) => (prev + 1) % filteredMentionOptions.length);
+        setMentionSelectedIndex(
+          (prev) => (prev + 1) % filteredMentionOptions.length,
+        );
         return;
       }
       if (e.key === "ArrowUp") {
         e.preventDefault();
-        setMentionSelectedIndex((prev) => (prev - 1 + filteredMentionOptions.length) % filteredMentionOptions.length);
+        setMentionSelectedIndex(
+          (prev) =>
+            (prev - 1 + filteredMentionOptions.length) %
+            filteredMentionOptions.length,
+        );
         return;
       }
       if (e.key === "Enter" || e.key === "Tab") {
@@ -836,24 +1013,39 @@ export default function ChatBot({
   // Receive streaming / final AI answers and update corresponding turn in the conversation
   useEffect(() => {
     UTILS.pageOnMessage("IF_B_GET_ANSWER", (data) => {
-      console.log("[SpectraLens:ChatBot] 📥 Received IF_B_GET_ANSWER in UI:", data);
+      console.log(
+        "[SpectraLens:ChatBot] 📥 Received IF_B_GET_ANSWER in UI:",
+        data,
+      );
       if (!data || typeof data !== "object") return;
 
       const provider = data.provider || "google";
       const answerText =
         data.answer || data.content || (typeof data === "string" ? data : "");
 
-      console.log(`[SpectraLens:ChatBot] ✅ Updating answer for "${provider}", text length: ${answerText.length}`);
+      console.log(
+        `[SpectraLens:ChatBot] ✅ Updating answer for "${provider}", text length: ${answerText.length}`,
+      );
+
+      // Reactive resolution of concurrency promise for this provider
+      const resolver = activeProviderResolversRef.current.get(provider);
+      if (resolver && (answerText || data.isComplete)) {
+        activeProviderResolversRef.current.delete(provider);
+        resolver({ provider: { id: provider }, completed: true });
+      }
 
       setTurns((prevTurns) => {
-        const turnIndex = prevTurns.findIndex((t) => t.id === (data.requestId || currentRequestIdRef.current));
+        const turnIndex = prevTurns.findIndex(
+          (t) => t.id === (data.requestId || currentRequestIdRef.current),
+        );
         if (turnIndex === -1 && prevTurns.length === 0) return prevTurns;
 
         const targetIndex = turnIndex >= 0 ? turnIndex : prevTurns.length - 1;
         const targetTurn = prevTurns[targetIndex];
         if (!targetTurn) return prevTurns;
 
-        const isFirstAnswerForTurn = Object.keys(targetTurn.answers || {}).length === 0;
+        const isFirstAnswerForTurn =
+          Object.keys(targetTurn.answers || {}).length === 0;
         const updatedAnswers = {
           ...targetTurn.answers,
           [provider]: {
@@ -896,45 +1088,11 @@ export default function ChatBot({
         const newTurns = [...prevTurns];
         newTurns[targetIndex] = updatedTurn;
 
-        // Keep turnsRef in sync for the polling loop to read without re-renders
+        // Keep turnsRef in sync
         turnsRef.current = newTurns;
 
-        // Save complete conversation thread to Chrome local storage history
-        UTILS.chromeStorageGetLocal(UTILS.KEYS.HISTORY, (prevHistory = []) => {
-          const historyList = Array.isArray(prevHistory) ? prevHistory : [];
-          const sessionId = newTurns[0]?.id || Date.now().toString();
-          const existingIndex = historyList.findIndex((item) => item.id === sessionId);
-
-          const allSessionProviders = new Set();
-          const mergedAllAnswers = {};
-          for (const t of newTurns) {
-            if (t.answers) {
-              for (const [pId, pVal] of Object.entries(t.answers)) {
-                allSessionProviders.add(pId);
-                mergedAllAnswers[pId] = pVal;
-              }
-            }
-          }
-
-          const updatedHistoryItem = {
-            id: sessionId,
-            question: newTurns[0]?.question || "Conversation",
-            timestamp: Date.now(),
-            turns: newTurns,
-            answers: mergedAllAnswers,
-            providers: Array.from(allSessionProviders),
-          };
-
-          let updatedHistory;
-          if (existingIndex >= 0) {
-            updatedHistory = [...historyList];
-            updatedHistory[existingIndex] = updatedHistoryItem;
-          } else {
-            updatedHistory = [updatedHistoryItem, ...historyList].slice(0, 50);
-          }
-
-          UTILS.chromeStorageSetLocal(UTILS.KEYS.HISTORY, updatedHistory, () => {});
-        });
+        // Debounced history save to eliminate storage I/O and GC pauses
+        saveHistoryDebounced(newTurns);
 
         return newTurns;
       });
@@ -982,7 +1140,10 @@ export default function ChatBot({
   }, [isOpen]);
 
   useEffect(() => {
-    if (newChatTrigger > 0 && newChatTrigger !== lastHandledNewChatRef.current) {
+    if (
+      newChatTrigger > 0 &&
+      newChatTrigger !== lastHandledNewChatRef.current
+    ) {
       lastHandledNewChatRef.current = newChatTrigger;
       handleNewChat();
     }
@@ -1025,6 +1186,10 @@ export default function ChatBot({
       <div
         ref={scrollContainerRef}
         className="flex-1 overflow-y-auto custom-scrollbar p-3.5 space-y-4"
+        style={{
+          willChange: "scroll-position, transform",
+          transform: "translateZ(0)",
+        }}
       >
         {/* Welcome Empty State */}
         {turns.length === 0 && !isLoading && (
@@ -1064,9 +1229,9 @@ export default function ChatBot({
 
           const isCardLoading = Boolean(
             !activeContent &&
-              (turn.isLoading ||
-                (Array.isArray(turn.loadingProviders) &&
-                  turn.loadingProviders.includes(currentProviderId))),
+            (turn.isLoading ||
+              (Array.isArray(turn.loadingProviders) &&
+                turn.loadingProviders.includes(currentProviderId))),
           );
 
           const providerMeta = allProvidersList.find(
@@ -1117,7 +1282,7 @@ export default function ChatBot({
           className={`p-3 border-t shrink-0 flex items-center justify-between gap-3 ${
             contrastMode === "solid"
               ? "bg-slate-100 dark:bg-[#14161e] border-slate-200/90 dark:border-white/[0.08]"
-              : "bg-white/50 dark:bg-black/20 backdrop-blur-md border-slate-200/50 dark:border-white/[0.06]"
+              : "bg-white/90 dark:bg-[#14161e]/90 border-slate-200/50 dark:border-white/[0.06]"
           }`}
         >
           <div className="flex items-center gap-2.5 min-w-0 flex-1">

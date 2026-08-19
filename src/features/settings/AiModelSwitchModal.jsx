@@ -12,14 +12,14 @@ export default function AiModelSwitchModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/50 dark:bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
+      className="fixed inset-0 z-50 bg-black/50 dark:bg-black/75 flex items-center justify-center p-4 animate-fade-in"
       onClick={onClose}
     >
       <div
         className={`w-full max-w-[320px] rounded-2xl border shadow-2xl p-4.5 space-y-4 animate-scale-up ${
           contrastMode === "solid"
             ? "bg-white dark:bg-[#191c25] border-slate-200/90 dark:border-white/10"
-            : "bg-white/95 dark:bg-[#191c25]/95 backdrop-blur-md border-slate-200/80 dark:border-white/10"
+            : "bg-white/95 dark:bg-[#191c25]/95 border-slate-200/80 dark:border-white/10"
         }`}
         onClick={(e) => e.stopPropagation()}
       >
@@ -32,7 +32,7 @@ export default function AiModelSwitchModal({
               Switch Active AI Model
             </h4>
             <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-snug">
-              Max 3 models can run in parallel. Select which model to replace with{" "}
+              Max {confirmSwitchData.maxLimit || 7} models can run in parallel. Select which model to replace with{" "}
               <strong className="text-blue-600 dark:text-blue-400 font-bold">
                 {confirmSwitchData.targetProvider.name}
               </strong>

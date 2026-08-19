@@ -8,15 +8,22 @@ import ThemeAppearanceSection from "../features/settings/ThemeAppearanceSection.
 import { useTheme } from "../hooks/useThemeHook.jsx";
 import extensionUtils from "./../utils/utilsModule.js";
 import Toast from "./Toast.jsx";
+import {
+  MAX_CONCURRENT_AI_PROVIDERS,
+  MAX_PRIMARY_PROVIDER_TABS,
+} from "./ChatBot.jsx";
 
 const DEFAULT_AI_OPTIONS = [
   { id: "google", name: "Google AI", enabled: true },
-  { id: "gemini", name: "Gemini", enabled: true },
   { id: "chatgpt", name: "ChatGPT", enabled: true },
+  { id: "gemini", name: "Gemini", enabled: true },
   { id: "claude", name: "Claude", enabled: false },
   { id: "perplexity", name: "Perplexity", enabled: false },
   { id: "grok", name: "Grok AI", enabled: false },
 ];
+
+export const DEFAULT_AUTO_MINIMIZE_DELAY = 60;
+export const DEFAULT_AUTO_HIDE_DELAY = 60;
 
 export default function Controls({ isMenuOpen = true }) {
   const { theme, setTheme, contrastMode, setContrastMode } = useTheme();
@@ -49,9 +56,13 @@ export default function Controls({ isMenuOpen = true }) {
 
   const [widgetEnabled, setWidgetEnabled] = useState(false);
   const [currentHostname, setCurrentHostname] = useState("");
-  const [autoHideDelay, setAutoHideDelay] = useState(0);
-  const [autoMinimizeDelay, setAutoMinimizeDelay] = useState(0);
-  const [concurrentRequests, setConcurrentRequests] = useState(3);
+  const [autoHideDelay, setAutoHideDelay] = useState(DEFAULT_AUTO_HIDE_DELAY);
+  const [autoMinimizeDelay, setAutoMinimizeDelay] = useState(
+    DEFAULT_AUTO_MINIMIZE_DELAY,
+  );
+  const [concurrentRequests, setConcurrentRequests] = useState(
+    MAX_CONCURRENT_AI_PROVIDERS,
+  );
 
   const [alwaysActiveTab, setAlwaysActiveTab] = useState(false);
   const [enableCopy, setEnableCopy] = useState(false);
@@ -78,7 +89,8 @@ export default function Controls({ isMenuOpen = true }) {
             const capped = merged.map((item) => {
               if (item.enabled) {
                 count++;
-                if (count > 3) return { ...item, enabled: false };
+                if (count > MAX_CONCURRENT_AI_PROVIDERS)
+                  return { ...item, enabled: false };
               }
               return item;
             });
@@ -91,16 +103,23 @@ export default function Controls({ isMenuOpen = true }) {
 
           if (data.concurrentRequests !== undefined) {
             setConcurrentRequests(
-              Math.min(3, Math.max(1, Number(data.concurrentRequests))),
+              Math.min(
+                MAX_CONCURRENT_AI_PROVIDERS,
+                Math.max(1, Number(data.concurrentRequests)),
+              ),
             );
           }
 
           if (data.autoHideDelay !== undefined) {
             setAutoHideDelay(Number(data.autoHideDelay));
+          } else {
+            setAutoHideDelay(DEFAULT_AUTO_HIDE_DELAY);
           }
 
           if (data.autoMinimizeDelay !== undefined) {
             setAutoMinimizeDelay(Number(data.autoMinimizeDelay));
+          } else {
+            setAutoMinimizeDelay(DEFAULT_AUTO_MINIMIZE_DELAY);
           }
         }
         setIsInitialized(true);
@@ -262,11 +281,13 @@ export default function Controls({ isMenuOpen = true }) {
     }
 
     const activeList = aiList.filter((ai) => ai.enabled);
-    if (activeList.length >= 3) {
+    if (activeList.length >= MAX_CONCURRENT_AI_PROVIDERS) {
       setConfirmSwitchData({
         targetProvider: target,
         activeProviders: activeList,
-        selectedReplaceId: activeList[2]?.id || activeList[0]?.id,
+        selectedReplaceId:
+          activeList[activeList.length - 1]?.id || activeList[0]?.id,
+        maxLimit: MAX_CONCURRENT_AI_PROVIDERS,
       });
       return;
     }
@@ -391,15 +412,21 @@ export default function Controls({ isMenuOpen = true }) {
           extensionUtils.KEYS.ENABLE_COPY_HOSTS,
           hosts,
           () => {
-            if (chrome?.tabs?.sendMessage && tab.id) {
-              chrome.tabs.sendMessage(
-                tab.id,
-                { action: nextState ? "enable_function" : "disable_function" },
-                () => {
-                  void chrome.runtime.lastError;
-                },
-              );
-            }
+            try {
+              if (
+                extensionUtils.isExtensionContextValid() &&
+                chrome?.tabs?.sendMessage &&
+                tab.id
+              ) {
+                chrome.tabs.sendMessage(
+                  tab.id,
+                  { action: nextState ? "enable_function" : "disable_function" },
+                  () => {
+                    void chrome?.runtime?.lastError;
+                  },
+                );
+              }
+            } catch {}
           },
         );
       },
@@ -410,21 +437,33 @@ export default function Controls({ isMenuOpen = true }) {
     contrastMode === "solid"
       ? "bg-white dark:bg-[#191c25] border-slate-200/90 dark:border-white/[0.08]"
       : contrastMode === "medium"
-        ? "bg-white/70 dark:bg-[#191c25]/70 backdrop-blur-md border-slate-200/60 dark:border-white/[0.07]"
-        : "bg-white/30 dark:bg-white/[0.05] backdrop-blur-sm border-slate-200/30 dark:border-white/[0.05]";
+        ? "bg-white/95 dark:bg-[#191c25]/95 border-slate-200/60 dark:border-white/[0.07]"
+        : "bg-white/80 dark:bg-white/[0.06] border-slate-200/30 dark:border-white/[0.05]";
 
   return (
     <div className="flex flex-col h-full bg-transparent text-slate-900 dark:text-slate-100 overflow-hidden">
       <div className="flex-1 overflow-y-auto custom-scrollbar p-3.5 space-y-4">
+        {/* 1. AI Models Priority & Limits */}
         <AiModelPriorityList
           aiList={aiList}
           enabledCount={enabledCount}
+          maxActive={MAX_CONCURRENT_AI_PROVIDERS}
           cardBg={cardBgClass}
           onToggleModel={handleToggleModel}
           onMoveUp={handleMoveUp}
           onMoveDown={handleMoveDown}
         />
 
+        {/* 2. Appearance & Theme Customization */}
+        <ThemeAppearanceSection
+          theme={theme}
+          contrastMode={contrastMode}
+          cardBg={cardBgClass}
+          onChangeTheme={setTheme}
+          onChangeContrastMode={setContrastMode}
+        />
+
+        {/* 3. In-Page & Browser Powers */}
         <BrowserPowersSection
           widgetEnabled={widgetEnabled}
           currentHostname={currentHostname}
@@ -436,6 +475,7 @@ export default function Controls({ isMenuOpen = true }) {
           onToggleEnableCopy={handleToggleEnableCopy}
         />
 
+        {/* 4. Inactivity & Auto-Dismiss Timers */}
         <InactivityTimersSection
           autoMinimizeDelay={autoMinimizeDelay}
           autoHideDelay={autoHideDelay}
@@ -448,14 +488,6 @@ export default function Controls({ isMenuOpen = true }) {
             setAutoHideDelay(val);
             saveControlsSettings(aiList, concurrentRequests, val, autoMinimizeDelay);
           }}
-        />
-
-        <ThemeAppearanceSection
-          theme={theme}
-          contrastMode={contrastMode}
-          cardBg={cardBgClass}
-          onChangeTheme={setTheme}
-          onChangeContrastMode={setContrastMode}
         />
       </div>
 

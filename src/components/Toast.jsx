@@ -34,11 +34,11 @@ export default function Toast({
         : "bg-white border-slate-200/90 text-slate-900 shadow-2xl"
       : contrastMode === "medium"
         ? isDarkMode
-          ? "bg-[#181924]/90 backdrop-blur-md border-white/15 text-white shadow-2xl"
-          : "bg-white/90 backdrop-blur-md border-slate-200/80 text-slate-900 shadow-2xl"
+          ? "bg-[#181924]/95 border-white/15 text-white shadow-2xl"
+          : "bg-white/95 border-slate-200/80 text-slate-900 shadow-2xl"
         : isDarkMode
-          ? "bg-[#14151e]/85 backdrop-blur-lg border-white/20 text-white shadow-2xl"
-          : "bg-white/85 backdrop-blur-lg border-slate-300/80 text-slate-900 shadow-2xl";
+          ? "bg-[#14151e]/90 border-white/20 text-white shadow-2xl"
+          : "bg-white/90 border-slate-300/80 text-slate-900 shadow-2xl";
 
   const getIcon = () => {
     if (type === "success") {

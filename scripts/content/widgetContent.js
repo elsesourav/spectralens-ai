@@ -46,23 +46,30 @@ function removeIntroOverlay() {
 }
 
 function checkAndShowDailyIntro(left, top) {
-  if (typeof chrome === "undefined" || !chrome.storage?.local) return;
-
-  const todayStr = getTodayDateString();
-  chrome.storage.local.get([INTRO_STORAGE_KEY], (res) => {
-    const lastDate = res?.[INTRO_STORAGE_KEY];
-    if (lastDate === todayStr) {
-      // Max 1 time per day across all tabs
+  try {
+    if (
+      typeof chrome === "undefined" ||
+      !Boolean(chrome?.runtime?.id) ||
+      !chrome.storage?.local
+    )
       return;
-    }
 
-    // Save today's date so it only shows once in a single day
-    chrome.storage.local.set({ [INTRO_STORAGE_KEY]: todayStr });
+    const todayStr = getTodayDateString();
+    chrome.storage.local.get([INTRO_STORAGE_KEY], (res) => {
+      try {
+        const lastDate = res?.[INTRO_STORAGE_KEY];
+        if (lastDate === todayStr) {
+          // Max 1 time per day across all tabs
+          return;
+        }
 
-    document.getElementById("spectralens-tour-overlay")?.remove();
+        // Save today's date so it only shows once in a single day
+        chrome.storage.local.set({ [INTRO_STORAGE_KEY]: todayStr });
 
-    let currentStep = 1;
-    const totalSteps = 3;
+        document.getElementById("spectralens-tour-overlay")?.remove();
+
+        let currentStep = 1;
+        const totalSteps = 3;
 
     const stepsData = [
       {
@@ -124,8 +131,7 @@ function checkAndShowDailyIntro(left, top) {
       left: ${cardLeft}px;
       top: ${cardTop}px;
       width: 320px;
-      background: rgba(18, 20, 30, 0.94);
-      backdrop-filter: blur(16px);
+      background: rgba(18, 20, 30, 0.98);
       border: 1px solid rgba(255, 255, 255, 0.12);
       border-radius: 18px;
       box-shadow: 0 20px 50px rgba(0, 0, 0, 0.65), 0 0 30px rgba(99, 102, 241, 0.15);
@@ -216,7 +222,9 @@ function checkAndShowDailyIntro(left, top) {
     setTimeout(() => {
       overlay.style.opacity = "1";
     }, 40);
+    } catch {}
   });
+  } catch {}
 }
 
 function handleWidgetPointerEnter() {
@@ -226,11 +234,11 @@ function handleWidgetPointerEnter() {
   pagePostMessage("C_IF_ACTIVITY", {}, menuFrame?.contentWindow);
 }
 
-// Throttled user activity forwarding to wake up minimized widget
+// Lightweight user activity notification to wake up minimized widget
 let lastUserActivityTimestamp = 0;
 function notifyUserActivity() {
   const now = Date.now();
-  if (now - lastUserActivityTimestamp > 1000) {
+  if (now - lastUserActivityTimestamp > 2000) {
     lastUserActivityTimestamp = now;
     const iframe = document.getElementById("spectralensWidgetIframe");
     if (iframe?.contentWindow) {
@@ -239,10 +247,8 @@ function notifyUserActivity() {
   }
 }
 
-window.addEventListener("mousemove", notifyUserActivity, { passive: true });
 window.addEventListener("pointerdown", notifyUserActivity, { passive: true });
 window.addEventListener("keydown", notifyUserActivity, { passive: true });
-window.addEventListener("scroll", notifyUserActivity, { passive: true });
 
 function handleWidgetPointerLeave() {
   isWidgetDragging = false;
@@ -857,44 +863,57 @@ window.addEventListener("message", async (event) => {
 });
 
 // Live synchronization for controls & contrast changes from popup
-if (typeof chrome !== "undefined" && chrome.storage?.onChanged) {
-  chrome.storage.onChanged.addListener((changes) => {
-    if (changes[KEYS.CONTROLS]) {
-      const val = changes[KEYS.CONTROLS].newValue;
-      const controls = typeof val === "string" ? JSON.parse(val) : val;
+try {
+  if (
+    typeof chrome !== "undefined" &&
+    Boolean(chrome?.runtime?.id) &&
+    chrome.storage?.onChanged
+  ) {
+    chrome.storage.onChanged.addListener((changes) => {
+      try {
+        if (!chrome?.runtime?.id) return;
+        if (changes[KEYS.CONTROLS]) {
+          const val = changes[KEYS.CONTROLS].newValue;
+          const controls = typeof val === "string" ? JSON.parse(val) : val;
+          const iframe = document.getElementById("spectralensWidgetIframe");
+          if (iframe?.contentWindow) {
+            pagePostMessage(
+              "IF_C_GET_CURRENT_CONTROLS",
+              {
+                success: true,
+                controls,
+                pageTheme: detectPageTheme(),
+              },
+              iframe.contentWindow,
+            );
+          }
+        }
+      } catch {}
+    });
+  }
+} catch {}
+
+// Watch for live webpage theme toggles (e.g. YouTube, GitHub dark mode toggle) with debouncing
+try {
+  let themeDebounceTimer = null;
+  const themeMutationObserver = new MutationObserver(() => {
+    if (themeDebounceTimer) clearTimeout(themeDebounceTimer);
+    themeDebounceTimer = setTimeout(() => {
       const iframe = document.getElementById("spectralensWidgetIframe");
       if (iframe?.contentWindow) {
-        pagePostMessage(
-          "IF_C_GET_CURRENT_CONTROLS",
-          {
-            success: true,
-            controls,
-            pageTheme: detectPageTheme(),
-          },
-          iframe.contentWindow,
-        );
+        chromeStorageGetLocal(KEYS.CONTROLS, (controls) => {
+          pagePostMessage(
+            "IF_C_GET_CURRENT_CONTROLS",
+            {
+              success: true,
+              controls,
+              pageTheme: detectPageTheme(),
+            },
+            iframe.contentWindow,
+          );
+        });
       }
-    }
-  });
-}
-
-// Watch for live webpage theme toggles (e.g. YouTube, GitHub dark mode toggle)
-try {
-  const themeMutationObserver = new MutationObserver(() => {
-    const iframe = document.getElementById("spectralensWidgetIframe");
-    if (iframe?.contentWindow) {
-      chromeStorageGetLocal(KEYS.CONTROLS, (controls) => {
-        pagePostMessage(
-          "IF_C_GET_CURRENT_CONTROLS",
-          {
-            success: true,
-            controls,
-            pageTheme: detectPageTheme(),
-          },
-          iframe.contentWindow,
-        );
-      });
-    }
+    }, 200);
   });
 
   themeMutationObserver.observe(document.documentElement, {
@@ -930,7 +949,7 @@ try {
       });
   }
   // Close AI worker window and sessions whenever host page reloads or unloads (skip on AI provider pages)
-  const isAiProviderDomain = /google\.com|chatgpt\.com|claude\.ai|gemini\.google\.com|perplexity\.ai|grok\.com|bing\.com/i.test(
+  const isAiProviderDomain = /google\.com|chatgpt\.com|claude\.ai|gemini\.google\.com|perplexity\.ai|grok\.com/i.test(
     window.location.hostname,
   );
   if (!isAiProviderDomain) {

@@ -96,7 +96,7 @@ async function zipExtension() {
 
 About
 -----
-A powerful Chrome extension that brings multiple AI assistants together in one convenient interface. Get answers from Google Gemini, Bing AI, Perplexity, Grok, and more - all at once!
+A powerful Chrome extension that brings multiple AI assistants together in one convenient interface. Get answers from Google Gemini, ChatGPT, Claude, Perplexity, Grok, and more - all at once!
 
 How to Use (Video Tutorial)
 ---------------------------

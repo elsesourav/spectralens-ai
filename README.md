@@ -2,7 +2,7 @@
 
 <img src="src/assets/icons/icon.png" width="128" height="128" alt="SpectraLens AI Icon">
 
-A powerful Chrome extension that brings multiple AI assistants together in one convenient interface. Get answers from Google Gemini, Bing AI, Perplexity, Grok, and more - all at once!
+A powerful Chrome extension that brings multiple AI assistants together in one convenient interface. Get answers from Google Gemini, ChatGPT, Claude, Perplexity, Grok, and more - all at once!
 
 **No API keys required** - Works directly with AI provider websites.
 
@@ -36,7 +36,7 @@ A powerful Chrome extension that brings multiple AI assistants together in one c
 ### Multi-AI Support
 
 - **Google Gemini** - Google's advanced AI model
-- **Bing AI** - Microsoft's AI-powered search
+- **ChatGPT & Claude** - OpenAI & Anthropic conversational intelligence
 - **Perplexity** - AI-powered research assistant
 - **Grok** - Real-time AI responses
 - **More providers** - Additional AI services coming soon
@@ -131,7 +131,7 @@ This project is licensed under the [MIT License](MIT-LICENSE.txt).
 Feel free to share this project! Here are some key highlights to mention:
 
 - **No API Keys Required** - Works directly with AI provider websites
-- **Multiple AI Providers** - Google Gemini, Bing AI, Perplexity, Grok and more
+- **Multiple AI Providers** - Google Gemini, ChatGPT, Claude, Perplexity, Grok and more
 - **Privacy Focused** - No data collection, everything stays local
 - **OCR Integration** - Extract text from images and screenshots
 - **React + Vite** - Modern development stack with Tailwind CSS

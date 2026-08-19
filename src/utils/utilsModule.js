@@ -7,124 +7,214 @@ import { marked } from "marked";
 // Provides a clean interface to Chrome extension APIs
 
 const hasChrome =
-   typeof chrome !== "undefined" && typeof chrome.runtime !== "undefined";
+  typeof chrome !== "undefined" && typeof chrome.runtime !== "undefined";
 
 const KEYS = {
-   SETTINGS: "Ai-Display-Settings",
-   CONTROLS: "Ai-Display-Controls",
-   HISTORY: "Ai-Display-History",
-   ALWAYS_ACTIVE_HOSTS: "alwaysActiveHosts",
-   ENABLE_COPY_HOSTS: "enableCopyHosts",
-   MENU_HOSTS: "menuHosts",
-   WIDGET_HINT_SEEN: "spectralens_widget_hint_seen",
+  SETTINGS: "Ai-Display-Settings",
+  CONTROLS: "Ai-Display-Controls",
+  HISTORY: "Ai-Display-History",
+  ALWAYS_ACTIVE_HOSTS: "alwaysActiveHosts",
+  ENABLE_COPY_HOSTS: "enableCopyHosts",
+  MENU_HOSTS: "menuHosts",
+  WIDGET_HINT_SEEN: "spectralens_widget_hint_seen",
 };
 
-/* ----------- Developer Mode (Error Suppression) ----------- */
+/* ----------- Developer Mode (Universal Log & Error Control) ----------- */
 
-let __isDevMode = false;
+/**
+ * =========================================================================
+ * 🛠️ SPECTRALENS DEVELOPER MODE CONFIGURATION
+ * =========================================================================
+ * Set IN_CODE_DEV_MODE to true to enable detailed console logs in code.
+ * Set to false to disable all logs unless enabled in Options > Developer Mode.
+ * When Developer Mode is OFF, all console.log, info, debug, warn, and error
+ * calls are silenced across Background, Content, and Popup scripts.
+ * =========================================================================
+ */
+let IN_CODE_DEV_MODE = true; // <-- Change to true to force logs on in code, or false to silence
 
-if (hasChrome && chrome.storage?.local) {
-   // Initialize devMode state
-   chrome.storage.local.get([KEYS.CONTROLS]).then((res) => {
-      if (!res) return;
-      const parsed =
-         typeof res[KEYS.CONTROLS] === "string"
-            ? JSON.parse(res[KEYS.CONTROLS])
-            : res[KEYS.CONTROLS];
-      __isDevMode = parsed?.devMode || false;
-   });
+let __isDevMode = IN_CODE_DEV_MODE;
 
-   // Listen for settings changes
-   chrome.storage.onChanged.addListener((changes) => {
-      if (changes[KEYS.CONTROLS]) {
-         const parsed =
-            typeof changes[KEYS.CONTROLS].newValue === "string"
-               ? JSON.parse(changes[KEYS.CONTROLS].newValue)
-               : changes[KEYS.CONTROLS].newValue;
-         __isDevMode = parsed?.devMode || false;
-      }
-   });
+const originalConsole = {
+  log: console.log.bind(console),
+  info: console.info ? console.info.bind(console) : console.log.bind(console),
+  debug: console.debug
+    ? console.debug.bind(console)
+    : console.log.bind(console),
+  warn: console.warn ? console.warn.bind(console) : console.log.bind(console),
+  error: console.error.bind(console),
+};
+
+function isDevModeActive() {
+  return Boolean(__isDevMode || IN_CODE_DEV_MODE);
 }
 
-// Override console.error globally
-const originalConsoleError = console.error;
-console.error = function (...args) {
-   if (__isDevMode) {
-      originalConsoleError.apply(console, args);
-   }
+function updateDevModeState(newVal) {
+  __isDevMode = Boolean(newVal || IN_CODE_DEV_MODE);
+}
+
+// Override all standard console methods globally
+console.log = function (...args) {
+  if (isDevModeActive()) {
+    originalConsole.log(...args);
+  }
 };
+
+console.info = function (...args) {
+  if (isDevModeActive()) {
+    originalConsole.info(...args);
+  }
+};
+
+console.debug = function (...args) {
+  if (isDevModeActive()) {
+    originalConsole.debug(...args);
+  }
+};
+
+console.warn = function (...args) {
+  if (isDevModeActive()) {
+    originalConsole.warn(...args);
+  }
+};
+
+console.error = function (...args) {
+  if (isDevModeActive()) {
+    originalConsole.error(...args);
+  }
+};
+
+function isExtensionContextValid() {
+  try {
+    return typeof chrome !== "undefined" && Boolean(chrome?.runtime?.id);
+  } catch {
+    return false;
+  }
+}
+
+if (hasChrome && isExtensionContextValid() && chrome.storage?.local) {
+  // Initialize devMode state
+  try {
+    chrome.storage.local
+      .get([KEYS.CONTROLS])
+      .then((res) => {
+        if (!res) return;
+        const parsed =
+          typeof res[KEYS.CONTROLS] === "string"
+            ? JSON.parse(res[KEYS.CONTROLS])
+            : res[KEYS.CONTROLS];
+        updateDevModeState(parsed?.devMode);
+      })
+      .catch(() => {});
+
+    // Listen for settings changes
+    chrome.storage.onChanged.addListener((changes, area) => {
+      try {
+        if (!isExtensionContextValid()) return;
+        if ((!area || area === "local") && changes[KEYS.CONTROLS]) {
+          const parsed =
+            typeof changes[KEYS.CONTROLS].newValue === "string"
+              ? JSON.parse(changes[KEYS.CONTROLS].newValue)
+              : changes[KEYS.CONTROLS].newValue;
+          updateDevModeState(parsed?.devMode);
+        }
+      } catch {
+        // Silently catch context invalidation
+      }
+    });
+  } catch {
+    // Ignore context invalidation
+  }
+}
 
 /* ----------- General Utilities ----------- */
 
 /** Returns a promise that resolves after `ms` milliseconds */
 function wait(ms) {
-   return new Promise((resolve) => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /** Creates a debounced version of `func` with dynamic delay from `delayFn` */
 const debounce = (func, delayFn) => {
-   let debounceTimer;
-   return function (...args) {
-      const context = this;
-      const delay = delayFn();
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => func.apply(context, args), delay);
-   };
+  let debounceTimer;
+  return function (...args) {
+    const context = this;
+    const delay = delayFn();
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => func.apply(context, args), delay);
+  };
 };
 
 /* ----------- Tab Utilities ----------- */
 
 /** Returns the currently active tab in the focused window */
 function getActiveTab() {
-   return new Promise((resolve) => {
-      if (!hasChrome || !chrome.tabs?.query) {
-         resolve(null);
-         return;
+  return new Promise((resolve) => {
+    try {
+      if (!isExtensionContextValid() || !chrome.tabs?.query) {
+        resolve(null);
+        return;
       }
-      chrome.tabs.query(
-         { currentWindow: true, active: true },
-         (tabs) => resolve(tabs?.[0] ?? null)
-      );
-   });
+      chrome.tabs.query({ currentWindow: true, active: true }, (tabs) => {
+        if (chrome?.runtime?.lastError) {
+          resolve(null);
+          return;
+        }
+        resolve(tabs?.[0] ?? null);
+      });
+    } catch {
+      resolve(null);
+    }
+  });
 }
 
 /* ----------- Chrome Storage Sync ----------- */
 
 function chromeStorageSet(key, value, callback) {
-   return new Promise((resolve) => {
-      if (!hasChrome || !chrome.storage?.sync?.set) {
-         callback && callback();
-         resolve();
-         return;
+  return new Promise((resolve) => {
+    try {
+      if (!isExtensionContextValid() || !chrome.storage?.sync?.set) {
+        callback && callback();
+        resolve();
+        return;
       }
       chrome.storage.sync.set({ [key]: value }, () => {
-         if (chrome.runtime.lastError) {
-            console.error("Error setting item:", chrome.runtime.lastError);
-         } else if (callback) {
-            callback();
-         }
-         resolve();
+        if (chrome.runtime?.lastError) {
+          console.error("Error setting item:", chrome.runtime.lastError);
+        } else if (callback) {
+          callback();
+        }
+        resolve();
       });
-   });
+    } catch {
+      callback && callback();
+      resolve();
+    }
+  });
 }
 
 function chromeStorageGet(key, callback = () => {}) {
-   return new Promise((resolve) => {
-      if (!hasChrome || !chrome.storage?.sync?.get) {
-         callback(undefined);
-         resolve(null);
-         return;
+  return new Promise((resolve) => {
+    try {
+      if (!isExtensionContextValid() || !chrome.storage?.sync?.get) {
+        callback(undefined);
+        resolve(null);
+        return;
       }
       chrome.storage.sync.get([key], (result) => {
-         if (chrome?.runtime?.lastError) {
-            console.error("Error getting item:", chrome.runtime.lastError);
-            resolve(null);
-         } else {
-            callback(result[key]);
-            resolve(result[key]);
-         }
+        if (chrome?.runtime?.lastError) {
+          console.error("Error getting item:", chrome.runtime.lastError);
+          resolve(null);
+        } else {
+          callback(result?.[key]);
+          resolve(result?.[key]);
+        }
       });
-   });
+    } catch {
+      callback(undefined);
+      resolve(null);
+    }
+  });
 }
 
 /* ----------- Chrome Storage Local ----------- */
@@ -134,22 +224,27 @@ function chromeStorageGet(key, callback = () => {}) {
  * NOTE: Values are JSON.stringify'd before storage.
  */
 function chromeStorageSetLocal(key, value, callback) {
-   return new Promise((resolve) => {
-      if (!hasChrome || !chrome.storage?.local?.set) {
-         callback && callback(false);
-         resolve();
-         return;
+  return new Promise((resolve) => {
+    try {
+      if (!isExtensionContextValid() || !chrome.storage?.local?.set) {
+        callback && callback(false);
+        resolve(false);
+        return;
       }
       const serialized = JSON.stringify(value);
       chrome.storage.local.set({ [key]: serialized }, () => {
-         if (chrome.runtime.lastError) {
-            console.error("Error setting item:", chrome.runtime.lastError);
-         } else if (callback) {
-            callback(true);
-         }
-         resolve();
+        if (chrome.runtime?.lastError) {
+          callback && callback(false);
+        } else if (callback) {
+          callback(true);
+        }
+        resolve(true);
       });
-   });
+    } catch {
+      callback && callback(false);
+      resolve(false);
+    }
+  });
 }
 
 /**
@@ -157,144 +252,156 @@ function chromeStorageSetLocal(key, value, callback) {
  * NOTE: Values are automatically JSON.parse'd on retrieval.
  */
 function chromeStorageGetLocal(key, callback) {
-   return new Promise((resolve) => {
-      if (!hasChrome || !chrome.storage?.local?.get) {
-         callback && callback(null);
-         resolve(null);
-         return;
+  return new Promise((resolve) => {
+    try {
+      if (!isExtensionContextValid() || !chrome.storage?.local?.get) {
+        callback && callback(null);
+        resolve(null);
+        return;
       }
       chrome.storage.local.get([key], (result) => {
-         if (chrome?.runtime?.lastError) {
-            console.error("Error getting item:", chrome.runtime.lastError);
-            callback && callback(null);
-            resolve(null);
-         } else {
-            let parsed = null;
-            if (typeof result[key] === "string") {
-               try {
-                  parsed = JSON.parse(result[key]);
-               } catch {
-                  parsed = result[key];
-               }
-            } else if (result[key] !== undefined) {
-               parsed = result[key];
+        if (chrome?.runtime?.lastError) {
+          callback && callback(null);
+          resolve(null);
+        } else {
+          let parsed = null;
+          if (result && typeof result[key] === "string") {
+            try {
+              parsed = JSON.parse(result[key]);
+            } catch {
+              parsed = result[key];
             }
-            callback && callback(parsed);
-            resolve(parsed);
-         }
+          } else if (result && result[key] !== undefined) {
+            parsed = result[key];
+          }
+          callback && callback(parsed);
+          resolve(parsed);
+        }
       });
-   });
+    } catch {
+      callback && callback(null);
+      resolve(null);
+    }
+  });
 }
 
 function chromeStorageRemoveLocal(key) {
-   return new Promise((resolve) => {
-      if (!hasChrome || !chrome.storage?.local?.remove) {
-         resolve();
-         return;
+  return new Promise((resolve) => {
+    try {
+      if (!isExtensionContextValid() || !chrome.storage?.local?.remove) {
+        resolve();
+        return;
       }
       chrome.storage.local.remove(key, () => {
-         if (chrome.runtime.lastError) {
-            console.error("Error removing item:", chrome.runtime.lastError);
-         }
-         resolve();
+        resolve();
       });
-   });
+    } catch {
+      resolve();
+    }
+  });
 }
 
 /* ----------- Messaging Utilities ----------- */
 
 /** Send a message via chrome.runtime to the background/service worker */
 function runtimeSendMessage(type, message, callback) {
-   try {
-      if (!hasChrome || !chrome.runtime?.sendMessage || !chrome.runtime?.id) {
-         if (typeof message === "function") message(undefined);
-         else callback && callback(undefined);
-         return;
-      }
-      if (typeof message === "function") {
-         chrome.runtime.sendMessage({ type }, (response) => {
-            const err = chrome.runtime?.lastError;
-            if (err && __isDevMode) {
-               console.warn("Message Error:", err.message);
-            }
-            message(response);
-         });
-      } else {
-         chrome.runtime.sendMessage({ ...message, type }, (response) => {
-            const err = chrome.runtime?.lastError;
-            if (err && __isDevMode) {
-               console.warn("Message Error:", err.message);
-            }
-            callback && callback(response);
-         });
-      }
-   } catch {
+  try {
+    if (!hasChrome || !chrome.runtime?.sendMessage || !chrome.runtime?.id) {
       if (typeof message === "function") message(undefined);
       else callback && callback(undefined);
-   }
+      return;
+    }
+    if (typeof message === "function") {
+      chrome.runtime.sendMessage({ type }, (response) => {
+        const err = chrome.runtime?.lastError;
+        if (err && __isDevMode) {
+          console.warn("Message Error:", err.message);
+        }
+        message(response);
+      });
+    } else {
+      chrome.runtime.sendMessage({ ...message, type }, (response) => {
+        const err = chrome.runtime?.lastError;
+        if (err && __isDevMode) {
+          console.warn("Message Error:", err.message);
+        }
+        callback && callback(response);
+      });
+    }
+  } catch {
+    if (typeof message === "function") message(undefined);
+    else callback && callback(undefined);
+  }
 }
 
 /** Listen for a specific message type via chrome.runtime */
 function runtimeOnMessage(type, callback) {
-   try {
-      if (!hasChrome || !chrome.runtime?.onMessage?.addListener || !chrome.runtime?.id) {
-         return;
+  try {
+    if (
+      !hasChrome ||
+      !chrome.runtime?.onMessage?.addListener ||
+      !chrome.runtime?.id
+    ) {
+      return;
+    }
+    chrome.runtime.onMessage.addListener((message, sender, response) => {
+      if (type === message?.type) {
+        const result = callback(message, sender, response);
+        if (result === true || (result && typeof result.then === "function")) {
+          return true;
+        }
       }
-      chrome.runtime.onMessage.addListener((message, sender, response) => {
-         if (type === message?.type) {
-            const result = callback(message, sender, response);
-            if (result === true || (result && typeof result.then === "function")) {
-               return true;
-            }
-         }
-         return false;
-      });
-   } catch {
-      // Extension context invalidated gracefully ignored
-   }
+      return false;
+    });
+  } catch {
+    // Extension context invalidated gracefully ignored
+  }
 }
 
 /** Send a message to a specific tab */
 function tabSendMessage(tabId, type, message, callback) {
-   if (!hasChrome || !chrome.tabs?.sendMessage || !chrome.runtime?.id) {
-      if (!chrome.runtime?.id && __isDevMode) {
-         originalConsoleError.call(console, "Message Error: Extension context invalidated.");
+  if (!hasChrome || !chrome.tabs?.sendMessage || !chrome.runtime?.id) {
+    if (!chrome.runtime?.id && __isDevMode) {
+      originalConsoleError.call(
+        console,
+        "Message Error: Extension context invalidated.",
+      );
+    }
+    if (typeof message === "function") message(undefined);
+    else callback && callback(undefined);
+    return;
+  }
+  if (typeof message === "function") {
+    chrome.tabs.sendMessage(tabId, { type }, (response) => {
+      const err = chrome.runtime.lastError;
+      if (err && __isDevMode) {
+        originalConsoleError.call(console, "Message Error:", err.message);
       }
-      if (typeof message === "function") message(undefined);
-      else callback && callback(undefined);
-      return;
-   }
-   if (typeof message === "function") {
-      chrome.tabs.sendMessage(tabId, { type }, (response) => {
-         const err = chrome.runtime.lastError;
-         if (err && __isDevMode) {
-            originalConsoleError.call(console, "Message Error:", err.message);
-         }
-         message(response);
-      });
-   } else {
-      chrome.tabs.sendMessage(tabId, { ...message, type }, (response) => {
-         const err = chrome.runtime.lastError;
-         if (err && __isDevMode) {
-            originalConsoleError.call(console, "Message Error:", err.message);
-         }
-         callback && callback(response);
-      });
-   }
+      message(response);
+    });
+  } else {
+    chrome.tabs.sendMessage(tabId, { ...message, type }, (response) => {
+      const err = chrome.runtime.lastError;
+      if (err && __isDevMode) {
+        originalConsoleError.call(console, "Message Error:", err.message);
+      }
+      callback && callback(response);
+    });
+  }
 }
 
 /** Post a message to a window (for iframe <-> content script communication) */
 function pagePostMessage(type, data, contentWindow = window) {
-   contentWindow?.postMessage({ type, data }, "*");
+  contentWindow?.postMessage({ type, data }, "*");
 }
 
 /** Listen for postMessage events of a specific type */
 function pageOnMessage(type, callback) {
-   window.addEventListener("message", (event) => {
-      if (event.data.type === type) {
-         callback(event.data.data, event);
-      }
-   });
+  window.addEventListener("message", (event) => {
+    if (event.data.type === type) {
+      callback(event.data.data, event);
+    }
+  });
 }
 
 /* ----------- Export ----------- */
@@ -304,45 +411,56 @@ function pageOnMessage(type, callback) {
  * inline handlers, javascript: URLs, or dangerous elements are rendered.
  */
 function sanitizeHtml(htmlString) {
-   if (typeof htmlString !== "string") return "";
-   if (!htmlString.trim()) return "";
+  if (typeof htmlString !== "string") return "";
+  if (!htmlString.trim()) return "";
 
-   try {
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(htmlString, "text/html");
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(htmlString, "text/html");
 
-      const disallowedTags = [
-         "SCRIPT", "IFRAME", "OBJECT", "EMBED", "FORM", "INPUT", "BUTTON",
-         "SELECT", "TEXTAREA", "NOSCRIPT", "STYLE", "LINK", "META", "BASE"
-      ];
+    const disallowedTags = [
+      "SCRIPT",
+      "IFRAME",
+      "OBJECT",
+      "EMBED",
+      "FORM",
+      "INPUT",
+      "SELECT",
+      "TEXTAREA",
+      "NOSCRIPT",
+      "STYLE",
+      "LINK",
+      "META",
+      "BASE",
+    ];
 
-      // Remove forbidden tags
-      const elements = doc.querySelectorAll("*");
-      elements.forEach((el) => {
-         if (disallowedTags.includes(el.tagName)) {
-            el.remove();
-            return;
-         }
+    // Remove forbidden tags
+    const elements = doc.querySelectorAll("*");
+    elements.forEach((el) => {
+      if (disallowedTags.includes(el.tagName)) {
+        el.remove();
+        return;
+      }
 
-         // Remove all event handlers (onclick, onload, etc.) and dangerous attributes
-         Array.from(el.attributes).forEach((attr) => {
-            const attrName = attr.name.toLowerCase();
-            const attrVal = attr.value.toLowerCase().trim();
+      // Remove all event handlers (onclick, onload, etc.) and dangerous attributes
+      Array.from(el.attributes).forEach((attr) => {
+        const attrName = attr.name.toLowerCase();
+        const attrVal = attr.value.toLowerCase().trim();
 
-            if (
-               attrName.startsWith("on") ||
-               attrVal.startsWith("javascript:") ||
-               attrVal.startsWith("data:text/html")
-            ) {
-               el.removeAttribute(attr.name);
-            }
-         });
+        if (
+          attrName.startsWith("on") ||
+          attrVal.startsWith("javascript:") ||
+          attrVal.startsWith("data:text/html")
+        ) {
+          el.removeAttribute(attr.name);
+        }
       });
+    });
 
-      return doc.body.innerHTML;
-   } catch {
-      return "";
-   }
+    return doc.body.innerHTML;
+  } catch {
+    return "";
+  }
 }
 
 /**
@@ -354,390 +472,629 @@ function sanitizeHtml(htmlString) {
  * @returns {string} Clean Markdown formatted string
  */
 function domToMarkdown(rootNode) {
-   if (!rootNode) return "";
+  if (!rootNode) return "";
 
-   function serializeNode(node, depth = 0, listType = null, listIndex = 1) {
-      if (!node) return "";
+  function serializeNode(node, depth = 0, listType = null, listIndex = 1) {
+    if (!node) return "";
 
-      // 1. Text Node
-      if (node.nodeType === Node.TEXT_NODE) {
-         return node.nodeValue;
+    // 1. Text Node
+    if (node.nodeType === Node.TEXT_NODE) {
+      return node.nodeValue;
+    }
+
+    // 2. Ignore non-element nodes (comments, etc.)
+    if (node.nodeType !== Node.ELEMENT_NODE) {
+      return "";
+    }
+
+    const tag = node.tagName.toLowerCase();
+
+    // Handle SpectraLens code card wrapper
+    if (node.classList?.contains("spectralens-code-card")) {
+      const codeEl =
+        node.querySelector("pre code") ||
+        node.querySelector("pre") ||
+        node.querySelector("code");
+      if (codeEl) {
+        const langMatch = (codeEl.className || "").match(
+          /(?:language-|lang-)([a-z0-9_#+.-]+)/i,
+        );
+        const langHeader =
+          node.querySelector("span")?.textContent?.trim()?.toLowerCase() || "";
+        const lang = langMatch
+          ? langMatch[1]
+          : langHeader && langHeader !== "copy" && langHeader !== "code"
+            ? langHeader
+            : "";
+
+        let codeContent = "";
+        const lineDivs = codeEl.querySelectorAll("div, p, tr");
+        if (lineDivs.length > 1) {
+          codeContent = Array.from(lineDivs)
+            .map((l) => l.textContent)
+            .join("\n");
+        } else {
+          const tempClone = codeEl.cloneNode(true);
+          tempClone
+            .querySelectorAll("br")
+            .forEach((br) => br.replaceWith("\n"));
+          codeContent = tempClone.textContent || "";
+        }
+        codeContent = codeContent
+          .replace(/\r\n/g, "\n")
+          .replace(/^\n+|\n+$/g, "");
+        return `\n\n\`\`\`${lang}\n${codeContent}\n\`\`\`\n\n`;
+      }
+    }
+
+    // Ignore scripts, styles, SVGs, copy buttons, tooltips, dialogs
+    if (
+      [
+        "script",
+        "style",
+        "noscript",
+        "svg",
+        "button",
+        "mat-icon",
+        "use",
+        "path",
+        "dialog",
+        "form",
+      ].includes(tag) ||
+      node.getAttribute("aria-hidden") === "true" ||
+      node.getAttribute("role") === "dialog" ||
+      node.getAttribute("role") === "button" ||
+      node.getAttribute("role") === "toolbar" ||
+      node.classList?.contains("copy-button") ||
+      node.classList?.contains("action-button") ||
+      node.classList?.contains("spectralens-code-copy-btn") ||
+      node.classList?.contains("screen-reader-only") ||
+      node.classList?.contains("sr-only") ||
+      node.classList?.contains("hidden") ||
+      node.style?.display === "none" ||
+      node.style?.visibility === "hidden"
+    ) {
+      return "";
+    }
+
+    // KaTeX / MathML formula handling
+    if (
+      node.classList?.contains("katex-mathml") ||
+      node.classList?.contains("katex-html")
+    ) {
+      if (node.classList?.contains("katex-mathml")) {
+        const annotation = node.querySelector("annotation");
+        if (annotation) {
+          const isDisplay = node.closest(".katex-display") !== null;
+          return isDisplay
+            ? `\n\n$$${annotation.textContent.trim()}$$\n\n`
+            : `$${annotation.textContent.trim()}$`;
+        }
+      } else {
+        if (node.parentElement?.querySelector(".katex-mathml")) return "";
+      }
+    }
+
+    // Code blocks: <pre><code> or <pre>
+    if (tag === "pre") {
+      const clonePre = node.cloneNode(true);
+      const headerDiv = clonePre.querySelector("div:first-child");
+      const headerSpan = headerDiv?.querySelector("span");
+      let lang = "";
+
+      const codeEl = clonePre.querySelector("code");
+      if (codeEl) {
+        const langMatch = (codeEl.className || "").match(
+          /(?:language-|lang-)([a-z0-9_#+.-]+)/i,
+        );
+        if (langMatch) lang = langMatch[1];
+      }
+      if (!lang && headerSpan) {
+        const hText = headerSpan.textContent.trim().toLowerCase();
+        if (
+          hText &&
+          hText.length < 20 &&
+          hText !== "copy" &&
+          hText !== "copy code"
+        ) {
+          lang = hText;
+        }
       }
 
-      // 2. Ignore non-element nodes (comments, etc.)
-      if (node.nodeType !== Node.ELEMENT_NODE) {
-         return "";
-      }
-
-      const tag = node.tagName.toLowerCase();
-
-      // Ignore scripts, styles, SVGs, copy buttons, tooltips, dialogs
       if (
-         [
-            "script", "style", "noscript", "svg", "button",
-            "mat-icon", "use", "path", "dialog", "form"
-         ].includes(tag) ||
-         node.getAttribute("aria-hidden") === "true" ||
-         node.getAttribute("role") === "dialog" ||
-         node.getAttribute("role") === "button" ||
-         node.getAttribute("role") === "toolbar" ||
-         node.classList?.contains("copy-button") ||
-         node.classList?.contains("action-button") ||
-         node.classList?.contains("screen-reader-only") ||
-         node.classList?.contains("sr-only") ||
-         node.classList?.contains("hidden") ||
-         node.style?.display === "none" ||
-         node.style?.visibility === "hidden"
+        headerDiv &&
+        (headerDiv.querySelector("button") ||
+          headerSpan ||
+          headerDiv.textContent.toLowerCase().includes("copy"))
       ) {
-         return "";
+        headerDiv.remove();
       }
 
-      // KaTeX / MathML formula handling
-      if (node.classList?.contains("katex-mathml") || node.classList?.contains("katex-html")) {
-         if (node.classList?.contains("katex-mathml")) {
-            const annotation = node.querySelector("annotation");
-            if (annotation) {
-               const isDisplay = node.closest(".katex-display") !== null;
-               return isDisplay
-                  ? `\n\n$$${annotation.textContent.trim()}$$\n\n`
-                  : `$${annotation.textContent.trim()}$`;
-            }
-         } else {
-            if (node.parentElement?.querySelector(".katex-mathml")) return "";
-         }
+      const targetCodeEl = codeEl || clonePre;
+      let codeContent = "";
+      const lineDivs = targetCodeEl.querySelectorAll("div, p, tr");
+      if (lineDivs.length > 1) {
+        codeContent = Array.from(lineDivs)
+          .map((l) => l.textContent)
+          .join("\n");
+      } else {
+        targetCodeEl
+          .querySelectorAll("br")
+          .forEach((br) => br.replaceWith("\n"));
+        codeContent = targetCodeEl.textContent || "";
       }
 
-      // Code blocks: <pre><code>
-      if (tag === "pre") {
-         const codeEl = node.querySelector("code") || node;
-         const langMatch = (codeEl.className || "").match(/language-([a-z0-9_-]+)/i);
-         const lang = langMatch ? langMatch[1] : "";
-         const codeContent = (codeEl.textContent || "").replace(/^\n+|\n+$/g, "");
-         return `\n\n\`\`\`${lang}\n${codeContent}\n\`\`\`\n\n`;
+      codeContent = codeContent
+        .replace(/\r\n/g, "\n")
+        .replace(/^\n+|\n+$/g, "");
+      return `\n\n\`\`\`${lang}\n${codeContent}\n\`\`\`\n\n`;
+    }
+
+    // Recursive children helper
+    const processChildren = () => {
+      let result = "";
+      let itemIdx = 1;
+      for (const child of node.childNodes) {
+        result += serializeNode(
+          child,
+          tag === "ul" || tag === "ol" ? depth + 1 : depth,
+          tag === "ol" ? "ol" : tag === "ul" ? "ul" : listType,
+          itemIdx,
+        );
+        if (
+          child.nodeType === Node.ELEMENT_NODE &&
+          child.tagName.toLowerCase() === "li"
+        ) {
+          itemIdx++;
+        }
       }
+      return result;
+    };
 
-      // Recursive children helper
-      const processChildren = () => {
-         let result = "";
-         let itemIdx = 1;
-         for (const child of node.childNodes) {
-            result += serializeNode(
-               child,
-               tag === "ul" || tag === "ol" ? depth + 1 : depth,
-               tag === "ol" ? "ol" : tag === "ul" ? "ul" : listType,
-               itemIdx
-            );
-            if (child.nodeType === Node.ELEMENT_NODE && child.tagName.toLowerCase() === "li") {
-               itemIdx++;
-            }
-         }
-         return result;
-      };
-
-      switch (tag) {
-         case "h1":
-            return `\n\n# ${processChildren().trim()}\n\n`;
-         case "h2":
-            return `\n\n## ${processChildren().trim()}\n\n`;
-         case "h3":
-            return `\n\n### ${processChildren().trim()}\n\n`;
-         case "h4":
-            return `\n\n#### ${processChildren().trim()}\n\n`;
-         case "h5":
-            return `\n\n##### ${processChildren().trim()}\n\n`;
-         case "h6":
-            return `\n\n###### ${processChildren().trim()}\n\n`;
-         case "p":
-            return `\n\n${processChildren().trim()}\n\n`;
-         case "br":
-            return "\n";
-         case "hr":
-            return "\n\n---\n\n";
-         case "strong":
-         case "b": {
-            const txt = processChildren().trim();
-            return txt ? `**${txt}**` : "";
-         }
-         case "em":
-         case "i": {
-            const txt = processChildren().trim();
-            return txt ? `*${txt}*` : "";
-         }
-         case "del":
-         case "s":
-         case "strike": {
-            const txt = processChildren().trim();
-            return txt ? `~~${txt}~~` : "";
-         }
-         case "mark": {
-            const txt = processChildren().trim();
-            return txt ? `==${txt}==` : "";
-         }
-         case "code": {
-            if (node.parentElement && node.parentElement.tagName.toLowerCase() === "pre") {
-               return processChildren();
-            }
-            const txt = processChildren().trim();
-            return txt ? `\`${txt}\`` : "";
-         }
-         case "blockquote": {
-            const content = processChildren().trim().replace(/\n/g, "\n> ");
-            return `\n\n> ${content}\n\n`;
-         }
-         case "ul":
-         case "ol": {
-            const listContent = processChildren().trim();
-            return depth === 1 ? `\n\n${listContent}\n\n` : `\n${listContent}`;
-         }
-         case "li": {
-            const indent = "  ".repeat(Math.max(0, depth - 1));
-            const prefix = listType === "ol" ? `${listIndex}. ` : "- ";
-
-            const checkbox = node.querySelector('input[type="checkbox"]');
-            let checkPrefix = "";
-            if (checkbox) {
-               checkPrefix = checkbox.checked ? "[x] " : "[ ] ";
-            }
-
-            const childContent = processChildren().trim();
-            return `\n${indent}${prefix}${checkPrefix}${childContent}`;
-         }
-         case "table": {
-            return `\n\n${parseTableToMarkdown(node)}\n\n`;
-         }
-         case "a": {
-            const href = node.getAttribute("href");
-            const linkText = processChildren().trim();
-            if (!href || href.startsWith("javascript:")) return linkText;
-            return `[${linkText || href}](${href})`;
-         }
-         default:
-            return processChildren();
+    switch (tag) {
+      case "h1":
+        return `\n\n# ${processChildren().trim()}\n\n`;
+      case "h2":
+        return `\n\n## ${processChildren().trim()}\n\n`;
+      case "h3":
+        return `\n\n### ${processChildren().trim()}\n\n`;
+      case "h4":
+        return `\n\n#### ${processChildren().trim()}\n\n`;
+      case "h5":
+        return `\n\n##### ${processChildren().trim()}\n\n`;
+      case "h6":
+        return `\n\n###### ${processChildren().trim()}\n\n`;
+      case "p":
+        return `\n\n${processChildren().trim()}\n\n`;
+      case "br":
+        return "\n";
+      case "hr":
+        return "\n\n---\n\n";
+      case "strong":
+      case "b": {
+        const txt = processChildren().trim();
+        return txt ? `**${txt}**` : "";
       }
-   }
+      case "em":
+      case "i": {
+        const txt = processChildren().trim();
+        return txt ? `*${txt}*` : "";
+      }
+      case "del":
+      case "s":
+      case "strike": {
+        const txt = processChildren().trim();
+        return txt ? `~~${txt}~~` : "";
+      }
+      case "mark": {
+        const txt = processChildren().trim();
+        return txt ? `==${txt}==` : "";
+      }
+      case "code": {
+        if (
+          node.parentElement &&
+          (node.parentElement.tagName.toLowerCase() === "pre" ||
+            node.parentElement.classList?.contains("spectralens-code-card"))
+        ) {
+          return processChildren();
+        }
+        const langMatch = (node.className || "").match(
+          /(?:language-|lang-)([a-z0-9_#+.-]+)/i,
+        );
+        const txt = (node.textContent || "")
+          .replace(/\r\n/g, "\n")
+          .replace(/^\n+|\n+$/g, "");
+        if (langMatch || txt.includes("\n")) {
+          const lang = langMatch ? langMatch[1] : "";
+          return `\n\n\`\`\`${lang}\n${txt}\n\`\`\`\n\n`;
+        }
+        return txt ? `\`${txt}\`` : "";
+      }
+      case "blockquote": {
+        const content = processChildren().trim().replace(/\n/g, "\n> ");
+        return `\n\n> ${content}\n\n`;
+      }
+      case "ul":
+      case "ol": {
+        const listContent = processChildren().trim();
+        return depth === 1 ? `\n\n${listContent}\n\n` : `\n${listContent}`;
+      }
+      case "li": {
+        const indent = "  ".repeat(Math.max(0, depth - 1));
+        const prefix = listType === "ol" ? `${listIndex}. ` : "- ";
 
-   function parseTableToMarkdown(tableEl) {
-      const rows = Array.from(tableEl.querySelectorAll("tr"));
-      if (rows.length === 0) return "";
+        const checkbox = node.querySelector('input[type="checkbox"]');
+        let checkPrefix = "";
+        if (checkbox) {
+          checkPrefix = checkbox.checked ? "[x] " : "[ ] ";
+        }
 
-      const tableMatrix = [];
-      rows.forEach((row) => {
-         const cells = Array.from(row.querySelectorAll("th, td")).map((c) =>
-            c.textContent.trim().replace(/\|/g, "\\|").replace(/\n+/g, " ")
-         );
-         if (cells.length > 0) {
-            tableMatrix.push(cells);
-         }
-      });
+        const childContent = processChildren().trim();
+        return `\n${indent}${prefix}${checkPrefix}${childContent}`;
+      }
+      case "table": {
+        return `\n\n${parseTableToMarkdown(node)}\n\n`;
+      }
+      case "a": {
+        const href = node.getAttribute("href");
+        const linkText = processChildren().trim();
+        if (!href || href.startsWith("javascript:")) return linkText;
+        return `[${linkText || href}](${href})`;
+      }
+      default:
+        return processChildren();
+    }
+  }
 
-      if (tableMatrix.length === 0) return "";
+  function parseTableToMarkdown(tableEl) {
+    const rows = Array.from(tableEl.querySelectorAll("tr"));
+    if (rows.length === 0) return "";
 
-      const maxCols = Math.max(...tableMatrix.map((r) => r.length));
-      const normalized = tableMatrix.map((r) => {
-         const copy = [...r];
-         while (copy.length < maxCols) copy.push("");
-         return copy;
-      });
+    const tableMatrix = [];
+    rows.forEach((row) => {
+      const cells = Array.from(row.querySelectorAll("th, td")).map((c) =>
+        c.textContent.trim().replace(/\|/g, "\\|").replace(/\n+/g, " "),
+      );
+      if (cells.length > 0) {
+        tableMatrix.push(cells);
+      }
+    });
 
-      const header = `| ${normalized[0].join(" | ")} |`;
-      const separator = `| ${normalized[0].map(() => "---").join(" | ")} |`;
-      const bodyRows = normalized
-         .slice(1)
-         .map((r) => `| ${r.join(" | ")} |`)
-         .join("\n");
+    if (tableMatrix.length === 0) return "";
 
-      return `${header}\n${separator}${bodyRows ? `\n${bodyRows}` : ""}`;
-   }
+    const maxCols = Math.max(...tableMatrix.map((r) => r.length));
+    const normalized = tableMatrix.map((r) => {
+      const copy = [...r];
+      while (copy.length < maxCols) copy.push("");
+      return copy;
+    });
 
-   let rawMd = "";
-   if (typeof rootNode === "string") {
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(rootNode, "text/html");
-      rawMd = serializeNode(doc.body);
-   } else {
-      rawMd = serializeNode(rootNode);
-   }
+    const header = `| ${normalized[0].join(" | ")} |`;
+    const separator = `| ${normalized[0].map(() => "---").join(" | ")} |`;
+    const bodyRows = normalized
+      .slice(1)
+      .map((r) => `| ${r.join(" | ")} |`)
+      .join("\n");
 
-   let cleaned = rawMd
-      .replace(/\r\n/g, "\n")
-      .replace(/\n{3,}/g, "\n\n");
+    return `${header}\n${separator}${bodyRows ? `\n${bodyRows}` : ""}`;
+  }
 
-   // Strip AI assistant footer noise, feedback forms, share links & legal boilerplate
-   cleaned = cleaned
-      .replace(/Quick results from the web[\s\S]*?(?=\n\n|\*\*[A-Z]|Hello|Hi\b|I am|Sure|Here|Please|$)/i, "")
-      .replace(/#*\s*Share public link[\s\S]*$/i, "")
-      .replace(/This public link shares a thread[\s\S]*$/i, "")
-      .replace(/Facebook\s+Gmail\s+X\s+Reddit\s+WhatsApp[\s\S]*$/i, "")
-      .replace(/Saved time\s*Clear\s*Helpful[\s\S]*$/i, "")
-      .replace(/(?:Saved time|Clear|Helpful|Comprehensive|Incorrect|Inappropriate|Not working|Unhelpful){2,}[\s\S]*$/i, "")
-      .replace(/A copy of this chat will be included[\s\S]*$/i, "")
-      .replace(/Thanks for letting us know[\s\S]*$/i, "")
-      .replace(/Google may use account and system data[\s\S]*$/i, "")
-      .replace(/For legal issues,\s*\[make a legal removal request\][\s\S]*$/i, "");
+  let rawMd = "";
+  if (typeof rootNode === "string") {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(rootNode, "text/html");
+    rawMd = serializeNode(doc.body);
+  } else {
+    rawMd = serializeNode(rootNode);
+  }
 
-   return cleaned.trim();
+  let cleaned = rawMd.replace(/\r\n/g, "\n").replace(/\n{3,}/g, "\n\n");
+
+  // Strip AI assistant footer noise, feedback forms, share links & legal boilerplate
+  cleaned = cleaned
+    .replace(
+      /Quick results from the web[\s\S]*?(?=\n\n|\*\*[A-Z]|Hello|Hi\b|I am|Sure|Here|Please|$)/i,
+      "",
+    )
+    .replace(/#*\s*Share public link[\s\S]*$/i, "")
+    .replace(/This public link shares a thread[\s\S]*$/i, "")
+    .replace(/Facebook\s+Gmail\s+X\s+Reddit\s+WhatsApp[\s\S]*$/i, "")
+    .replace(/Saved time\s*Clear\s*Helpful[\s\S]*$/i, "")
+    .replace(
+      /(?:Saved time|Clear|Helpful|Comprehensive|Incorrect|Inappropriate|Not working|Unhelpful){2,}[\s\S]*$/i,
+      "",
+    )
+    .replace(/A copy of this chat will be included[\s\S]*$/i, "")
+    .replace(/Thanks for letting us know[\s\S]*$/i, "")
+    .replace(/Google may use account and system data[\s\S]*$/i, "")
+    .replace(
+      /For legal issues,\s*\[make a legal removal request\][\s\S]*$/i,
+      "",
+    );
+
+  return cleaned.trim();
 }
 
 /**
  * Converts formatted HTML into clean, structured Markdown text.
  */
 function htmlToMarkdown(html) {
-   return domToMarkdown(html);
+  return domToMarkdown(html);
 }
 
 /**
- * Converts clean Markdown text (or legacy HTML) into secure, responsive, theme-adaptive styled HTML for rendering.
+ * Converts clean Markdown text or rich HTML into secure, responsive, GitHub README-styled HTML for rendering.
  */
 function markdownToHtml(md) {
-   if (!md || typeof md !== "string") return "";
+  if (!md || typeof md !== "string") return "";
 
-   let source = md;
+  let source = md.trim();
 
-   // Only convert legacy pure HTML if the entire payload is an HTML container and not markdown
-   const trimmed = source.trim();
-   if (
-      !source.includes("```") &&
-      (trimmed.startsWith("<div") ||
-         trimmed.startsWith("<section") ||
-         trimmed.startsWith("<article") ||
-         trimmed.startsWith("<p"))
-   ) {
-      source = domToMarkdown(source);
-   }
+  // Check if input is already rich HTML (from extractStyledHtml or HTML container)
+  const isHtml =
+    !source.includes("```") &&
+    (source.startsWith("<div") ||
+      source.startsWith("<section") ||
+      source.startsWith("<article") ||
+      source.startsWith("<p") ||
+      source.includes("spectralens-isolated-response"));
 
-   // 1. Preserve math blocks before markdown processing
-   const mathBlocks = [];
-   source = source.replace(/\$\$([\s\S]+?)\$\$/g, (_, math) => {
-      const idx = mathBlocks.length;
-      const cleanMath = (math || "").trim()
-         .replace(/&/g, "&amp;")
-         .replace(/</g, "&lt;")
-         .replace(/>/g, "&gt;");
-      mathBlocks.push(`<div class="my-2 p-2.5 rounded-xl bg-slate-100 dark:bg-white/[0.06] border border-slate-200/80 dark:border-white/[0.08] text-center font-mono text-xs text-blue-600 dark:text-blue-400 overflow-x-auto">${cleanMath}</div>`);
-      return `@@@SPLMATHBLOCK${idx}@@@`;
-   });
+  if (isHtml) {
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(source, "text/html");
 
-   const inlineMathBlocks = [];
-   source = source.replace(/\$([^\$\n]+?)\$/g, (_, math) => {
-      const idx = inlineMathBlocks.length;
-      const cleanMath = (math || "").trim()
-         .replace(/&/g, "&amp;")
-         .replace(/</g, "&lt;")
-         .replace(/>/g, "&gt;");
-      inlineMathBlocks.push(`<code class="px-1.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-mono text-[11px] font-medium border border-blue-200/50 dark:border-blue-800/40">${cleanMath}</code>`);
-      return `@@@SPLINLINEMATH${idx}@@@`;
-   });
+      // 1. Enhance any code blocks (<pre>) with GitHub-style code cards and 1-click Copy button
+      const preBlocks = Array.from(
+        doc.querySelectorAll(
+          "pre, div[class*='code'], div[class*='highlight']",
+        ),
+      );
+      preBlocks.forEach((pre) => {
+        if (
+          pre.closest(".spectralens-code-card") ||
+          pre.classList?.contains("spectralens-code-card")
+        )
+          return;
 
-   // 2. Custom renderer for marked
-   const renderer = {
-      code({ text, lang }) {
-         const cleanLang = (lang || "").trim().toLowerCase();
-         const escaped = (text || "")
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;");
+        const headerEl = pre.querySelector("div:first-child");
+        const headerSpan = headerEl?.querySelector("span");
+        const codeEl = pre.querySelector("code");
 
-         const langHeader = cleanLang
-            ? `<div class="flex items-center justify-between px-3.5 py-1.5 bg-slate-100 dark:bg-slate-800/90 border-b border-slate-200/80 dark:border-slate-700/60 text-[11px] font-mono text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider select-none"><span>${cleanLang}</span></div>`
-            : "";
+        let lang = "";
+        if (codeEl) {
+          const langMatch = (codeEl.className || "").match(
+            /(?:language-|lang-)([a-z0-9_#+.-]+)/i,
+          );
+          if (langMatch) lang = langMatch[1];
+        }
+        if (!lang && headerSpan) {
+          const hText = headerSpan.textContent.trim().toLowerCase();
+          if (
+            hText &&
+            hText.length < 20 &&
+            hText !== "copy" &&
+            hText !== "copy code"
+          ) {
+            lang = hText;
+          }
+        }
 
-         return `<div class="spectralens-code-card my-3 rounded-xl overflow-hidden border border-slate-200/90 dark:border-slate-700/70 bg-slate-50 dark:bg-[#0d1117] shadow-xs select-text">${langHeader}<pre class="p-3.5 overflow-x-auto text-xs font-mono text-slate-800 dark:text-slate-100 leading-relaxed custom-scrollbar whitespace-pre"><code class="language-${cleanLang}">${escaped}</code></pre></div>`;
-      },
-      codespan({ text }) {
-         return `<code class="px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-white/[0.08] text-blue-600 dark:text-blue-400 font-mono text-[11px] font-medium border border-slate-200/60 dark:border-white/[0.06]">${text}</code>`;
-      },
-      table({ header, rows }) {
-         return `<div class="overflow-x-auto my-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] shadow-xs"><table class="w-full border-collapse text-left text-xs"><thead>${header}</thead><tbody class="divide-y divide-slate-200/60 dark:divide-white/[0.05]">${rows}</tbody></table></div>`;
-      },
-      blockquote({ text }) {
-         return `<blockquote class="border-l-3 border-blue-500 pl-3 py-1 my-2 italic text-xs text-slate-600 dark:text-slate-300 bg-blue-50/50 dark:bg-blue-950/20 rounded-r-lg">${text}</blockquote>`;
-      },
-      link({ href, title, text }) {
-         return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-blue-400 underline hover:text-blue-700 dark:hover:text-blue-300 font-medium" ${title ? `title="${title}"` : ""}>${text}</a>`;
-      },
-      list({ items, ordered, start }) {
-         const type = ordered ? "ol" : "ul";
-         const listClass = ordered ? "list-decimal" : "list-disc";
-         const startAttr = ordered && start !== 1 ? ` start="${start}"` : "";
-         return `<${type} class="ml-4 ${listClass} text-xs leading-relaxed my-1 text-slate-800 dark:text-slate-200 space-y-0.5"${startAttr}>${items}</${type}>`;
-      },
-      listitem({ text }) {
-         let itemText = text;
-         if (itemText.startsWith("[x] ") || itemText.startsWith("[X] ")) {
-            itemText = `<span class="inline-block text-emerald-500 font-bold mr-1.5">✓</span>` + itemText.slice(4);
-         } else if (itemText.startsWith("[ ] ")) {
-            itemText = `<span class="inline-block text-slate-400 mr-1.5">○</span>` + itemText.slice(4);
-         }
-         return `<li class="leading-relaxed text-slate-800 dark:text-slate-200">${itemText}</li>`;
-      },
-      heading({ text, depth }) {
-         if (depth === 1) {
-            return `<h1 class="text-sm font-bold text-slate-900 dark:text-white mt-3.5 mb-1.5 pb-1 border-b border-slate-200/60 dark:border-white/[0.06]">${text}</h1>`;
-         }
-         if (depth === 2) {
-            return `<h2 class="text-xs font-bold text-slate-900 dark:text-white mt-3 mb-1">${text}</h2>`;
-         }
-         return `<h3 class="text-xs font-bold text-slate-900 dark:text-white mt-2.5 mb-1">${text}</h3>`;
-      },
-      hr() {
-         return '<hr class="my-3 border-slate-200 dark:border-white/[0.08]" />';
-      }
-   };
+        // Strip header element from pre
+        if (
+          headerEl &&
+          (headerEl.querySelector("button") ||
+            headerSpan ||
+            headerEl.textContent.toLowerCase().includes("copy"))
+        ) {
+          headerEl.remove();
+        }
 
-   let html = "";
-   try {
-      html = marked.parse(source, {
-         gfm: true,
-         breaks: true,
-         renderer,
+        const targetCodeEl = codeEl || pre;
+        let codeText = "";
+        const lineDivs = targetCodeEl.querySelectorAll("div, p, tr");
+        if (lineDivs.length > 1) {
+          codeText = Array.from(lineDivs)
+            .map((l) => l.textContent)
+            .join("\n");
+        } else {
+          const tempClone = targetCodeEl.cloneNode(true);
+          tempClone
+            .querySelectorAll("br")
+            .forEach((br) => br.replaceWith("\n"));
+          codeText = tempClone.textContent || "";
+        }
+
+        codeText = codeText.replace(/\r\n/g, "\n").replace(/^\n+|\n+$/g, "");
+        if (!codeText) return;
+
+        const cleanLang = (lang || "code").toLowerCase();
+        const escapedCode = codeText
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+
+        const card = doc.createElement("div");
+        card.className =
+          "spectralens-code-card my-3 rounded-xl overflow-hidden border border-slate-200/90 dark:border-slate-700/70 bg-slate-50 dark:bg-[#0d1117] shadow-xs select-text";
+        card.innerHTML = `<div class="flex items-center justify-between px-3.5 py-1.5 bg-slate-100 dark:bg-slate-800/90 border-b border-slate-200/80 dark:border-slate-700/60 text-[11px] font-mono text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider select-none"><span>${cleanLang}</span><button type="button" class="spectralens-code-copy-btn flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 cursor-pointer transition-colors" title="Copy code"><span>Copy</span></button></div><pre class="p-3.5 overflow-x-auto text-xs font-mono text-slate-800 dark:text-slate-100 leading-relaxed custom-scrollbar whitespace-pre" style="overflow-x: auto; overflow-y: visible; overscroll-behavior-y: auto; touch-action: pan-y;"><code class="language-${cleanLang}">${escapedCode}</code></pre>`;
+
+        pre.parentNode.replaceChild(card, pre);
       });
-   } catch {
-      html = source;
-   }
 
-   // 3. Restore Math Blocks
-   mathBlocks.forEach((block, idx) => {
-      html = html.replace(`@@@SPLMATHBLOCK${idx}@@@`, () => block);
-   });
-   inlineMathBlocks.forEach((block, idx) => {
-      html = html.replace(`@@@SPLINLINEMATH${idx}@@@`, () => block);
-   });
+      // 2. Wrap tables in responsive container if not already wrapped
+      const tables = Array.from(doc.querySelectorAll("table"));
+      tables.forEach((table) => {
+        if (table.parentElement?.classList?.contains("overflow-x-auto")) return;
+        const wrapper = doc.createElement("div");
+        wrapper.className =
+          "overflow-x-auto my-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] shadow-xs";
+        table.parentNode.insertBefore(wrapper, table);
+        wrapper.appendChild(table);
+      });
 
-   return html;
+      // 3. Ensure safe external links
+      doc.querySelectorAll("a").forEach((a) => {
+        a.setAttribute("target", "_blank");
+        a.setAttribute("rel", "noopener noreferrer");
+        a.classList.add(
+          "text-blue-600",
+          "dark:text-blue-400",
+          "underline",
+          "hover:text-blue-700",
+          "dark:hover:text-blue-300",
+          "font-medium",
+        );
+      });
+
+      return doc.body.innerHTML;
+    } catch {
+      return source;
+    }
+  }
+
+  // 1. Preserve math blocks before markdown processing
+  const mathBlocks = [];
+  source = source.replace(/\$\$([\s\S]+?)\$\$/g, (_, math) => {
+    const idx = mathBlocks.length;
+    const cleanMath = (math || "")
+      .trim()
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+    mathBlocks.push(
+      `<div class="my-2 p-2.5 rounded-xl bg-slate-100 dark:bg-white/[0.06] border border-slate-200/80 dark:border-white/[0.08] text-center font-mono text-xs text-blue-600 dark:text-blue-400 overflow-x-auto">${cleanMath}</div>`,
+    );
+    return `@@@SPLMATHBLOCK${idx}@@@`;
+  });
+
+  const inlineMathBlocks = [];
+  source = source.replace(/\$([^\$\n]+?)\$/g, (_, math) => {
+    const idx = inlineMathBlocks.length;
+    const cleanMath = (math || "")
+      .trim()
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+    inlineMathBlocks.push(
+      `<code class="px-1.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-mono text-[11px] font-medium border border-blue-200/50 dark:border-blue-800/40">${cleanMath}</code>`,
+    );
+    return `@@@SPLINLINEMATH${idx}@@@`;
+  });
+
+  // 2. Custom renderer for marked
+  const renderer = {
+    code({ text, lang }) {
+      const cleanLang = (lang || "").trim().toLowerCase() || "code";
+      const escaped = (text || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+
+      const langHeader = `<div class="flex items-center justify-between px-3.5 py-1.5 bg-slate-100 dark:bg-slate-800/90 border-b border-slate-200/80 dark:border-slate-700/60 text-[11px] font-mono text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider select-none"><span>${cleanLang}</span><button type="button" class="spectralens-code-copy-btn flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 cursor-pointer transition-colors" title="Copy code"><span>Copy</span></button></div>`;
+
+      return `<div class="spectralens-code-card my-3 rounded-xl overflow-hidden border border-slate-200/90 dark:border-slate-700/70 bg-slate-50 dark:bg-[#0d1117] shadow-xs select-text">${langHeader}<pre class="p-3.5 overflow-x-auto text-xs font-mono text-slate-800 dark:text-slate-100 leading-relaxed custom-scrollbar whitespace-pre"><code class="language-${cleanLang}">${escaped}</code></pre></div>`;
+    },
+    codespan({ text }) {
+      return `<code class="px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-white/[0.08] text-blue-600 dark:text-blue-400 font-mono text-[11px] font-medium border border-slate-200/60 dark:border-white/[0.06]">${text}</code>`;
+    },
+    table({ header, rows }) {
+      return `<div class="overflow-x-auto my-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] shadow-xs"><table class="w-full border-collapse text-left text-xs"><thead>${header}</thead><tbody class="divide-y divide-slate-200/60 dark:divide-white/[0.05]">${rows}</tbody></table></div>`;
+    },
+    blockquote({ text }) {
+      return `<blockquote class="border-l-3 border-blue-500 pl-3 py-1 my-2 italic text-xs text-slate-600 dark:text-slate-300 bg-blue-50/50 dark:bg-blue-950/20 rounded-r-lg">${text}</blockquote>`;
+    },
+    link({ href, title, text }) {
+      return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-blue-400 underline hover:text-blue-700 dark:hover:text-blue-300 font-medium" ${title ? `title="${title}"` : ""}>${text}</a>`;
+    },
+    list({ items, ordered, start }) {
+      const type = ordered ? "ol" : "ul";
+      const listClass = ordered ? "list-decimal" : "list-disc";
+      const startAttr = ordered && start !== 1 ? ` start="${start}"` : "";
+      return `<${type} class="ml-4 ${listClass} text-xs leading-relaxed my-1 text-slate-800 dark:text-slate-200 space-y-0.5"${startAttr}>${items}</${type}>`;
+    },
+    listitem({ text }) {
+      let itemText = text;
+      if (itemText.startsWith("[x] ") || itemText.startsWith("[X] ")) {
+        itemText =
+          `<span class="inline-block text-emerald-500 font-bold mr-1.5">✓</span>` +
+          itemText.slice(4);
+      } else if (itemText.startsWith("[ ] ")) {
+        itemText =
+          `<span class="inline-block text-slate-400 mr-1.5">○</span>` +
+          itemText.slice(4);
+      }
+      return `<li class="leading-relaxed text-slate-800 dark:text-slate-200">${itemText}</li>`;
+    },
+    heading({ text, depth }) {
+      if (depth === 1) {
+        return `<h1 class="text-sm font-bold text-slate-900 dark:text-white mt-3.5 mb-1.5 pb-1 border-b border-slate-200/60 dark:border-white/[0.06]">${text}</h1>`;
+      }
+      if (depth === 2) {
+        return `<h2 class="text-xs font-bold text-slate-900 dark:text-white mt-3 mb-1">${text}</h2>`;
+      }
+      return `<h3 class="text-xs font-bold text-slate-900 dark:text-white mt-2.5 mb-1">${text}</h3>`;
+    },
+    hr() {
+      return '<hr class="my-3 border-slate-200 dark:border-white/[0.08]" />';
+    },
+  };
+
+  let html = "";
+  try {
+    html = marked.parse(source, {
+      gfm: true,
+      breaks: true,
+      renderer,
+    });
+  } catch {
+    html = source;
+  }
+
+  // 3. Restore Math Blocks
+  mathBlocks.forEach((block, idx) => {
+    html = html.replace(`@@@SPLMATHBLOCK${idx}@@@`, () => block);
+  });
+  inlineMathBlocks.forEach((block, idx) => {
+    html = html.replace(`@@@SPLINLINEMATH${idx}@@@`, () => block);
+  });
+
+  return html;
 }
 
 const extensionUtils = {
-   // Messaging
-   runtimeSendMessage,
-   runtimeOnMessage,
-   tabSendMessage,
-   pagePostMessage,
-   pageOnMessage,
+  // Messaging
+  runtimeSendMessage,
+  runtimeOnMessage,
+  tabSendMessage,
+  pagePostMessage,
+  pageOnMessage,
 
-   // Tab utilities
-   getActiveTab,
+  // Tab utilities
+  getActiveTab,
 
-   // Storage
-   chromeStorageSet,
-   chromeStorageGet,
-   chromeStorageSetLocal,
-   chromeStorageGetLocal,
-   chromeStorageRemoveLocal,
+  // Storage
+  chromeStorageSet,
+  chromeStorageGet,
+  chromeStorageSetLocal,
+  chromeStorageGetLocal,
+  chromeStorageRemoveLocal,
 
-   // General utilities
-   wait,
-   debounce,
-   sanitizeHtml,
-   domToMarkdown,
-   htmlToMarkdown,
-   markdownToHtml,
+  // General utilities
+  isExtensionContextValid,
+  wait,
+  debounce,
+  sanitizeHtml,
+  domToMarkdown,
+  htmlToMarkdown,
+  markdownToHtml,
 
-   // Constants
-   KEYS,
+  // Constants
+  KEYS,
 };
 
 if (typeof window !== "undefined") {
-   window.extensionUtils = extensionUtils;
+  window.extensionUtils = extensionUtils;
 }
 
 export default extensionUtils;

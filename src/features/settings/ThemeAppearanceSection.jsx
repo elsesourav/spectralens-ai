@@ -3,6 +3,7 @@ import {
   IoDesktopOutline,
   IoMoonOutline,
   IoSunnyOutline,
+  IoColorPaletteOutline,
 } from "react-icons/io5";
 
 export default function ThemeAppearanceSection({
@@ -25,13 +26,26 @@ export default function ThemeAppearanceSection({
   ];
 
   return (
-    <section className={`p-3.5 rounded-2xl border shadow-xs space-y-3 ${cardBg}`}>
-      {/* Theme Mode Grid */}
-      <div className="space-y-2">
-        <h4 className="text-xs font-bold text-slate-900 dark:text-white">
-          Theme Mode
-        </h4>
-        <div className="grid grid-cols-3 gap-2">
+    <section className="space-y-2.5">
+      <div className="flex items-center gap-1.5">
+        <IoColorPaletteOutline className="w-3.5 h-3.5 text-purple-500" />
+        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+          Appearance & Theme
+        </h3>
+      </div>
+
+      <div className={`p-3.5 rounded-2xl border shadow-xs space-y-3.5 ${cardBg}`}>
+        {/* Theme Mode Grid */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+              Color Theme
+            </h4>
+            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 capitalize">
+              {theme || "system"}
+            </span>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
           {themeOptions.map((opt) => {
             const Icon = opt.icon;
             const isSelected = theme === opt.id;
@@ -91,6 +105,7 @@ export default function ThemeAppearanceSection({
             );
           })}
         </div>
+      </div>
       </div>
     </section>
   );

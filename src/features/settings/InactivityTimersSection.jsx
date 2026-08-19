@@ -1,4 +1,5 @@
 import PropTypes from "prop-types";
+import { IoTimeOutline } from "react-icons/io5";
 
 export default function InactivityTimersSection({
   autoMinimizeDelay,
@@ -24,61 +25,72 @@ export default function InactivityTimersSection({
   ];
 
   return (
-    <>
-      {/* Auto-Minimize Timer */}
-      <section className={`p-3.5 rounded-2xl border shadow-xs space-y-2.5 ${cardBg}`}>
-        <div>
-          <h4 className="text-xs font-bold text-slate-900 dark:text-white">
-            Auto-Minimize Chat Window
-          </h4>
-          <p className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
-            Inactivity timer to collapse open window to pill
-          </p>
-        </div>
-        <div className="grid grid-cols-5 gap-1.5 pt-0.5">
-          {minimizeOptions.map((opt) => (
-            <button
-              key={opt.val}
-              onClick={() => onUpdateMinimizeDelay(opt.val)}
-              className={`py-1.5 px-1 rounded-lg text-xs font-bold text-center transition-all focus:outline-none cursor-pointer ${
-                autoMinimizeDelay === opt.val
-                  ? "bg-blue-600 text-white shadow-xs"
-                  : "bg-slate-100/90 dark:bg-white/[0.05] text-slate-700 dark:text-slate-300 hover:bg-slate-200/90 dark:hover:bg-white/10 border border-slate-200/60 dark:border-white/[0.06]"
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      </section>
+    <section className="space-y-2.5">
+      <div className="flex items-center gap-1.5">
+        <IoTimeOutline className="w-3.5 h-3.5 text-amber-500" />
+        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+          Inactivity & Auto-Dismiss
+        </h3>
+      </div>
 
-      {/* Auto-Invisible Widget Timer */}
-      <section className={`p-3.5 rounded-2xl border shadow-xs space-y-2.5 ${cardBg}`}>
-        <div>
-          <h4 className="text-xs font-bold text-slate-900 dark:text-white">
-            Auto-Invisible Minimized Widget
-          </h4>
-          <p className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
-            Inactivity timer to make pill invisible (applies after minimize)
-          </p>
+      <div className="space-y-2">
+        {/* Auto-Minimize Timer */}
+        <div className={`p-3.5 rounded-2xl border shadow-xs space-y-2.5 transition-all ${cardBg}`}>
+          <div>
+            <h4 className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
+              Auto-Minimize Chat Window
+            </h4>
+            <p className="text-[10px] font-medium text-slate-600 dark:text-slate-300 mt-0.5">
+              Collapse open window back to floating pill after idle time
+            </p>
+          </div>
+          <div className="grid grid-cols-5 gap-1.5 pt-0.5">
+            {minimizeOptions.map((opt) => (
+              <button
+                type="button"
+                key={opt.val}
+                onClick={() => onUpdateMinimizeDelay(opt.val)}
+                className={`py-1.5 px-1 rounded-lg text-xs font-bold text-center transition-all focus:outline-none cursor-pointer ${
+                  autoMinimizeDelay === opt.val
+                    ? "bg-blue-600 text-white shadow-xs"
+                    : "bg-slate-100/90 dark:bg-white/[0.05] text-slate-700 dark:text-slate-300 hover:bg-slate-200/90 dark:hover:bg-white/10 border border-slate-200/60 dark:border-white/[0.06]"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="grid grid-cols-5 gap-1.5 pt-0.5">
-          {hideOptions.map((opt) => (
-            <button
-              key={opt.val}
-              onClick={() => onUpdateHideDelay(opt.val)}
-              className={`py-1.5 px-1 rounded-lg text-xs font-bold text-center transition-all focus:outline-none cursor-pointer ${
-                autoHideDelay === opt.val
-                  ? "bg-blue-600 text-white shadow-xs"
-                  : "bg-slate-100/90 dark:bg-white/[0.05] text-slate-700 dark:text-slate-300 hover:bg-slate-200/90 dark:hover:bg-white/10 border border-slate-200/60 dark:border-white/[0.06]"
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
+
+        {/* Auto-Invisible Widget Timer */}
+        <div className={`p-3.5 rounded-2xl border shadow-xs space-y-2.5 transition-all ${cardBg}`}>
+          <div>
+            <h4 className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
+              Auto-Fade Minimized Pill
+            </h4>
+            <p className="text-[10px] font-medium text-slate-600 dark:text-slate-300 mt-0.5">
+              Reduce pill opacity when idle (hovering restores visibility)
+            </p>
+          </div>
+          <div className="grid grid-cols-5 gap-1.5 pt-0.5">
+            {hideOptions.map((opt) => (
+              <button
+                type="button"
+                key={opt.val}
+                onClick={() => onUpdateHideDelay(opt.val)}
+                className={`py-1.5 px-1 rounded-lg text-xs font-bold text-center transition-all focus:outline-none cursor-pointer ${
+                  autoHideDelay === opt.val
+                    ? "bg-blue-600 text-white shadow-xs"
+                    : "bg-slate-100/90 dark:bg-white/[0.05] text-slate-700 dark:text-slate-300 hover:bg-slate-200/90 dark:hover:bg-white/10 border border-slate-200/60 dark:border-white/[0.06]"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
-      </section>
-    </>
+      </div>
+    </section>
   );
 }
 

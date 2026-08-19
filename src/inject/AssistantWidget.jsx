@@ -20,12 +20,18 @@ export default function AssistantWidget() {
     [],
   );
 
+  // Constants
+  const DEFAULT_AUTO_MINIMIZE_DELAY = 60;
+  const DEFAULT_AUTO_HIDE_DELAY = 60;
+
   // State
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("chat"); // 'chat' | 'selector' | 'history' | 'settings'
   const [menuOpacity, setMenuOpacity] = useState("1");
-  const [autoHideDelay, setAutoHideDelay] = useState(0);
-  const [autoMinimizeDelay, setAutoMinimizeDelay] = useState(0);
+  const [autoHideDelay, setAutoHideDelay] = useState(DEFAULT_AUTO_HIDE_DELAY);
+  const [autoMinimizeDelay, setAutoMinimizeDelay] = useState(
+    DEFAULT_AUTO_MINIMIZE_DELAY,
+  );
   const [pendingScanInput, setPendingScanInput] = useState(null);
   const [loadedHistoryItem, setLoadedHistoryItem] = useState(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -67,73 +73,108 @@ export default function AssistantWidget() {
   // Check and observe Always Active Tab status
   useEffect(() => {
     const checkAlwaysActive = async () => {
-      const tab = await ES.getActiveTab();
-      let hostname = "";
-      if (tab?.url?.startsWith("http")) {
-        try {
-          hostname = new URL(tab.url).hostname;
-        } catch {
-          // Ignore
+      try {
+        const tab = await ES.getActiveTab();
+        let hostname = "";
+        if (tab?.url?.startsWith("http")) {
+          try {
+            hostname = new URL(tab.url).hostname;
+          } catch {
+            // Ignore
+          }
         }
-      }
 
-      ES.chromeStorageGetLocal(ES.KEYS.ALWAYS_ACTIVE_HOSTS, (hosts = []) => {
-        const activeHosts = Array.isArray(hosts) ? hosts : [];
-        if (
-          hostname &&
-          (activeHosts.includes(hostname) || activeHosts.includes("*"))
-        ) {
-          setIsAlwaysActive(true);
-        } else {
-          setIsAlwaysActive(false);
-        }
-      });
+        ES.chromeStorageGetLocal(ES.KEYS.ALWAYS_ACTIVE_HOSTS, (hosts = []) => {
+          const activeHosts = Array.isArray(hosts) ? hosts : [];
+          if (
+            hostname &&
+            (activeHosts.includes(hostname) || activeHosts.includes("*"))
+          ) {
+            setIsAlwaysActive(true);
+          } else {
+            setIsAlwaysActive(false);
+          }
+        });
+      } catch {
+        // Ignore context invalidation
+      }
     };
 
     checkAlwaysActive();
 
     let storageListener;
-    if (typeof chrome !== "undefined" && chrome.storage?.onChanged) {
-      storageListener = (changes) => {
-        if (changes[ES.KEYS.ALWAYS_ACTIVE_HOSTS]) {
-          checkAlwaysActive();
-        }
-      };
-      chrome.storage.onChanged.addListener(storageListener);
-      return () => chrome.storage.onChanged.removeListener(storageListener);
-    }
+    try {
+      if (
+        typeof chrome !== "undefined" &&
+        Boolean(chrome?.runtime?.id) &&
+        chrome.storage?.onChanged
+      ) {
+        storageListener = (changes) => {
+          try {
+            if (!chrome?.runtime?.id) return;
+            if (changes[ES.KEYS.ALWAYS_ACTIVE_HOSTS]) {
+              checkAlwaysActive();
+            }
+          } catch {}
+        };
+        chrome.storage.onChanged.addListener(storageListener);
+        return () => {
+          try {
+            if (chrome?.runtime?.id) {
+              chrome.storage.onChanged.removeListener(storageListener);
+            }
+          } catch {}
+        };
+      }
+    } catch {}
   }, []);
 
   useEffect(() => {
     // Initial fetch directly from chrome storage
-    ES.chromeStorageGetLocal(ES.KEYS.CONTROLS, (data) => {
-      if (data && typeof data === "object") {
-        if (data.autoHideDelay !== undefined) {
-          setAutoHideDelay(Number(data.autoHideDelay));
+    try {
+      ES.chromeStorageGetLocal(ES.KEYS.CONTROLS, (data) => {
+        if (data && typeof data === "object") {
+          if (data.autoHideDelay !== undefined) {
+            setAutoHideDelay(Number(data.autoHideDelay));
+          } else {
+            setAutoHideDelay(DEFAULT_AUTO_HIDE_DELAY);
+          }
+          if (data.autoMinimizeDelay !== undefined) {
+            setAutoMinimizeDelay(Number(data.autoMinimizeDelay));
+          } else {
+            setAutoMinimizeDelay(DEFAULT_AUTO_MINIMIZE_DELAY);
+          }
         }
-        if (data.autoMinimizeDelay !== undefined) {
-          setAutoMinimizeDelay(Number(data.autoMinimizeDelay));
-        }
-      }
-    });
+      });
+    } catch {}
 
     // Listen for storage changes
     let storageListener;
-    if (typeof chrome !== "undefined" && chrome.storage?.onChanged) {
-      storageListener = (changes) => {
-        if (changes[ES.KEYS.CONTROLS]) {
-          const val = changes[ES.KEYS.CONTROLS].newValue;
-          const controls = typeof val === "string" ? JSON.parse(val) : val;
-          if (controls?.autoHideDelay !== undefined) {
-            setAutoHideDelay(Number(controls.autoHideDelay));
-          }
-          if (controls?.autoMinimizeDelay !== undefined) {
-            setAutoMinimizeDelay(Number(controls.autoMinimizeDelay));
-          }
-        }
-      };
-      chrome.storage.onChanged.addListener(storageListener);
-    }
+    try {
+      if (
+        typeof chrome !== "undefined" &&
+        Boolean(chrome?.runtime?.id) &&
+        chrome.storage?.onChanged
+      ) {
+        storageListener = (changes) => {
+          try {
+            if (!chrome?.runtime?.id) return;
+            if (changes[ES.KEYS.CONTROLS]) {
+              const val = changes[ES.KEYS.CONTROLS].newValue;
+              const controls =
+                typeof val === "string" ? JSON.parse(val) : val;
+              if (controls?.autoHideDelay !== undefined) {
+                setAutoHideDelay(Number(controls.autoHideDelay));
+              }
+              if (controls?.autoMinimizeDelay !== undefined) {
+                setAutoMinimizeDelay(Number(controls.autoMinimizeDelay));
+              }
+            }
+          } catch {}
+        };
+        chrome.storage.onChanged.addListener(storageListener);
+      }
+    } catch {}
 
     const unsubs = [
       ES.pageOnMessage("C_IF_OPEN_CHAT", () => {
@@ -209,18 +250,18 @@ export default function AssistantWidget() {
   const contrastClass = useMemo(() => {
     if (!isChatOpen) {
       if (contrastMode === "transparent") {
-        return "bg-white/25 dark:bg-black/25 text-slate-800 dark:text-white backdrop-blur-sm border border-black/25 dark:border-white/30 shadow-2xl";
+        return "bg-white/90 dark:bg-black/90 text-slate-800 dark:text-white border border-black/25 dark:border-white/30 shadow-2xl";
       }
       if (contrastMode === "medium") {
-        return "bg-white/70 dark:bg-[#16171d]/60 text-slate-800 dark:text-white backdrop-blur-md border border-black/20 dark:border-white/25 shadow-2xl";
+        return "bg-white/95 dark:bg-[#16171d]/95 text-slate-800 dark:text-white border border-black/20 dark:border-white/25 shadow-2xl";
       }
       return "bg-white dark:bg-[#16171d] text-slate-800 dark:text-white border border-black/20 dark:border-white/25 shadow-2xl";
     } else {
       if (contrastMode === "transparent") {
-        return "bg-white/20 dark:bg-black/20 backdrop-blur-sm border border-black/20 dark:border-white/25 shadow-2xl";
+        return "bg-white/90 dark:bg-black/90 border border-black/20 dark:border-white/25 shadow-2xl";
       }
       if (contrastMode === "medium") {
-        return "bg-[#f8fafc]/60 dark:bg-[#0e1015]/60 backdrop-blur-md border border-black/20 dark:border-white/25 shadow-2xl";
+        return "bg-[#f8fafc]/95 dark:bg-[#0e1015]/95 border border-black/20 dark:border-white/25 shadow-2xl";
       }
       return "bg-[#f8fafc] dark:bg-[#0e1015] border border-black/20 dark:border-white/25 shadow-2xl";
     }
@@ -240,6 +281,7 @@ export default function AssistantWidget() {
     if (!isChatOpen || autoMinimizeDelay <= 0) return;
 
     let minimizeTimer = null;
+    let lastReset = 0;
 
     const startMinimizeTimer = () => {
       if (minimizeTimer) clearTimeout(minimizeTimer);
@@ -249,14 +291,18 @@ export default function AssistantWidget() {
     };
 
     const resetMinimize = () => {
-      startMinimizeTimer();
+      const now = Date.now();
+      if (now - lastReset > 1000) {
+        lastReset = now;
+        startMinimizeTimer();
+      }
     };
 
-    resetMinimize();
+    startMinimizeTimer();
 
-    window.addEventListener("mousemove", resetMinimize);
-    window.addEventListener("pointerdown", resetMinimize);
-    window.addEventListener("keydown", resetMinimize);
+    window.addEventListener("mousemove", resetMinimize, { passive: true });
+    window.addEventListener("pointerdown", resetMinimize, { passive: true });
+    window.addEventListener("keydown", resetMinimize, { passive: true });
 
     return () => {
       if (minimizeTimer) clearTimeout(minimizeTimer);

@@ -226,7 +226,7 @@ if (typeof chrome !== "undefined" && chrome.storage?.onChanged) {
       const oldControls = typeof oldVal === "string" ? JSON.parse(oldVal || "{}") : oldVal || {};
       const newControls = typeof newVal === "string" ? JSON.parse(newVal || "{}") : newVal || {};
 
-      const allProviders = ["google", "chatgpt", "claude", "gemini", "grok", "perplexity", "bing"];
+      const allProviders = ["google", "chatgpt", "claude", "gemini", "grok", "perplexity"];
       allProviders.forEach((p) => {
         const wasEnabled = oldControls?.providers?.[p]?.enabled !== false;
         const isEnabled = newControls?.providers?.[p]?.enabled !== false;
@@ -550,9 +550,6 @@ runtimeOnMessage("IF_B_GET_ANSWER", async (payload, sender, sendResponse) => {
       case "google":
         answer = await getGoogleAiAnswer(question, requestId, image);
         break;
-      case "bing":
-        answer = await getBingAiAnswer(question, requestId, image);
-        break;
       case "perplexity":
         answer = await getPerplexityAnswer(question, requestId, image);
         break;
@@ -578,7 +575,21 @@ runtimeOnMessage("IF_B_GET_ANSWER", async (payload, sender, sendResponse) => {
       : `> ⚠️ **Please log in to ${provider}**\n>\n> Unable to load response.\n\n*Error: ${err?.message || "Failed"}*`;
   }
 
-  console.log(`[SpectraLens:Background] 📤 Sending response back to content script for provider: "${provider}", answer length: ${answer?.length || 0}`);
+  console.log(
+    `%c[SpectraLens:Background] 📦 ==================== FULL RAW AI OUTPUT DATA [${provider.toUpperCase()}] ====================`,
+    "color: #8b5cf6; font-weight: bold; font-size: 13px;",
+  );
+  console.log(
+    `[SpectraLens:Background] Provider: "${provider}" | RequestID: ${requestId} | Character Length: ${answer?.length || 0}`,
+  );
+  console.log(`[SpectraLens:Background] RAW OUTPUT CONTENT:\n`, answer);
+  console.log(
+    `%c[SpectraLens:Background] =========================================================================================`,
+    "color: #8b5cf6; font-weight: bold; font-size: 13px;",
+  );
+  console.log(
+    `[SpectraLens:Background] 📤 Sending response back to content script for provider: "${provider}", answer length: ${answer?.length || 0}`,
+  );
   sendResponse({ status: "success", answer, provider, requestId });
   return true;
 });

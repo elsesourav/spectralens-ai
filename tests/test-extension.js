@@ -175,8 +175,8 @@ for (const rel of scriptsToValidate) {
   }
 }
 
-// --- TEST SUITE 6: Auto-Versioning 9.99.999 Schema & Rollover ---
-console.log("\n6. Auto-Versioning 9.99.999 Schema & Rollover:");
+// --- TEST SUITE 6: Auto-Versioning 9.99.99 Schema & Rollover ---
+console.log("\n6. Auto-Versioning 9.99.99 Schema & Rollover:");
 import("../scripts/update-version.js").then(({ calculateNextVersion, normalizeVersion }) => {
   // Test incremental per-build increment (+1 one by one)
   const v1 = calculateNextVersion("2.8.0");
@@ -185,17 +185,17 @@ import("../scripts/update-version.js").then(({ calculateNextVersion, normalizeVe
   const v1b = calculateNextVersion("2.8.1");
   assert(v1b === "2.8.2", `Build bump 2.8.1 -> 2.8.2 (got ${v1b})`);
 
-  // Test 3-digit patch rollover to minor (e.g. 2.8.999 -> 2.9.0)
-  const v2 = calculateNextVersion("2.8.999");
-  assert(v2 === "2.9.0", `Patch rollover 2.8.999 -> 2.9.0 (got ${v2})`);
+  // Test 2-digit patch rollover to minor (e.g. 2.8.99 -> 2.9.0)
+  const v2 = calculateNextVersion("2.8.99");
+  assert(v2 === "2.9.0", `Patch rollover 2.8.99 -> 2.9.0 (got ${v2})`);
 
-  // Test 2-digit minor rollover to major (e.g. 2.99.999 -> 3.0.0)
-  const v3 = calculateNextVersion("2.99.999");
-  assert(v3 === "3.0.0", `Minor/Patch rollover 2.99.999 -> 3.0.0 (got ${v3})`);
+  // Test 2-digit minor rollover to major (e.g. 2.99.99 -> 3.0.0)
+  const v3 = calculateNextVersion("2.99.99");
+  assert(v3 === "3.0.0", `Minor/Patch rollover 2.99.99 -> 3.0.0 (got ${v3})`);
 
-  // Test max boundary limit 9.99.999
-  const v4 = calculateNextVersion("9.99.999");
-  assert(v4 === "9.99.999", `Max boundary limit 9.99.999 (got ${v4})`);
+  // Test max boundary limit 9.99.99
+  const v4 = calculateNextVersion("9.99.99");
+  assert(v4 === "9.99.99", `Max boundary limit 9.99.99 (got ${v4})`);
 
   // --- TEST SUITE 7: Theme-Aware Isolated Response & Dynamic CSS Engine ---
   console.log("\n7. Theme-Aware Isolated Response & Dynamic CSS Engine:");
@@ -215,6 +215,32 @@ import("../scripts/update-version.js").then(({ calculateNextVersion, normalizeVe
   assert(adaptersJs.includes("var(--sl-text-primary"), "providerAdapters.js virtualizes text color to var(--sl-text-primary)");
   assert(adaptersJs.includes("var(--sl-border-subtle"), "providerAdapters.js virtualizes border color to var(--sl-border-subtle)");
   assert(adaptersJs.includes("var(--sl-bg-surface"), "providerAdapters.js virtualizes background color to var(--sl-bg-surface)");
+
+  // --- TEST SUITE 8: Code Block Line Breaks & Y-Scroll Safety ---
+  console.log("\n8. Code Block Line Breaks & Y-Scroll Safety:");
+  assert(popupCss.includes("touch-action: pan-y"), "popup/index.css enables touch-action pan-y for code scrolling");
+  assert(popupCss.includes("overscroll-behavior-y: auto"), "popup/index.css enables overscroll-behavior-y auto on code blocks");
+  assert(widgetCss.includes("touch-action: pan-y"), "inject/widgetWindow.css enables touch-action pan-y for code scrolling");
+  assert(widgetCss.includes("overscroll-behavior-y: auto"), "inject/widgetWindow.css enables overscroll-behavior-y auto on code blocks");
+  assert(adaptersJs.includes("cleanCloneNode"), "providerAdapters.js defines cleanCloneNode method");
+  assert(adaptersJs.includes("getJunkSelectors"), "providerAdapters.js defines getJunkSelectors method");
+
+  // --- TEST SUITE 9: Developer Mode Universal Log Filtering ---
+  console.log("\n9. Developer Mode Universal Log Filtering:");
+  const utilsJs = fs.readFileSync(path.join(rootDir, "scripts", "utils.js"), "utf8");
+  const utilsModuleJs = fs.readFileSync(path.join(rootDir, "src", "utils", "utilsModule.js"), "utf8");
+
+  assert(utilsJs.includes("IN_CODE_DEV_MODE"), "scripts/utils.js defines IN_CODE_DEV_MODE variable");
+  assert(utilsJs.includes("isDevModeActive"), "scripts/utils.js defines isDevModeActive helper");
+  assert(utilsJs.includes("console.log = function"), "scripts/utils.js intercepts console.log based on dev mode");
+  assert(utilsJs.includes("console.warn = function"), "scripts/utils.js intercepts console.warn based on dev mode");
+  assert(utilsJs.includes("console.error = function"), "scripts/utils.js intercepts console.error based on dev mode");
+
+  assert(utilsModuleJs.includes("IN_CODE_DEV_MODE"), "src/utils/utilsModule.js defines IN_CODE_DEV_MODE variable");
+  assert(utilsModuleJs.includes("isDevModeActive"), "src/utils/utilsModule.js defines isDevModeActive helper");
+  assert(utilsModuleJs.includes("console.log = function"), "src/utils/utilsModule.js intercepts console.log based on dev mode");
+
+  assert(adaptersJs.includes("isDevModeActive"), "providerAdapters.js guards tabLog with isDevModeActive");
 
   // --- SUMMARY ---
   console.log(`\n========================================`);

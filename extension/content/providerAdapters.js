@@ -11,11 +11,16 @@
 (function (global) {
   "use strict";
 
-  /** Forward logs to background console */
+  /** Forward logs to background console only when developer mode is active */
   function tabLog(tag, message, data = null) {
+    if (typeof isDevModeActive === "function" && !isDevModeActive()) return;
     console.log(`[SpectraLens:${tag}] ${message}`, data || "");
     try {
-      if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+      if (
+        typeof chrome !== "undefined" &&
+        Boolean(chrome?.runtime?.id) &&
+        chrome.runtime?.sendMessage
+      ) {
         chrome.runtime
           .sendMessage({
             type: "TAB_LOG",
@@ -674,177 +679,22 @@
         );
       }
 
-      return `<div class="spectralens-isolated-response select-text" style="font-family: var(--sl-font-family, 'Google Sans', Roboto, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif); font-size: 13px; line-height: 1.55; max-width: 100%; box-sizing: border-box; overflow-wrap: break-word; color: var(--sl-text-primary, #0f172a); user-select: text !important;">${innerContent.trim()}</div>`;
+      return `<div class="spectralens-isolated-response markdown-body select-text" style="font-family: var(--sl-font-family, 'Google Sans', Roboto, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif); font-size: 13px; line-height: 1.55; max-width: 100%; box-sizing: border-box; overflow-wrap: break-word; color: var(--sl-text-primary, #0f172a); user-select: text !important;">${innerContent.trim()}</div>`;
     }
 
-    /** Extract clean, structured GitHub-Flavored Markdown directly from the response container */
+    /** Extract theme-aware styled HTML directly from the response container */
     async getCurrentResponse() {
       const container = this.findResponseContainer();
       if (!container) return "";
-
-      if (typeof window !== "undefined" && window.extensionUtils?.domToMarkdown) {
-        return window.extensionUtils.domToMarkdown(container);
-      }
-
-      // Self-contained DOM-to-Markdown extractor fallback
       try {
-        return (function convertToMarkdown(rootNode) {
-          if (!rootNode) return "";
-          function serialize(node, depth = 0, listType = null, listIndex = 1) {
-            if (!node) return "";
-            if (node.nodeType === 3) return node.nodeValue || "";
-            if (node.nodeType !== 1) return "";
-
-            const tag = node.tagName.toLowerCase();
-            if (
-              ["script", "style", "noscript", "svg", "button", "mat-icon", "use", "path", "dialog", "form"].includes(tag) ||
-              node.getAttribute("aria-hidden") === "true" ||
-              node.getAttribute("role") === "dialog" ||
-              node.getAttribute("role") === "button" ||
-              node.getAttribute("role") === "toolbar" ||
-              node.classList?.contains("copy-button") ||
-              node.classList?.contains("action-button") ||
-              node.classList?.contains("screen-reader-only") ||
-              node.classList?.contains("sr-only") ||
-              node.classList?.contains("hidden") ||
-              node.style?.display === "none" ||
-              node.style?.visibility === "hidden"
-            ) {
-              return "";
-            }
-
-            if (node.classList?.contains("katex-mathml") || node.classList?.contains("katex-html")) {
-              if (node.classList?.contains("katex-mathml")) {
-                const ann = node.querySelector("annotation");
-                if (ann) {
-                  const isDisplay = node.closest(".katex-display") !== null;
-                  return isDisplay ? `\n\n$$${ann.textContent.trim()}$$\n\n` : `$${ann.textContent.trim()}$`;
-                }
-              } else if (node.parentElement?.querySelector(".katex-mathml")) {
-                return "";
-              }
-            }
-
-            if (tag === "pre") {
-              const codeEl = node.querySelector("code") || node;
-              const langMatch = (codeEl.className || "").match(/language-([a-z0-9_-]+)/i);
-              const lang = langMatch ? langMatch[1] : "";
-              const code = (codeEl.textContent || "").replace(/^\n+|\n+$/g, "");
-              return `\n\n\`\`\`${lang}\n${code}\n\`\`\`\n\n`;
-            }
-
-            const getChildren = () => {
-              let res = "";
-              let idx = 1;
-              for (const child of node.childNodes) {
-                res += serialize(
-                  child,
-                  tag === "ul" || tag === "ol" ? depth + 1 : depth,
-                  tag === "ol" ? "ol" : tag === "ul" ? "ul" : listType,
-                  idx,
-                );
-                if (child.nodeType === 1 && child.tagName.toLowerCase() === "li") idx++;
-              }
-              return res;
-            };
-
-            switch (tag) {
-              case "h1": return `\n\n# ${getChildren().trim()}\n\n`;
-              case "h2": return `\n\n## ${getChildren().trim()}\n\n`;
-              case "h3": return `\n\n### ${getChildren().trim()}\n\n`;
-              case "h4": return `\n\n#### ${getChildren().trim()}\n\n`;
-              case "h5": return `\n\n##### ${getChildren().trim()}\n\n`;
-              case "h6": return `\n\n###### ${getChildren().trim()}\n\n`;
-              case "p": return `\n\n${getChildren().trim()}\n\n`;
-              case "br": return "\n";
-              case "hr": return "\n\n---\n\n";
-              case "strong":
-              case "b": {
-                const t = getChildren().trim();
-                return t ? `**${t}**` : "";
-              }
-              case "em":
-              case "i": {
-                const t = getChildren().trim();
-                return t ? `*${t}*` : "";
-              }
-              case "del":
-              case "s":
-              case "strike": {
-                const t = getChildren().trim();
-                return t ? `~~${t}~~` : "";
-              }
-              case "mark": {
-                const t = getChildren().trim();
-                return t ? `==${t}==` : "";
-              }
-              case "code": {
-                if (node.parentElement?.tagName.toLowerCase() === "pre") return getChildren();
-                const t = getChildren().trim();
-                return t ? `\`${t}\`` : "";
-              }
-              case "blockquote":
-                return `\n\n> ${getChildren().trim().replace(/\n/g, "\n> ")}\n\n`;
-              case "ul":
-              case "ol":
-                return depth === 1 ? `\n\n${getChildren().trim()}\n\n` : `\n${getChildren().trim()}`;
-              case "li": {
-                const indent = "  ".repeat(Math.max(0, depth - 1));
-                const prefix = listType === "ol" ? `${listIndex}. ` : "- ";
-                const checkbox = node.querySelector('input[type="checkbox"]');
-                const checkPrefix = checkbox ? (checkbox.checked ? "[x] " : "[ ] ") : "";
-                return `\n${indent}${prefix}${checkPrefix}${getChildren().trim()}`;
-              }
-              case "table": {
-                const rows = Array.from(node.querySelectorAll("tr"));
-                if (!rows.length) return "";
-                const matrix = rows.map((r) =>
-                  Array.from(r.querySelectorAll("th, td")).map((c) =>
-                    c.textContent.trim().replace(/\|/g, "\\|").replace(/\n+/g, " ")
-                  )
-                );
-                if (!matrix.length) return "";
-                const maxCols = Math.max(...matrix.map((r) => r.length));
-                const norm = matrix.map((r) => {
-                  const cp = [...r];
-                  while (cp.length < maxCols) cp.push("");
-                  return cp;
-                });
-                const header = `| ${norm[0].join(" | ")} |`;
-                const sep = `| ${norm[0].map(() => "---").join(" | ")} |`;
-                const body = norm.slice(1).map((r) => `| ${r.join(" | ")} |`).join("\n");
-                return `\n\n${header}\n${sep}${body ? `\n${body}` : ""}\n\n`;
-              }
-              case "a": {
-                const href = node.getAttribute("href");
-                const text = getChildren().trim();
-                if (!href || href.startsWith("javascript:")) return text;
-                return `[${text || href}](${href})`;
-              }
-              default:
-                return getChildren();
-            }
-          }
-
-          let raw = serialize(rootNode);
-          return raw
-            .replace(/\r\n/g, "\n")
-            .replace(/\n{3,}/g, "\n\n")
-            .replace(/Quick results from the web[\s\S]*?(?=\n\n|\*\*[A-Z]|Hello|Hi\b|I am|Sure|Here|Please|$)/i, "")
-            .replace(/#*\s*Share public link[\s\S]*$/i, "")
-            .replace(/This public link shares a thread[\s\S]*$/i, "")
-            .replace(/Facebook\s+Gmail\s+X\s+Reddit\s+WhatsApp[\s\S]*$/i, "")
-            .replace(/Saved time\s*Clear\s*Helpful[\s\S]*$/i, "")
-            .replace(/(?:Saved time|Clear|Helpful|Comprehensive|Incorrect|Inappropriate|Not working|Unhelpful){2,}[\s\S]*$/i, "")
-            .replace(/A copy of this chat will be included[\s\S]*$/i, "")
-            .replace(/Thanks for letting us know[\s\S]*$/i, "")
-            .replace(/Google may use account and system data[\s\S]*$/i, "")
-            .replace(/For legal issues,\s*\[make a legal removal request\][\s\S]*$/i, "")
-            .trim();
-        })(container);
-      } catch {
-        return (container.innerText || container.textContent || "").trim();
+        const styled = this.extractStyledHtml(container);
+        if (styled && styled.trim().length > 0) {
+          return styled;
+        }
+      } catch (err) {
+        tabLog("ProviderAdapter", `extractStyledHtml note: ${err?.message}`);
       }
+      return (container.innerHTML || container.textContent || "").trim();
     }
 
     /** Observe response streaming until completion */
@@ -2673,57 +2523,6 @@
   }
 
   /* -------------------------------------------------------------------------- */
-  /* 6. Microsoft Bing / Copilot Adapter (bing.com)                             */
-  /* -------------------------------------------------------------------------- */
-  class BingCopilotAdapter extends BaseProviderAdapter {
-    constructor() {
-      super("bing", "Bing Copilot", /bing\.com/);
-    }
-
-    findInput() {
-      return document.querySelector(
-        'textarea[role="textbox"][placeholder*="Ask a follow-up"], textarea.b_searchboxForm',
-      );
-    }
-
-    async insertPrompt(text) {
-      const input = this.findInput();
-      if (!input) return false;
-
-      this.focusInput();
-      input.value = text;
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-      input.dispatchEvent(new Event("change", { bubbles: true }));
-      await new Promise((r) => setTimeout(r, 100));
-      return true;
-    }
-
-    findSendButton() {
-      return document.querySelector(
-        'button[aria-label="Submit"], button.b_searchboxSubmit',
-      );
-    }
-
-    findResponseContainer() {
-      return (
-        document
-          .querySelector(".frame_cont iframe")
-          ?.contentDocument?.querySelector("#ca_main .gs_multianshead_main") ||
-        document.querySelector("#ca_main .gs_multianshead_main")
-      );
-    }
-
-    getJunkSelectors() {
-      return [
-        ...super.getJunkSelectors(),
-        ".cib-action-menu",
-        "cib-feedback",
-        ".attribution-item",
-      ];
-    }
-  }
-
-  /* -------------------------------------------------------------------------- */
   /* 7. Google Search / AI Overview Adapter (google.com)                        */
   /* -------------------------------------------------------------------------- */
   class GoogleSearchAdapter extends BaseProviderAdapter {
@@ -3402,7 +3201,6 @@
     new GeminiAdapter(),
     new GrokAdapter(),
     new PerplexityAdapter(),
-    new BingCopilotAdapter(),
     new GoogleSearchAdapter(),
   ];
 
@@ -3428,7 +3226,6 @@
       gemini: "Gemini",
       grok: "Grok",
       perplexity: "Perplexity",
-      bing: "Bing Copilot",
     };
     const name =
       providerNames[providerId?.toLowerCase()] ||
@@ -3455,7 +3252,6 @@
   global.GeminiAdapter = GeminiAdapter;
   global.GrokAdapter = GrokAdapter;
   global.PerplexityAdapter = PerplexityAdapter;
-  global.BingCopilotAdapter = BingCopilotAdapter;
   global.GoogleSearchAdapter = GoogleSearchAdapter;
   global.ProviderAdapterRegistry = ProviderAdapterRegistry;
 })(typeof window !== "undefined" ? window : globalThis);

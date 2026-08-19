@@ -174,7 +174,6 @@ function formatProviderError(providerId, shortReason) {
     gemini: "Gemini",
     grok: "Grok",
     perplexity: "Perplexity",
-    bing: "Bing Copilot",
   };
   const name =
     providerNames[providerId?.toLowerCase()] ||
@@ -368,6 +367,21 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
           }
 
           if (typeof resultVal === "string" && resultVal.trim().length > 0) {
+            console.log(
+              `%c[SpectraLens:RawOutput] 📦 ==================== FULL RAW OUTPUT DATA FROM [${providerId.toUpperCase()}] ====================`,
+              "color: #8b5cf6; font-weight: bold; font-size: 13px;",
+            );
+            console.log(
+              `[SpectraLens:RawOutput] Provider: "${providerId}" | Tab ID: #${tabId} | Character Length: ${resultVal.length}`,
+            );
+            console.log(
+              `[SpectraLens:RawOutput] RAW DATA CONTENT:\n`,
+              resultVal,
+            );
+            console.log(
+              `%c[SpectraLens:RawOutput] =========================================================================================`,
+              "color: #8b5cf6; font-weight: bold; font-size: 13px;",
+            );
             safeResolve(resultVal);
           } else {
             isExecuting = false;
@@ -602,14 +616,6 @@ async function getGoogleAiAnswer(q, requestId, image = null) {
   return fetchAiAnswer(url, runTabAdapter, ["google", q, image], requestId);
 }
 
-async function getBingAiAnswer(q, requestId, image = null) {
-  const url = `https://www.bing.com/search?q=${encodeURIComponent(q)}`;
-  console.log(
-    `[SpectraLens:Background] 🔍 getBingAiAnswer (direct search query) for: "${q.slice(0, 30)}..."${image ? " (with image)" : ""} (requestId: ${requestId})`,
-  );
-
-  return fetchAiAnswer(url, runTabAdapter, ["bing", q, image], requestId);
-}
 
 async function getGrokAnswer(q, requestId, image = null) {
   const url = `https://grok.com/?q=${encodeURIComponent(q)}`;

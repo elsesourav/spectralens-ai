@@ -1,3 +1,4 @@
+import { useId } from "react";
 import PropTypes from "prop-types";
 
 // ==========================================
@@ -75,6 +76,9 @@ ClaudeIcon.propTypes = { className: PropTypes.string, size: PropTypes.number };
 // 3. Gemini SVG (Multi-stop gradient star icon)
 // ==========================================
 export function GeminiIcon({ className = "w-4 h-4", size = 16, ...props }) {
+  const reactId = useId().replace(/[^a-zA-Z0-9_-]/g, "_");
+  const gradId = `gemini_grad_${reactId}`;
+
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -82,12 +86,11 @@ export function GeminiIcon({ className = "w-4 h-4", size = 16, ...props }) {
       width={size}
       height={size}
       className={className}
-      fill="none"
       {...props}
     >
       <defs>
         <linearGradient
-          id="sl_gemini_star_grad"
+          id={gradId}
           x1="0%"
           y1="100%"
           x2="100%"
@@ -101,7 +104,7 @@ export function GeminiIcon({ className = "w-4 h-4", size = 16, ...props }) {
       </defs>
       <path
         d="M32.447 0c.68 0 1.273.465 1.439 1.125a38.904 38.904 0 001.999 5.905c2.152 5 5.105 9.376 8.854 13.125 3.751 3.75 8.126 6.703 13.125 8.855a38.98 38.98 0 005.906 1.999c.66.166 1.124.758 1.124 1.438 0 .68-.464 1.273-1.125 1.439a38.902 38.902 0 00-5.905 1.999c-5 2.152-9.375 5.105-13.125 8.854-3.749 3.751-6.702 8.126-8.854 13.125a38.973 38.973 0 00-2 5.906 1.485 1.485 0 01-1.438 1.124c-.68 0-1.272-.464-1.438-1.125a38.913 38.913 0 00-2-5.905c-2.151-5-5.103-9.375-8.854-13.125-3.75-3.749-8.125-6.702-13.125-8.854a38.973 38.973 0 00-5.905-2A1.485 1.485 0 010 32.448c0-.68.465-1.272 1.125-1.438a38.903 38.903 0 005.905-2c5-2.151 9.376-5.104 13.125-8.854 3.75-3.749 6.703-8.125 8.855-13.125a38.972 38.972 0 001.999-5.905A1.485 1.485 0 0132.447 0z"
-        fill="url(#sl_gemini_star_grad)"
+        fill={`url(#${gradId})`}
       />
     </svg>
   );
@@ -195,7 +198,6 @@ export function ProviderIcon({ id, className = "w-4 h-4", size = 16 }) {
     gemini: GeminiIcon,
     perplexity: PerplexityIcon,
     grok: GrokIcon,
-    bing: ClaudeIcon,
   };
 
   const Component = iconMap[id?.toLowerCase()] || GoogleIcon;

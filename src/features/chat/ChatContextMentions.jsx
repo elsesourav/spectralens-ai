@@ -14,7 +14,7 @@ export default function ChatContextMentions({
   return (
     <div
       ref={mentionMenuRef}
-      className="absolute bottom-full left-3 right-3 mb-2 bg-white/95 dark:bg-[#181b24]/95 backdrop-blur-xl border border-slate-200/90 dark:border-white/[0.12] rounded-2xl shadow-xl overflow-hidden z-50 p-1.5 animate-in slide-in-from-bottom-2 duration-150"
+      className="absolute bottom-full left-3 right-3 mb-2 bg-white dark:bg-[#181b24] border border-slate-200/90 dark:border-white/[0.12] rounded-2xl shadow-xl overflow-hidden z-50 p-1.5 animate-in slide-in-from-bottom-2 duration-150"
     >
       <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
         Attach Context

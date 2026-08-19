@@ -140,11 +140,6 @@ function getProcessedHTML(container, provider) {
           );
           break;
 
-        case "bing":
-          removeElementsBySelector(container, "* > a");
-          removeElementBySelector(container, ".gs_ans_head_group");
-          break;
-
         case "perplexity":
           removeElementBySelector(container, "div:first-child:has(img)");
           removeElementsBySelector(container, " button:has(img)");

@@ -121,8 +121,8 @@ export default function ChatPromptInput({
           contrastMode === "solid"
             ? "bg-white dark:bg-[#191c25] border-slate-200/90 dark:border-white/[0.09]"
             : contrastMode === "medium"
-              ? "bg-white/70 dark:bg-[#191c25]/70 backdrop-blur-md border-slate-200/60 dark:border-white/[0.08]"
-              : "bg-white/30 dark:bg-white/[0.06] backdrop-blur-sm border-slate-200/30 dark:border-white/[0.05]"
+              ? "bg-white/95 dark:bg-[#191c25]/95 border-slate-200/60 dark:border-white/[0.08]"
+              : "bg-white/85 dark:bg-white/[0.08] border-slate-200/30 dark:border-white/[0.05]"
         }`}
       >
         <textarea

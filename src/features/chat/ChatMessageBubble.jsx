@@ -22,7 +22,7 @@ const ChatMessageBubble = memo(function ChatMessageBubble({
       <div className="user-message-bubble relative max-w-[85%] px-3.5 py-2.5 rounded-2xl rounded-tr-xs bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs select-text">
         {/* Attached page metadata preview with embedded thumbnail (for @page) */}
         {lastQuestionPage ? (
-          <div className="flex items-center gap-2.5 mb-2 px-3 py-1.5 rounded-xl bg-white/15 border border-white/20 text-white select-none backdrop-blur-xs">
+          <div className="flex items-center gap-2.5 mb-2 px-3 py-1.5 rounded-xl bg-white/20 border border-white/20 text-white select-none">
             {lastQuestionPage.image ? (
               <div className="relative w-10 h-7 rounded overflow-hidden border border-white/20 shrink-0 bg-black/20">
                 <img

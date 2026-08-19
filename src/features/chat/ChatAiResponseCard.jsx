@@ -18,20 +18,68 @@ const ChatAiResponseCard = memo(function ChatAiResponseCard({
     return null;
   }
 
-  // Memoize the expensive markdown→HTML→sanitize pipeline
-  // This only recomputes when the raw content string actually changes
+  // Directly sanitize and render the rich extracted HTML as-is
   const sanitizedHtml = useMemo(() => {
     if (!activeAiResponseContent) return null;
-    const raw = typeof UTILS.markdownToHtml === "function"
-      ? UTILS.markdownToHtml(activeAiResponseContent)
-      : activeAiResponseContent;
-    return { __html: UTILS.sanitizeHtml(raw) };
+    return { __html: UTILS.sanitizeHtml(activeAiResponseContent) };
   }, [activeAiResponseContent]);
 
   // Stable copy handler that reads current content and provider from props
   const handleCopy = useCallback(() => {
     onCopyAiResponse(activeAiResponseContent, selectedProvider);
   }, [onCopyAiResponse, activeAiResponseContent, selectedProvider]);
+
+  // Handle 1-click code block copy inside the response card
+  const handleContentClick = useCallback((e) => {
+    const copyBtn = e.target.closest(".spectralens-code-copy-btn");
+    if (!copyBtn) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    const codeCard = copyBtn.closest(".spectralens-code-card");
+    const codeEl = codeCard?.querySelector("pre code") || codeCard?.querySelector("pre");
+    if (!codeEl) return;
+
+    const rawCode = (codeEl.textContent || "").replace(/^\n+|\n+$/g, "");
+    if (!rawCode) return;
+
+    const showCopiedFeedback = () => {
+      const originalHtml = copyBtn.innerHTML;
+      copyBtn.innerHTML = `<span class="text-emerald-500 font-semibold">✓ Copied!</span>`;
+      setTimeout(() => {
+        copyBtn.innerHTML = originalHtml;
+      }, 2000);
+    };
+
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+      navigator.clipboard.writeText(rawCode).then(showCopiedFeedback).catch(() => {
+        try {
+          const textarea = document.createElement("textarea");
+          textarea.value = rawCode;
+          textarea.style.position = "fixed";
+          textarea.style.left = "-9999px";
+          document.body.appendChild(textarea);
+          textarea.select();
+          document.execCommand("copy");
+          document.body.removeChild(textarea);
+          showCopiedFeedback();
+        } catch {}
+      });
+    } else {
+      try {
+        const textarea = document.createElement("textarea");
+        textarea.value = rawCode;
+        textarea.style.position = "fixed";
+        textarea.style.left = "-9999px";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+        showCopiedFeedback();
+      } catch {}
+    }
+  }, []);
 
   return (
     <div className="flex flex-col gap-2 animate-fade-in">
@@ -40,8 +88,8 @@ const ChatAiResponseCard = memo(function ChatAiResponseCard({
           contrastMode === "solid"
             ? "bg-white dark:bg-[#181920] border-slate-200/90 dark:border-white/[0.08]"
             : contrastMode === "medium"
-              ? "bg-white/70 dark:bg-[#181920]/70 backdrop-blur-md border-slate-200/60 dark:border-white/[0.07]"
-              : "bg-white/30 dark:bg-white/[0.05] backdrop-blur-sm border-slate-200/30 dark:border-white/[0.05]"
+              ? "bg-white/95 dark:bg-[#181920]/95 border-slate-200/60 dark:border-white/[0.07]"
+              : "bg-white/80 dark:bg-white/[0.08] border-slate-200/30 dark:border-white/[0.05]"
         }`}
       >
         {/* Provider Title Header */}
@@ -70,6 +118,7 @@ const ChatAiResponseCard = memo(function ChatAiResponseCard({
           <div
             className="spectralens-response-wrapper text-slate-900 dark:text-slate-100 overflow-x-hidden break-words leading-relaxed font-normal select-text cursor-text max-w-full"
             dangerouslySetInnerHTML={sanitizedHtml}
+            onClick={handleContentClick}
           />
         ) : (
           <div className="space-y-2.5 py-2">
