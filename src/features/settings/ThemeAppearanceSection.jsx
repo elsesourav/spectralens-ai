@@ -61,13 +61,13 @@ export default function ThemeAppearanceSection({
             Transparency Mode
           </h4>
           <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 capitalize">
-            {contrastMode || "solid"}
+            {contrastMode || "medium"}
           </span>
         </div>
 
         <div className="grid grid-cols-3 gap-2">
           {contrastOptions.map((opt) => {
-            const isSelected = (contrastMode || "solid") === opt.id;
+            const isSelected = (contrastMode || "medium") === opt.id;
 
             return (
               <button

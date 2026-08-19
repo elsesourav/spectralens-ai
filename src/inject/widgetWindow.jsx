@@ -7,7 +7,7 @@ import "./widgetWindow.css";
 export function App() {
    return (
       <StrictMode>
-         <ThemeProvider defaultTheme="system" storageKey="app-theme" contextKey="menu">
+         <ThemeProvider defaultTheme="system" defaultContrast="medium" storageKey="app-theme" contextKey="menu">
             <AssistantWidget />
          </ThemeProvider>
       </StrictMode>

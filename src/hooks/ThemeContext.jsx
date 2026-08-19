@@ -3,7 +3,7 @@ import { createContext } from "react";
 const initialState = {
    theme: "system",
    isDarkMode: true,
-   contrastMode: "solid",
+   contrastMode: "medium",
    setTheme: () => null,
    setContrastMode: () => null,
 };

@@ -301,7 +301,7 @@ html.dark .animated-pill-glow::before {
   --sl-font-family:
     "Google Sans", Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI",
     system-ui, sans-serif;
-  --sl-text-primary: #ff4e08; /* Slate-900: Crisp headings, body text, bold */
+  --sl-text-primary: #0f172a; /* Slate-900: Crisp headings, body text, bold */
   --sl-text-secondary: #334155; /* Slate-700: Secondary text */
   --sl-text-muted: #64748b; /* Slate-500: Captions, helper text */
   --sl-text-link: #2563eb; /* Blue-600: Links & actionable items */
@@ -315,8 +315,8 @@ html.dark .animated-pill-glow::before {
   --sl-bg-surface-subtle: #f1f5f9; /* Slate-100: Subtle chip / tag background */
   --sl-bg-code: #f1f5f9; /* Slate-100: Code block background */
 
-  --sl-border-subtle: #e2e8f077; /* Slate-200: Soft divider & card borders */
-  --sl-border-strong: #cbd5e177; /* Slate-300: Active / focus borders */
+  --sl-border-subtle: #e2e8f0; /* Slate-200: Soft divider & card borders */
+  --sl-border-strong: #cbd5e1; /* Slate-300: Active / focus borders */
 
   --sl-accent: #3b82f6; /* Blue-500: Accent highlights */
   --sl-accent-bg: rgba(59, 130, 246, 0.08); /* Blue-500 soft chip background */
@@ -331,7 +331,7 @@ html.dark .animated-pill-glow::before {
 .dark .spectralens-isolated-response,
 [data-theme="dark"] .spectralens-isolated-response,
 html.dark .spectralens-isolated-response {
-  --sl-text-primary: #ff4e08; /* Slate-50: Crisp bright text */
+  --sl-text-primary: #f8fafc; /* Slate-50: Crisp bright text */
   --sl-text-secondary: #cbd5e1; /* Slate-300: Clear readable secondary text */
   --sl-text-muted: #94a3b8; /* Slate-400: Muted helper text */
   --sl-text-link: #60a5fa; /* Blue-400: High-visibility links */
@@ -345,8 +345,8 @@ html.dark .spectralens-isolated-response {
   --sl-bg-surface-subtle: rgba(51, 65, 85, 0.6); /* Slate-700 chip */
   --sl-bg-code: #0f172a; /* Slate-900 deep code bg */
 
-  --sl-border-subtle: #33415577; /* Slate-700 border */
-  --sl-border-strong: #47556977; /* Slate-600 border */
+  --sl-border-subtle: #334155; /* Slate-700 border */
+  --sl-border-strong: #475569; /* Slate-600 border */
 
   --sl-accent: #60a5fa;
   --sl-accent-bg: rgba(96, 165, 250, 0.15);

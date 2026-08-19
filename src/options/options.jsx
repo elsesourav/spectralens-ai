@@ -6,7 +6,7 @@ import "../popup/index.css";
 
 createRoot(document.getElementById("root")).render(
    <StrictMode>
-      <ThemeProvider defaultTheme="light" storageKey="app-theme">
+      <ThemeProvider defaultTheme="system" defaultContrast="medium" storageKey="app-theme">
          <OptionsApp />
       </ThemeProvider>
    </StrictMode>

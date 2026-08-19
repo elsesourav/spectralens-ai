@@ -6,7 +6,7 @@ import "./index.css";
 
 createRoot(document.getElementById("root")).render(
    <StrictMode>
-      <ThemeProvider defaultTheme="system" storageKey="popup-theme" contextKey="popup">
+      <ThemeProvider defaultTheme="system" defaultContrast="medium" storageKey="popup-theme" contextKey="popup">
          <PopOuter />
       </ThemeProvider>
    </StrictMode>

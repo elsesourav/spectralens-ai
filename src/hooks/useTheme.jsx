@@ -7,7 +7,7 @@ const CONTROLS_KEY = "Ai-Display-Controls";
 export function ThemeProvider({
   children,
   defaultTheme = "system",
-  defaultContrast = "solid",
+  defaultContrast = "medium",
   storageKey = "app-theme",
   contextKey = "menu",
   ...props
