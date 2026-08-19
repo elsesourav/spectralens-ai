@@ -355,31 +355,51 @@
 
     /** Trigger submission via button click or Enter keydown */
     async submit() {
-      const sendBtn = this.findSendButton();
-      if (
-        sendBtn &&
-        !sendBtn.disabled &&
-        sendBtn.getAttribute("aria-disabled") !== "true"
-      ) {
-        sendBtn.click();
-        return true;
+      if (this._isSubmitting) {
+        tabLog(this.id, "Submit lock active - ignoring duplicate submit call");
+        return false;
       }
+      this._isSubmitting = true;
+      try {
+        const sendBtn = this.findSendButton();
+        if (
+          sendBtn &&
+          !sendBtn.disabled &&
+          sendBtn.getAttribute("aria-disabled") !== "true"
+        ) {
+          try {
+            sendBtn.click();
+            return true;
+          } catch (err) {
+            tabLog(
+              this.id,
+              "Send button click threw, fallback to Enter key:",
+              err?.message,
+            );
+          }
+        }
 
-      const input = this.findInput();
-      if (input) {
-        input.dispatchEvent(
-          new KeyboardEvent("keydown", {
-            key: "Enter",
-            code: "Enter",
-            keyCode: 13,
-            which: 13,
-            bubbles: true,
-            cancelable: true,
-          }),
-        );
-        return true;
+        const input = this.findInput();
+        if (input) {
+          input.focus();
+          input.dispatchEvent(
+            new KeyboardEvent("keydown", {
+              key: "Enter",
+              code: "Enter",
+              keyCode: 13,
+              which: 13,
+              bubbles: true,
+              cancelable: true,
+            }),
+          );
+          return true;
+        }
+        return false;
+      } finally {
+        setTimeout(() => {
+          this._isSubmitting = false;
+        }, 500);
       }
-      return false;
     }
 
     /** Find the response/assistant message container */
@@ -876,52 +896,45 @@
     }
 
     async submit() {
-      await new Promise((r) => setTimeout(r, 150));
-      const btn = this.findSendButton();
-      if (btn && !btn.disabled) {
-        tabLog("ChatGPTTab", "🔘 Clicking ChatGPT Send button...");
-        try {
-          btn.click();
-          btn.dispatchEvent(
-            new MouseEvent("click", {
+      if (this._isSubmitting) return false;
+      this._isSubmitting = true;
+      try {
+        await new Promise((r) => setTimeout(r, 150));
+        const btn = this.findSendButton();
+        if (btn && !btn.disabled) {
+          tabLog("ChatGPTTab", "🔘 Clicking ChatGPT Send button...");
+          try {
+            btn.click();
+            return true;
+          } catch (err) {
+            tabLog("ChatGPTTab", "Button click threw, trying Enter fallback:", err?.message);
+          }
+        }
+
+        // Fallback: Dispatch Enter key ONLY IF button click did not succeed
+        const input = this.findInput();
+        if (input) {
+          tabLog("ChatGPTTab", "↵ Dispatching Enter key to ChatGPT input...");
+          input.focus();
+          input.dispatchEvent(
+            new KeyboardEvent("keydown", {
+              key: "Enter",
+              code: "Enter",
+              keyCode: 13,
+              which: 13,
               bubbles: true,
               cancelable: true,
-              view: window,
             }),
           );
           return true;
-        } catch {}
-      }
+        }
 
-      // Fallback: Dispatch Enter key
-      const input = this.findInput();
-      if (input) {
-        tabLog("ChatGPTTab", "↵ Dispatching Enter key to ChatGPT input...");
-        input.focus();
-        input.dispatchEvent(
-          new KeyboardEvent("keydown", {
-            key: "Enter",
-            code: "Enter",
-            keyCode: 13,
-            which: 13,
-            bubbles: true,
-            cancelable: true,
-          }),
-        );
-        input.dispatchEvent(
-          new KeyboardEvent("keyup", {
-            key: "Enter",
-            code: "Enter",
-            keyCode: 13,
-            which: 13,
-            bubbles: true,
-            cancelable: true,
-          }),
-        );
-        return true;
+        return false;
+      } finally {
+        setTimeout(() => {
+          this._isSubmitting = false;
+        }, 500);
       }
-
-      return false;
     }
 
     findResponseContainer() {
@@ -1187,63 +1200,46 @@
     }
 
     async submit() {
-      await new Promise((r) => setTimeout(r, 150));
-      const btn = this.findSendButton();
-      if (btn && !btn.disabled) {
-        tabLog("ClaudeTab", "🔘 Clicking Claude Send button...");
-        try {
-          btn.focus();
-          btn.click();
-          btn.dispatchEvent(
-            new MouseEvent("click", {
+      if (this._isSubmitting) return false;
+      this._isSubmitting = true;
+      try {
+        await new Promise((r) => setTimeout(r, 150));
+        const btn = this.findSendButton();
+        if (btn && !btn.disabled) {
+          tabLog("ClaudeTab", "🔘 Clicking Claude Send button...");
+          try {
+            btn.focus();
+            btn.click();
+            return true;
+          } catch (err) {
+            tabLog("ClaudeTab", "Button click threw, trying Enter fallback:", err?.message);
+          }
+        }
+
+        // Fallback: Dispatch Enter key ONLY IF button click did not succeed
+        const input = this.findInput();
+        if (input) {
+          tabLog("ClaudeTab", "↵ Dispatching Enter key to Claude input...");
+          input.focus();
+          input.dispatchEvent(
+            new KeyboardEvent("keydown", {
+              key: "Enter",
+              code: "Enter",
+              keyCode: 13,
+              which: 13,
               bubbles: true,
               cancelable: true,
-              view: window,
             }),
           );
           return true;
-        } catch {}
-      }
+        }
 
-      // Fallback: Dispatch Enter key
-      const input = this.findInput();
-      if (input) {
-        tabLog("ClaudeTab", "↵ Dispatching Enter key to Claude input...");
-        input.focus();
-        input.dispatchEvent(
-          new KeyboardEvent("keydown", {
-            key: "Enter",
-            code: "Enter",
-            keyCode: 13,
-            which: 13,
-            bubbles: true,
-            cancelable: true,
-          }),
-        );
-        input.dispatchEvent(
-          new KeyboardEvent("keypress", {
-            key: "Enter",
-            code: "Enter",
-            keyCode: 13,
-            which: 13,
-            bubbles: true,
-            cancelable: true,
-          }),
-        );
-        input.dispatchEvent(
-          new KeyboardEvent("keyup", {
-            key: "Enter",
-            code: "Enter",
-            keyCode: 13,
-            which: 13,
-            bubbles: true,
-            cancelable: true,
-          }),
-        );
-        return true;
+        return false;
+      } finally {
+        setTimeout(() => {
+          this._isSubmitting = false;
+        }, 500);
       }
-
-      return false;
     }
 
     findResponseContainer() {
@@ -1606,52 +1602,45 @@
     }
 
     async submit() {
-      await new Promise((r) => setTimeout(r, 150));
-      const btn = this.findSendButton();
-      if (btn) {
-        tabLog("GeminiTab", "🔘 Clicking Gemini Send button...");
-        try {
-          btn.click();
-          btn.dispatchEvent(
-            new MouseEvent("click", {
+      if (this._isSubmitting) return false;
+      this._isSubmitting = true;
+      try {
+        await new Promise((r) => setTimeout(r, 150));
+        const btn = this.findSendButton();
+        if (btn) {
+          tabLog("GeminiTab", "🔘 Clicking Gemini Send button...");
+          try {
+            btn.click();
+            return true;
+          } catch (err) {
+            tabLog("GeminiTab", "Button click threw, trying Enter fallback:", err?.message);
+          }
+        }
+
+        // Fallback: Dispatch Enter key ONLY IF button click did not succeed
+        const input = this.findInput();
+        if (input) {
+          tabLog("GeminiTab", "↵ Dispatching Enter key to Gemini input...");
+          input.focus();
+          input.dispatchEvent(
+            new KeyboardEvent("keydown", {
+              key: "Enter",
+              code: "Enter",
+              keyCode: 13,
+              which: 13,
               bubbles: true,
               cancelable: true,
-              view: window,
             }),
           );
           return true;
-        } catch {}
-      }
+        }
 
-      // Fallback: Dispatch Enter key
-      const input = this.findInput();
-      if (input) {
-        tabLog("GeminiTab", "↵ Dispatching Enter key to Gemini input...");
-        input.focus();
-        input.dispatchEvent(
-          new KeyboardEvent("keydown", {
-            key: "Enter",
-            code: "Enter",
-            keyCode: 13,
-            which: 13,
-            bubbles: true,
-            cancelable: true,
-          }),
-        );
-        input.dispatchEvent(
-          new KeyboardEvent("keyup", {
-            key: "Enter",
-            code: "Enter",
-            keyCode: 13,
-            which: 13,
-            bubbles: true,
-            cancelable: true,
-          }),
-        );
-        return true;
+        return false;
+      } finally {
+        setTimeout(() => {
+          this._isSubmitting = false;
+        }, 500);
       }
-
-      return false;
     }
 
     findResponseContainer() {
@@ -1956,51 +1945,45 @@
     }
 
     async submit() {
-      await new Promise((r) => setTimeout(r, 150));
-      const btn = this.findSendButton();
-      if (btn && !btn.disabled) {
-        tabLog("GrokTab", "🔘 Clicking Grok Send button...");
-        try {
-          btn.click();
-          btn.dispatchEvent(
-            new MouseEvent("click", {
+      if (this._isSubmitting) return false;
+      this._isSubmitting = true;
+      try {
+        await new Promise((r) => setTimeout(r, 150));
+        const btn = this.findSendButton();
+        if (btn && !btn.disabled) {
+          tabLog("GrokTab", "🔘 Clicking Grok Send button...");
+          try {
+            btn.click();
+            return true;
+          } catch (err) {
+            tabLog("GrokTab", "Button click threw, trying Enter fallback:", err?.message);
+          }
+        }
+
+        // Fallback: Dispatch Enter key ONLY IF button click did not succeed
+        const input = this.findInput();
+        if (input) {
+          tabLog("GrokTab", "↵ Dispatching Enter key to Grok input...");
+          input.focus();
+          input.dispatchEvent(
+            new KeyboardEvent("keydown", {
+              key: "Enter",
+              code: "Enter",
+              keyCode: 13,
+              which: 13,
               bubbles: true,
               cancelable: true,
-              view: window,
             }),
           );
           return true;
-        } catch {}
-      }
+        }
 
-      const input = this.findInput();
-      if (input) {
-        tabLog("GrokTab", "↵ Dispatching Enter key to Grok input...");
-        input.focus();
-        input.dispatchEvent(
-          new KeyboardEvent("keydown", {
-            key: "Enter",
-            code: "Enter",
-            keyCode: 13,
-            which: 13,
-            bubbles: true,
-            cancelable: true,
-          }),
-        );
-        input.dispatchEvent(
-          new KeyboardEvent("keyup", {
-            key: "Enter",
-            code: "Enter",
-            keyCode: 13,
-            which: 13,
-            bubbles: true,
-            cancelable: true,
-          }),
-        );
-        return true;
+        return false;
+      } finally {
+        setTimeout(() => {
+          this._isSubmitting = false;
+        }, 500);
       }
-
-      return false;
     }
 
     findResponseContainer() {
@@ -2302,103 +2285,63 @@
     }
 
     async submit() {
-      await new Promise((r) => setTimeout(r, 200));
-      const btn = this.findSendButton();
-      const input = this.findInput();
+      if (this._isSubmitting) return false;
+      this._isSubmitting = true;
+      try {
+        await new Promise((r) => setTimeout(r, 200));
+        const btn = this.findSendButton();
+        const input = this.findInput();
 
-      function triggerFullClick(el) {
-        if (!el) return;
-        el.focus();
-        const rect = el.getBoundingClientRect();
-        const clientX = rect.left + rect.width / 2;
-        const clientY = rect.top + rect.height / 2;
-        const mouseOpts = {
-          bubbles: true,
-          cancelable: true,
-          composed: true,
-          view: window,
-          clientX,
-          clientY,
-          button: 0,
-          buttons: 1,
-        };
-        const pointerOpts = {
-          ...mouseOpts,
-          pointerId: 1,
-          pointerType: "mouse",
-          isPrimary: true,
-        };
+        // Check if send button is active / enabled
+        let activeBtn =
+          btn && !btn.disabled && !btn.classList.contains("pointer-events-none")
+            ? btn
+            : null;
 
-        el.dispatchEvent(new PointerEvent("pointerover", pointerOpts));
-        el.dispatchEvent(new PointerEvent("pointerenter", pointerOpts));
-        el.dispatchEvent(new PointerEvent("pointerdown", pointerOpts));
-        el.dispatchEvent(new MouseEvent("mousedown", mouseOpts));
-        el.dispatchEvent(new PointerEvent("pointerup", pointerOpts));
-        el.dispatchEvent(new MouseEvent("mouseup", mouseOpts));
-        el.dispatchEvent(new MouseEvent("click", mouseOpts));
-        try {
-          el.click();
-        } catch {}
-      }
-
-      function triggerEnter(el) {
-        if (!el) return;
-        el.focus();
-        const eventOpts = {
-          key: "Enter",
-          code: "Enter",
-          keyCode: 13,
-          which: 13,
-          charCode: 13,
-          bubbles: true,
-          cancelable: true,
-          composed: true,
-          isComposing: false,
-          view: window,
-        };
-        el.dispatchEvent(new KeyboardEvent("keydown", eventOpts));
-        el.dispatchEvent(new KeyboardEvent("keypress", eventOpts));
-        el.dispatchEvent(new KeyboardEvent("keyup", eventOpts));
-      }
-
-      // Check if send button is active / enabled
-      let activeBtn =
-        btn && !btn.disabled && !btn.classList.contains("pointer-events-none")
-          ? btn
-          : null;
-
-      if (!activeBtn && btn) {
-        for (let i = 0; i < 12; i++) {
-          await new Promise((r) => setTimeout(r, 100));
-          if (!btn.disabled && !btn.classList.contains("pointer-events-none")) {
-            activeBtn = btn;
-            break;
+        if (!activeBtn && btn) {
+          for (let i = 0; i < 10; i++) {
+            await new Promise((r) => setTimeout(r, 100));
+            if (!btn.disabled && !btn.classList.contains("pointer-events-none")) {
+              activeBtn = btn;
+              break;
+            }
           }
         }
-      }
 
-      if (activeBtn) {
-        tabLog("PerplexityTab", "🔘 Triggering submit on Perplexity send button...");
-        triggerFullClick(activeBtn);
-        await new Promise((r) => setTimeout(r, 100));
-        return true;
-      }
+        if (activeBtn) {
+          tabLog("PerplexityTab", "🔘 Triggering submit on Perplexity send button...");
+          try {
+            activeBtn.focus();
+            activeBtn.click();
+            return true;
+          } catch (err) {
+            tabLog("PerplexityTab", "Button click threw, trying Enter fallback:", err?.message);
+          }
+        }
 
-      // If button still not active, force enable & click and dispatch Enter
-      if (btn) {
-        tabLog("PerplexityTab", "🔘 Forcing click on Perplexity send button...");
-        btn.removeAttribute("disabled");
-        btn.classList.remove("pointer-events-none");
-        triggerFullClick(btn);
-      }
+        // Fallback: Dispatch Enter key ONLY IF button click did not succeed
+        if (input) {
+          tabLog("PerplexityTab", "↵ Dispatching Enter key to Perplexity input...");
+          input.focus();
+          input.dispatchEvent(
+            new KeyboardEvent("keydown", {
+              key: "Enter",
+              code: "Enter",
+              keyCode: 13,
+              which: 13,
+              bubbles: true,
+              cancelable: true,
+            }),
+          );
+          return true;
+        }
 
-      if (input) {
-        tabLog("PerplexityTab", "↵ Dispatching Enter key sequence to Perplexity input...");
-        triggerEnter(input);
-        return true;
+        return false;
+      } finally {
+        setTimeout(() => {
+          this._isSubmitting = false;
+        }, 500);
       }
-
-      return Boolean(btn);
     }
 
     findResponseContainer() {
@@ -2859,105 +2802,97 @@
     }
 
     async submit() {
-      await new Promise((r) => setTimeout(r, 150));
+      if (this._isSubmitting) return false;
+      this._isSubmitting = true;
+      try {
+        await new Promise((r) => setTimeout(r, 150));
 
-      const isSearchPage = window.location.pathname.startsWith("/search");
-      const input = this.findInput();
+        const isSearchPage = window.location.pathname.startsWith("/search");
+        const input = this.findInput();
 
-      // Case 1: In-page follow-up conversation turn on /search page
-      if (isSearchPage || input?.classList?.contains("ITIRGe")) {
-        tabLog("GoogleTab", "↵ Dispatching Enter key to follow-up chat box...");
-        try {
-          input.focus();
-          input.dispatchEvent(
-            new KeyboardEvent("keydown", {
-              key: "Enter",
-              code: "Enter",
-              keyCode: 13,
-              which: 13,
-              bubbles: true,
-              cancelable: true,
-            }),
-          );
-          input.dispatchEvent(
-            new KeyboardEvent("keypress", {
-              key: "Enter",
-              code: "Enter",
-              keyCode: 13,
-              which: 13,
-              bubbles: true,
-              cancelable: true,
-            }),
-          );
-          input.dispatchEvent(
-            new KeyboardEvent("keyup", {
-              key: "Enter",
-              code: "Enter",
-              keyCode: 13,
-              which: 13,
-              bubbles: true,
-              cancelable: true,
-            }),
-          );
-        } catch {}
+        // Case 1: In-page follow-up conversation turn on /search page
+        if (isSearchPage || input?.classList?.contains("ITIRGe")) {
+          const sendBtn =
+            document.querySelector(
+              'button[aria-label*="Send" i], button[aria-label*="Search" i], button[type="submit"]',
+            ) || this.findSendButton();
 
-        const sendBtn =
-          document.querySelector(
-            'button[aria-label*="Send" i], button[aria-label*="Search" i], button[type="submit"]',
-          ) || this.findSendButton();
-        if (sendBtn) {
-          try {
-            sendBtn.click();
-          } catch {}
-        }
-        return true;
-      }
-
-      // Case 2: Google Homepage initial search submission
-      tabLog(
-        "GoogleTab",
-        "🚀 Submitting search from Google homepage with AI Mode...",
-      );
-      const btn = this.findSendButton();
-      if (btn) {
-        tabLog("GoogleTab", "🔘 Clicking Google Search / AI button...");
-        try {
-          btn.click();
-          btn.dispatchEvent(
-            new MouseEvent("click", {
-              bubbles: true,
-              cancelable: true,
-              view: window,
-            }),
-          );
-        } catch {}
-      }
-
-      const form = input
-        ? input.closest("form")
-        : document.querySelector('form[role="search"], form[action="/search"]');
-      if (form) {
-        tabLog("GoogleTab", "📄 Triggering form submit...");
-        try {
-          if (typeof form.requestSubmit === "function") {
-            form.requestSubmit();
-          } else {
-            form.submit();
+          if (sendBtn && !sendBtn.disabled) {
+            tabLog("GoogleTab", "🔘 Clicking Google follow-up send button...");
+            try {
+              sendBtn.click();
+              return true;
+            } catch (err) {
+              tabLog("GoogleTab", "Send button click threw, fallback to Enter:", err?.message);
+            }
           }
-          return true;
-        } catch {
-          form.submit();
+
+          if (input) {
+            tabLog("GoogleTab", "↵ Dispatching Enter key to follow-up chat box...");
+            input.focus();
+            input.dispatchEvent(
+              new KeyboardEvent("keydown", {
+                key: "Enter",
+                code: "Enter",
+                keyCode: 13,
+                which: 13,
+                bubbles: true,
+                cancelable: true,
+              }),
+            );
+            return true;
+          }
+          return false;
+        }
+
+        // Case 2: Google Homepage initial search submission
+        tabLog(
+          "GoogleTab",
+          "🚀 Submitting search from Google homepage with AI Mode...",
+        );
+        const btn = this.findSendButton();
+        if (btn) {
+          tabLog("GoogleTab", "🔘 Clicking Google Search / AI button...");
+          try {
+            btn.click();
+            return true;
+          } catch (err) {
+            tabLog("GoogleTab", "Homepage search button click threw:", err?.message);
+          }
+        }
+
+        const form = input
+          ? input.closest("form")
+          : document.querySelector('form[role="search"], form[action="/search"]');
+        if (form) {
+          tabLog("GoogleTab", "📄 Triggering form submit...");
+          try {
+            if (typeof form.requestSubmit === "function") {
+              form.requestSubmit();
+            } else {
+              form.submit();
+            }
+            return true;
+          } catch {
+            try {
+              form.submit();
+              return true;
+            } catch {}
+          }
+        }
+
+        if (this._lastPrompt) {
+          tabLog("GoogleTab", "🌐 Navigating directly to AI search results...");
+          window.location.href = `https://www.google.com/search?q=${encodeURIComponent(this._lastPrompt)}&hl=en&udm=50`;
           return true;
         }
-      }
 
-      if (this._lastPrompt) {
-        tabLog("GoogleTab", "🌐 Navigating directly to AI search results...");
-        window.location.href = `https://www.google.com/search?q=${encodeURIComponent(this._lastPrompt)}&hl=en&udm=50`;
         return true;
+      } finally {
+        setTimeout(() => {
+          this._isSubmitting = false;
+        }, 500);
       }
-
-      return true;
     }
 
     findResponseContainer() {

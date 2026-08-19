@@ -104,6 +104,7 @@ export default function ChatBot({
   const [copiedTurnId, setCopiedTurnId] = useState(null);
   const [copiedProviderId, setCopiedProviderId] = useState(null);
   const currentRequestIdRef = useRef(null);
+  const isSubmittingRef = useRef(false);
   const activeProviderResolversRef = useRef(new Map());
   const historySaveTimeoutRef = useRef(null);
 
@@ -539,6 +540,7 @@ export default function ChatBot({
 
   // Stop active AI fetching
   const handleStopFetch = useCallback(() => {
+    isSubmittingRef.current = false;
     currentRequestIdRef.current = "stopped_" + Date.now();
     activeProviderResolversRef.current.forEach((resolve) => {
       resolve({ cancelled: true });
@@ -555,6 +557,7 @@ export default function ChatBot({
 
   // Start fresh chat session (clears the continuous chat thread and resets background sessions)
   const handleNewChat = useCallback(() => {
+    isSubmittingRef.current = false;
     // Save current active conversation to history before resetting
     if (turnsRef.current && turnsRef.current.length > 0) {
       saveHistoryImmediately(turnsRef.current);
@@ -711,7 +714,7 @@ export default function ChatBot({
   const dispatchAiRequestToBackground = useCallback(
     async (question, provider = "google", requestId, image = null) => {
       console.log(
-        `[SpectraLens:ChatBot] 🚀 Posting IF_B_GET_ANSWER for provider: "${provider}", query: "${question.slice(0, 30)}..."${image ? " (with screen image attachment)" : ""} (requestId: ${requestId})`,
+        `[SL REQUEST] ${requestId} provider=${provider} event=QUEUED timestamp=${Date.now()}`,
       );
       UTILS.pagePostMessage(
         "IF_B_GET_ANSWER",
@@ -806,27 +809,19 @@ export default function ChatBot({
     return list;
   }, [aiProviders, turns]);
 
-  // Provider tabs: When viewing history, shows only the providers that answered in that session. When in live chat, shows only currently enabled providers.
+  // Dynamically available tabs
   const availableProviderTabs = useMemo(() => {
-    if (isViewingHistory) {
+    if (isViewingHistory && turns.length > 0) {
       const historyProviders = new Set();
-      turns.forEach((turn) => {
-        Object.keys(turn.answers || {}).forEach((id) => {
-          const ans = turn.answers[id];
-          if (ans && (ans.content || ans.answer || typeof ans === "string")) {
-            historyProviders.add(id);
-          }
-        });
+      turns.forEach((t) => {
+        if (t.answers) {
+          Object.keys(t.answers).forEach((id) => historyProviders.add(id));
+        }
       });
 
-      const list = Array.from(historyProviders).map((id) => {
-        const matching = aiProviders.find((p) => p.id === id);
-        return {
-          id,
-          name: matching?.name || id.charAt(0).toUpperCase() + id.slice(1),
-          enabled: true,
-        };
-      });
+      const list = allProvidersList.filter((p) =>
+        historyProviders.has(p.id),
+      );
 
       return list.length > 0
         ? list
@@ -838,7 +833,7 @@ export default function ChatBot({
       return [{ id: "google", name: "Google AI", enabled: true }];
     }
     return enabled;
-  }, [aiProviders, turns, isViewingHistory]);
+  }, [aiProviders, turns, isViewingHistory, allProvidersList]);
 
   // Providers shown as primary pills vs overflow menu based on MAX_PRIMARY_PROVIDER_TABS
   const primaryProviderTabs = availableProviderTabs.slice(
@@ -851,11 +846,29 @@ export default function ChatBot({
 
   const handleSendMessage = useCallback(
     async (messageInput = null) => {
+      // 1. Submit Lock & Rapid Duplicate Prevention
+      if (isSubmittingRef.current) {
+        console.warn(
+          "[SL REQUEST] Submit lock is active — ignoring rapid duplicate submit trigger",
+        );
+        return;
+      }
+
       const actualInput = messageInput !== null ? messageInput : input;
       if (actualInput?.trim() === "" && !attachedImage && !attachedPage) return;
 
-      const requestId = Date.now().toString();
+      isSubmittingRef.current = true;
+
+      const requestId =
+        "req_" +
+        Date.now() +
+        "_" +
+        Math.random().toString(36).slice(2, 8);
       currentRequestIdRef.current = requestId;
+
+      console.log(
+        `[SL REQUEST] ${requestId} event=CREATED timestamp=${Date.now()}`,
+      );
 
       const targetProvider =
         selectedProvider ||
@@ -942,7 +955,14 @@ export default function ChatBot({
       setTimeout(() => scrollToBottom(true), 50);
       setTimeout(() => scrollToBottom(true), 200);
 
-      fetchAiResponsesWithConcurrency(sentQuestion, requestId, currentImage);
+      try {
+        fetchAiResponsesWithConcurrency(sentQuestion, requestId, currentImage);
+      } finally {
+        // Release UI submit lock after dispatching
+        setTimeout(() => {
+          isSubmittingRef.current = false;
+        }, 300);
+      }
     },
     [
       input,
@@ -953,6 +973,9 @@ export default function ChatBot({
       aiProviders,
       availableProviderTabs,
       scrollToBottom,
+      allProvidersList,
+      isViewingHistory,
+      turns,
     ],
   );
 

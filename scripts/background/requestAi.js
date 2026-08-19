@@ -1,3 +1,47 @@
+/* --- Request State Model & Idempotency Tracker --- */
+const REQUEST_STATES = {
+  CREATED: "CREATED",
+  QUEUED: "QUEUED",
+  SENDING: "SENDING",
+  SUBMITTED: "SUBMITTED",
+  STREAMING: "STREAMING",
+  COMPLETED: "COMPLETED",
+  FAILED: "FAILED",
+  CANCELLED: "CANCELLED",
+  TIMED_OUT: "TIMED_OUT",
+};
+
+const requestStateModel = new Map(); // key: `${requestId}:${providerId}` -> { requestId, providerId, status, createdAt, updatedAt }
+const activeProviderLocks = new Map(); // key: providerId -> active requestId
+
+function setRequestState(requestId, providerId, status) {
+  if (!requestId || !providerId) return;
+  const key = `${requestId}:${providerId.toLowerCase()}`;
+  const now = Date.now();
+  const existing = requestStateModel.get(key);
+  const state = existing
+    ? { ...existing, status, updatedAt: now }
+    : {
+        requestId,
+        providerId: providerId.toLowerCase(),
+        status,
+        createdAt: now,
+        updatedAt: now,
+      };
+  requestStateModel.set(key, state);
+  console.log(
+    `[SL REQUEST] ${requestId} provider=${providerId.toLowerCase()} event=${status} timestamp=${now}`,
+  );
+  return state;
+}
+
+function getRequestState(requestId, providerId) {
+  if (!requestId || !providerId) return null;
+  return (
+    requestStateModel.get(`${requestId}:${providerId.toLowerCase()}`) || null
+  );
+}
+
 /* --- Persistent AI Provider Tab Pool & Isolated Worker Window --- */
 let currentRequestId = null;
 let activeAiTabs = [];
@@ -16,6 +60,7 @@ if (typeof chrome !== "undefined" && chrome.windows?.onRemoved) {
       workerWindowPromise = null;
       persistentProviderTabs.clear();
       activeAiTabs = [];
+      activeProviderLocks.clear();
     }
   });
 }
@@ -30,6 +75,7 @@ if (typeof chrome !== "undefined" && chrome.tabs?.onRemoved) {
           `[SpectraLens:Pipeline] 🚪 Provider Tab for "${providerId}" (#${removedTabId}) closed.`,
         );
         persistentProviderTabs.delete(providerId);
+        activeProviderLocks.delete(providerId);
       }
     }
   });
@@ -117,6 +163,10 @@ async function openOrReuseProviderTab(providerId, url) {
 /** Immediately cancel all ongoing AI scraper requests */
 function cancelAllAiRequests() {
   currentRequestId = "cancelled_" + Date.now();
+  for (const [providerId, reqId] of activeProviderLocks.entries()) {
+    setRequestState(reqId, providerId, REQUEST_STATES.CANCELLED);
+  }
+  activeProviderLocks.clear();
 }
 
 /** Closes a specific AI provider's background window & tab (e.g. when toggled OFF in Settings) */
@@ -136,6 +186,7 @@ function closeProviderTab(providerId) {
       chrome.windows.remove(entry.windowId).catch(() => {});
     }
     persistentProviderTabs.delete(key);
+    activeProviderLocks.delete(key);
   }
   activeAiTabs = activeAiTabs.filter((id) => id !== entry?.tabId);
 }
@@ -146,6 +197,11 @@ function resetAllProviderSessions() {
     "[SpectraLens:Pipeline] 🔄 Resetting all AI provider background sessions...",
   );
   currentRequestId = "reset_" + Date.now();
+  for (const [providerId, reqId] of activeProviderLocks.entries()) {
+    setRequestState(reqId, providerId, REQUEST_STATES.CANCELLED);
+  }
+  activeProviderLocks.clear();
+
   for (const [providerId, entry] of persistentProviderTabs.entries()) {
     if (entry.tabId) {
       chromeTabMediaAccess(entry.tabId, false);
@@ -273,11 +329,32 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
 
     if (requestId) {
       currentRequestId = requestId;
+
+      // Idempotency & Per-Provider Lock Check
+      const activeLock = activeProviderLocks.get(providerId);
+      if (activeLock === requestId) {
+        const state = getRequestState(requestId, providerId);
+        if (
+          state &&
+          (state.status === REQUEST_STATES.SENDING ||
+            state.status === REQUEST_STATES.SUBMITTED ||
+            state.status === REQUEST_STATES.STREAMING)
+        ) {
+          console.log(
+            `[SL REQUEST] ${requestId} provider=${providerId} event=DUPLICATE_IGNORED timestamp=${Date.now()}`,
+          );
+          return;
+        }
+      }
+
+      activeProviderLocks.set(providerId, requestId);
+      setRequestState(requestId, providerId, REQUEST_STATES.SENDING);
     }
 
     let isResolved = false;
     let timeoutId = null;
     let isExecuting = false;
+    let hasSubmittedForRequest = false;
 
     // Retrieve or instantiate dedicated background worker tab directly with provider URL
     const { tab, isReused } = await openOrReuseProviderTab(providerId, url);
@@ -287,6 +364,10 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
         `%c[SpectraLens:Pipeline] ❌ [STEP 2/5 FAILED] Failed to get background tab for "${providerId}" (${url})`,
         "color: #ef4444; font-weight: bold;",
       );
+      if (requestId && activeProviderLocks.get(providerId) === requestId) {
+        activeProviderLocks.delete(providerId);
+      }
+      setRequestState(requestId, providerId, REQUEST_STATES.FAILED);
       resolve(formatProviderError(providerId, "Tab creation failed"));
       return;
     }
@@ -319,6 +400,10 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
       if (!isResolved) {
         isResolved = true;
         detachTurnListeners();
+        if (requestId && activeProviderLocks.get(providerId) === requestId) {
+          activeProviderLocks.delete(providerId);
+        }
+        setRequestState(requestId, providerId, REQUEST_STATES.COMPLETED);
         console.log(
           `%c[SpectraLens:Pipeline] ✅ [STEP 5/5] fetchAiAnswer resolved for Tab #${tabId} (Content Length: ${val?.length || 0} chars). Tab preserved for context memory.`,
           "color: #10b981; font-weight: bold;",
@@ -334,6 +419,10 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
         `%c[SpectraLens:Pipeline] ⏱️ [TIMEOUT] ${queryTimeoutMs / 1000}s timeout reached for Tab #${tabId} (isReused: ${isReused})`,
         "color: #ef4444; font-weight: bold;",
       );
+      if (requestId && activeProviderLocks.get(providerId) === requestId) {
+        activeProviderLocks.delete(providerId);
+      }
+      setRequestState(requestId, providerId, REQUEST_STATES.TIMED_OUT);
       safeResolve(formatProviderError(providerId, "Request timed out"));
     }, queryTimeoutMs);
 
@@ -342,10 +431,10 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
       isExecuting = true;
 
       console.log(
-        `%c[SpectraLens:Pipeline] 💉 [STEP 4/5] Injecting "${providerId}" adapter script into Tab #${tabId} (isReused: ${isReused})...`,
+        `%c[SpectraLens:Pipeline] 💉 [STEP 4/5] Injecting "${providerId}" adapter script into Tab #${tabId} (isReused: ${isReused}, requestId: ${requestId})...`,
         "color: #f59e0b; font-weight: bold;",
       );
-      const argsWithContext = [...extractArgs, isReused];
+      const argsWithContext = [...extractArgs, isReused, requestId];
       executeScriptReturn(
         tabId,
         extractFn,
@@ -359,6 +448,8 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
           const resultVal = injectResult?.[0]?.result;
           if (resultVal === "__NAVIGATING__") {
             isExecuting = false;
+            hasSubmittedForRequest = true;
+            setRequestState(requestId, providerId, REQUEST_STATES.SUBMITTED);
             console.log(
               `%c[SpectraLens:Pipeline] 🚀 [STEP 4/5] Submitted from homepage. Waiting for /search navigation to complete...`,
               "color: #3b82f6; font-weight: bold;",
@@ -367,6 +458,7 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
           }
 
           if (typeof resultVal === "string" && resultVal.trim().length > 0) {
+            hasSubmittedForRequest = true;
             console.log(
               `%c[SpectraLens:RawOutput] 📦 ==================== FULL RAW OUTPUT DATA FROM [${providerId.toUpperCase()}] ====================`,
               "color: #8b5cf6; font-weight: bold; font-size: 13px;",
@@ -384,6 +476,8 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
             );
             safeResolve(resultVal);
           } else {
+            hasSubmittedForRequest = true;
+            setRequestState(requestId, providerId, REQUEST_STATES.SUBMITTED);
             isExecuting = false;
           }
         },
@@ -392,14 +486,23 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
     }
 
     function listener(updatedTabId, info) {
-      if (isResolved || isExecuting) return;
+      if (isResolved) return;
       if (updatedTabId === tabId && info.status === "complete") {
-        console.log(
-          `%c[SpectraLens:Pipeline] 🌐 [PAGE LOAD COMPLETE] Tab #${tabId} status is "complete". Running adapter injection...`,
-          "color: #3b82f6; font-weight: bold;",
-        );
         injectMainWorldNetworkInterceptor(tabId);
-        runInjection();
+        // If prompt has already been submitted for this request, ignore page navigation re-triggers!
+        if (hasSubmittedForRequest) {
+          console.log(
+            `[SL REQUEST] ${requestId} provider=${providerId} event=NAVIGATION_IGNORED timestamp=${Date.now()}`,
+          );
+          return;
+        }
+        if (!isExecuting) {
+          console.log(
+            `%c[SpectraLens:Pipeline] 🌐 [PAGE LOAD COMPLETE] Tab #${tabId} status is "complete". Running adapter injection...`,
+            "color: #3b82f6; font-weight: bold;",
+          );
+          runInjection();
+        }
       }
     }
 
@@ -407,6 +510,10 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
       if (removedTabId === tabId) {
         detachTurnListeners();
         persistentProviderTabs.delete(providerId);
+        if (requestId && activeProviderLocks.get(providerId) === requestId) {
+          activeProviderLocks.delete(providerId);
+        }
+        setRequestState(requestId, providerId, REQUEST_STATES.FAILED);
         activeAiTabs = activeAiTabs.filter((id) => id !== tabId);
         safeResolve(formatProviderError(providerId, "Window closed"));
       }
@@ -432,7 +539,13 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
  * Universal content extractor function injected into provider tabs.
  * Runs in the isolated content context with full access to ProviderAdapterRegistry.
  */
-function runTabAdapter(providerId, prompt, image, isReused = false) {
+function runTabAdapter(
+  providerId,
+  prompt,
+  image,
+  isReused = false,
+  requestId = null,
+) {
   return new Promise(async (resolve) => {
     function getShortError(pid, reason) {
       if (typeof formatProviderError === "function") {
@@ -442,9 +555,13 @@ function runTabAdapter(providerId, prompt, image, isReused = false) {
     }
 
     try {
+      // In-Tab Idempotency Guard
+      window.__SL_SUBMITTED_REQUESTS__ =
+        window.__SL_SUBMITTED_REQUESTS__ || new Set();
+
       const streamTimeoutMs = isReused ? 20000 : 45000;
       console.log(
-        `%c[SpectraLens:Adapter] 🚀 [ADAPTER 1/4] Running adapter for "${providerId}" with timeout ${streamTimeoutMs / 1000}s (isReused: ${isReused}): "${prompt.slice(0, 35)}..."`,
+        `%c[SpectraLens:Adapter] 🚀 [ADAPTER 1/4] Running adapter for "${providerId}" with timeout ${streamTimeoutMs / 1000}s (isReused: ${isReused}, requestId: ${requestId}): "${prompt.slice(0, 35)}..."`,
         "color: #3b82f6; font-weight: bold;",
       );
       const adapter =
@@ -468,7 +585,20 @@ function runTabAdapter(providerId, prompt, image, isReused = false) {
         ? (existingContainer.textContent || "").trim()
         : "";
 
-      // 0. If already on search results page for THIS exact query (initial search), observe directly without re-typing
+      // 0. If this exact requestId has already been submitted in this tab, observe stream directly without re-submitting!
+      if (requestId && window.__SL_SUBMITTED_REQUESTS__.has(requestId)) {
+        console.log(
+          `[SL REQUEST] ${requestId} provider=${providerId} event=DUPLICATE_IGNORED timestamp=${Date.now()}`,
+        );
+        const answer = await adapter.observeResponse(
+          streamTimeoutMs,
+          previousContent,
+        );
+        resolve(answer || getShortError(providerId, "No response generated"));
+        return;
+      }
+
+      // 0b. If already on search results page for THIS exact query (initial search), observe directly without re-typing
       const isSearchPage = window.location.pathname.startsWith("/search");
       if (isSearchPage) {
         const urlParams = new URLSearchParams(window.location.search);
@@ -481,6 +611,9 @@ function runTabAdapter(providerId, prompt, image, isReused = false) {
             promptQuery.startsWith(urlQuery) ||
             urlQuery.startsWith(promptQuery))
         ) {
+          if (requestId) {
+            window.__SL_SUBMITTED_REQUESTS__.add(requestId);
+          }
           console.log(
             `%c[SpectraLens:Adapter] 🎯 Search page already executing query ("${prompt.slice(0, 25)}..."). Observing AI stream directly...`,
             "color: #10b981; font-weight: bold;",
@@ -567,10 +700,15 @@ function runTabAdapter(providerId, prompt, image, isReused = false) {
 
       // 4. Submit
       console.log(
-        `%c[SpectraLens:Adapter] 🔘 Submitting prompt for "${providerId}"...`,
-        "color: #3b82f6; font-weight: bold;",
+        `[SL REQUEST] ${requestId} provider=${providerId} event=SUBMIT_START timestamp=${Date.now()}`,
       );
+      if (requestId) {
+        window.__SL_SUBMITTED_REQUESTS__.add(requestId);
+      }
       await adapter.submit();
+      console.log(
+        `[SL REQUEST] ${requestId} provider=${providerId} event=SUBMIT_SUCCESS timestamp=${Date.now()}`,
+      );
 
       // If initial submission from Google homepage that navigates to /search results:
       if (!isSearchPage && providerId === "google") {
@@ -590,7 +728,10 @@ function runTabAdapter(providerId, prompt, image, isReused = false) {
         `%c[SpectraLens:Adapter] ⏳ [ADAPTER 4/4] Observing stream response for "${providerId}" (timeout: ${streamTimeoutMs / 1000}s)...`,
         "color: #f59e0b; font-weight: bold;",
       );
-      const answer = await adapter.observeResponse(streamTimeoutMs, previousContent);
+      const answer = await adapter.observeResponse(
+        streamTimeoutMs,
+        previousContent,
+      );
       console.log(
         `%c[SpectraLens:Adapter] ✅ [ADAPTER COMPLETE] Response extracted for "${providerId}", length: ${answer?.length || 0} chars`,
         "color: #10b981; font-weight: bold;",
@@ -610,39 +751,68 @@ function runTabAdapter(providerId, prompt, image, isReused = false) {
 async function getGoogleAiAnswer(q, requestId, image = null) {
   const url = "https://www.google.com/?hl=en";
   console.log(
-    `[SpectraLens:Background] 🔍 getGoogleAiAnswer (opening google.com -> enable AI mode -> sending prompt) for: "${q.slice(0, 30)}..."${image ? " (with image)" : ""} (requestId: ${requestId})`,
+    `[SpectraLens:Background] 🔍 getGoogleAiAnswer for: "${q.slice(0, 30)}..."${image ? " (with image)" : ""} (requestId: ${requestId})`,
   );
 
-  return fetchAiAnswer(url, runTabAdapter, ["google", q, image], requestId);
+  return fetchAiAnswer(
+    url,
+    runTabAdapter,
+    ["google", q, image, requestId],
+    requestId,
+  );
 }
-
 
 async function getGrokAnswer(q, requestId, image = null) {
   const url = `https://grok.com/?q=${encodeURIComponent(q)}`;
 
-  return fetchAiAnswer(url, runTabAdapter, ["grok", q, image], requestId);
+  return fetchAiAnswer(
+    url,
+    runTabAdapter,
+    ["grok", q, image, requestId],
+    requestId,
+  );
 }
 
 async function getPerplexityAnswer(q, requestId, image = null) {
   const url = `https://www.perplexity.ai/search?q=${encodeURIComponent(q)}`;
 
-  return fetchAiAnswer(url, runTabAdapter, ["perplexity", q, image], requestId);
+  return fetchAiAnswer(
+    url,
+    runTabAdapter,
+    ["perplexity", q, image, requestId],
+    requestId,
+  );
 }
 
 async function getGeminiAnswer(q, requestId, image = null) {
   const url = "https://gemini.google.com/app?hl=en";
 
-  return fetchAiAnswer(url, runTabAdapter, ["gemini", q, image], requestId);
+  return fetchAiAnswer(
+    url,
+    runTabAdapter,
+    ["gemini", q, image, requestId],
+    requestId,
+  );
 }
 
 async function getChatGptAnswer(q, requestId, image = null) {
   const url = `https://chatgpt.com/?q=${encodeURIComponent(q)}`;
 
-  return fetchAiAnswer(url, runTabAdapter, ["chatgpt", q, image], requestId);
+  return fetchAiAnswer(
+    url,
+    runTabAdapter,
+    ["chatgpt", q, image, requestId],
+    requestId,
+  );
 }
 
 async function getClaudeAnswer(q, requestId, image = null) {
   const url = "https://claude.ai/new";
 
-  return fetchAiAnswer(url, runTabAdapter, ["claude", q, image], requestId);
+  return fetchAiAnswer(
+    url,
+    runTabAdapter,
+    ["claude", q, image, requestId],
+    requestId,
+  );
 }
