@@ -604,6 +604,7 @@ function markdownToHtml(md) {
    }
 
    // 1. Preserve and protect fenced code blocks (```lang\n...```) FIRST
+   // Uses @@@ tokens without underscores or markdown characters to prevent regex collisions
    const codeBlocks = [];
    source = source.replace(/(?:^|\n)```([a-zA-Z0-9_#+.-]*)\s*\n?([\s\S]*?)```(?:\n|$)/g, (match, lang, code) => {
       const idx = codeBlocks.length;
@@ -615,12 +616,12 @@ function markdownToHtml(md) {
          .replace(/>/g, "&gt;");
 
       const langHeader = cleanLang
-         ? `<div class="flex items-center justify-between px-3 py-1.5 bg-slate-800/90 border-b border-slate-700/60 text-[10px] font-mono text-slate-300 font-bold uppercase tracking-wider select-none"><span>${cleanLang}</span></div>`
+         ? `<div class="flex items-center justify-between px-3.5 py-1.5 bg-[#161b22] border-b border-slate-700/60 text-[11px] font-mono text-slate-300 font-bold uppercase tracking-wider select-none"><span>${cleanLang}</span></div>`
          : '';
 
-      const blockHtml = `\n<div class="spectralens-code-card my-2.5 rounded-xl overflow-hidden border border-slate-700/70 bg-slate-900 shadow-xs">${langHeader}<pre class="p-3 overflow-x-auto text-xs font-mono text-slate-100 leading-relaxed custom-scrollbar whitespace-pre"><code class="language-${cleanLang}">${escapedCode}</code></pre></div>\n`;
+      const blockHtml = `\n<div class="spectralens-code-card my-3 rounded-xl overflow-hidden border border-slate-700/70 bg-[#0d1117] shadow-md select-text">${langHeader}<pre class="p-3.5 overflow-x-auto text-xs font-mono text-slate-100 leading-relaxed custom-scrollbar whitespace-pre"><code class="language-${cleanLang}">${escapedCode}</code></pre></div>\n`;
       codeBlocks.push(blockHtml);
-      return `\n%%SPL_CODE_${idx}%%\n`;
+      return `\n@@@SPLCODEBLOCK${idx}@@@\n`;
    });
 
    // 2. Preserve and protect inline code (`code`)
@@ -632,7 +633,7 @@ function markdownToHtml(md) {
          .replace(/</g, "&lt;")
          .replace(/>/g, "&gt;");
       inlineCodes.push(`<code class="px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-white/[0.08] text-blue-600 dark:text-blue-400 font-mono text-[11px] font-medium border border-slate-200/50 dark:border-white/[0.05]">${escaped}</code>`);
-      return `%%SPL_INLINE_${idx}%%`;
+      return `@@@SPLINLINECODE${idx}@@@`;
    });
 
    // 3. Preserve inline math and display math
@@ -644,20 +645,21 @@ function markdownToHtml(md) {
          .replace(/</g, "&lt;")
          .replace(/>/g, "&gt;");
       mathBlocks.push(`<div class="my-2 p-2.5 rounded-xl bg-slate-100 dark:bg-white/[0.06] border border-slate-200/80 dark:border-white/[0.08] text-center font-mono text-xs text-blue-600 dark:text-blue-400 overflow-x-auto">${cleanMath}</div>`);
-      return `%%SPL_MATH_${idx}%%`;
+      return `@@@SPLMATHBLOCK${idx}@@@`;
    });
 
+   const inlineMathBlocks = [];
    source = source.replace(/\$([^\$\n]+?)\$/g, (_, math) => {
-      const idx = mathBlocks.length;
+      const idx = inlineMathBlocks.length;
       const cleanMath = (math || "").trim()
          .replace(/&/g, "&amp;")
          .replace(/</g, "&lt;")
          .replace(/>/g, "&gt;");
-      mathBlocks.push(`<code class="px-1.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-mono text-[11px] font-medium border border-blue-200/50 dark:border-blue-800/40">${cleanMath}</code>`);
-      return `%%SPL_MATH_${idx}%%`;
+      inlineMathBlocks.push(`<code class="px-1.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-mono text-[11px] font-medium border border-blue-200/50 dark:border-blue-800/40">${cleanMath}</code>`);
+      return `@@@SPLINLINEMATH${idx}@@@`;
    });
 
-   // 4. Escape general HTML in the surrounding markdown text
+   // 4. Escape general HTML in surrounding markdown text
    let html = source
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
@@ -714,15 +716,18 @@ function markdownToHtml(md) {
    html = html.replace(/^\s*\*\s+(.*?)$/gm, '<li class="ml-4 list-disc text-xs leading-relaxed my-0.5 text-slate-800 dark:text-slate-200">$1</li>');
    html = html.replace(/^\s*(\d+)\.\s+(.*?)$/gm, '<li class="ml-4 list-decimal text-xs leading-relaxed my-0.5 text-slate-800 dark:text-slate-200">$2</li>');
 
-   // 6. Restore all protected blocks
+   // 6. Restore all protected blocks safely using function replacement to prevent regex escape bugs
    codeBlocks.forEach((block, idx) => {
-      html = html.replace(`%%SPL_CODE_${idx}%%`, block);
+      html = html.replace(`@@@SPLCODEBLOCK${idx}@@@`, () => block);
    });
    inlineCodes.forEach((block, idx) => {
-      html = html.replace(`%%SPL_INLINE_${idx}%%`, block);
+      html = html.replace(`@@@SPLINLINECODE${idx}@@@`, () => block);
    });
    mathBlocks.forEach((block, idx) => {
-      html = html.replace(`%%SPL_MATH_${idx}%%`, block);
+      html = html.replace(`@@@SPLMATHBLOCK${idx}@@@`, () => block);
+   });
+   inlineMathBlocks.forEach((block, idx) => {
+      html = html.replace(`@@@SPLINLINEMATH${idx}@@@`, () => block);
    });
 
    // 7. Paragraphs & newlines
