@@ -328,8 +328,8 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
       }
     }
 
-    // Dynamic Adaptive Timeout: 50s for cold start (new window/tab), 22s for warm/already-open sessions
-    const queryTimeoutMs = isReused ? 22000 : 50000;
+    // Dynamic Adaptive Timeout: 90s for cold start (new window/tab), 80s for warm/already-open sessions
+    const queryTimeoutMs = isReused ? 80000 : 90000;
     timeoutId = setTimeout(() => {
       console.warn(
         `%c[SpectraLens:Pipeline] ⏱️ [TIMEOUT] ${queryTimeoutMs / 1000}s timeout reached for Tab #${tabId} (isReused: ${isReused})`,

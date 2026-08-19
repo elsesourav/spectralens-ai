@@ -1,6 +1,8 @@
 /* eslint-disable no-undef */
 "use strict";
 
+import { marked } from "marked";
+
 // Chrome Extension Utilities for React Components
 // Provides a clean interface to Chrome extension APIs
 
@@ -584,7 +586,7 @@ function htmlToMarkdown(html) {
 }
 
 /**
- * Converts clean Markdown text (or legacy HTML) into secure, responsive, lightweight styled HTML for rendering.
+ * Converts clean Markdown text (or legacy HTML) into secure, responsive, theme-adaptive styled HTML for rendering.
  */
 function markdownToHtml(md) {
    if (!md || typeof md !== "string") return "";
@@ -603,40 +605,7 @@ function markdownToHtml(md) {
       source = domToMarkdown(source);
    }
 
-   // 1. Preserve and protect fenced code blocks (```lang\n...```) FIRST
-   // Uses @@@ tokens without underscores or markdown characters to prevent regex collisions
-   const codeBlocks = [];
-   source = source.replace(/(?:^|\n)```([a-zA-Z0-9_#+.-]*)\s*\n?([\s\S]*?)```(?:\n|$)/g, (match, lang, code) => {
-      const idx = codeBlocks.length;
-      const cleanLang = (lang || "").trim().toLowerCase();
-      const rawCode = (code !== undefined ? code : "").replace(/^\n+|\n+$/g, "");
-      const escapedCode = rawCode
-         .replace(/&/g, "&amp;")
-         .replace(/</g, "&lt;")
-         .replace(/>/g, "&gt;");
-
-      const langHeader = cleanLang
-         ? `<div class="flex items-center justify-between px-3.5 py-1.5 bg-[#161b22] border-b border-slate-700/60 text-[11px] font-mono text-slate-300 font-bold uppercase tracking-wider select-none"><span>${cleanLang}</span></div>`
-         : '';
-
-      const blockHtml = `\n<div class="spectralens-code-card my-3 rounded-xl overflow-hidden border border-slate-700/70 bg-[#0d1117] shadow-md select-text">${langHeader}<pre class="p-3.5 overflow-x-auto text-xs font-mono text-slate-100 leading-relaxed custom-scrollbar whitespace-pre"><code class="language-${cleanLang}">${escapedCode}</code></pre></div>\n`;
-      codeBlocks.push(blockHtml);
-      return `\n@@@SPLCODEBLOCK${idx}@@@\n`;
-   });
-
-   // 2. Preserve and protect inline code (`code`)
-   const inlineCodes = [];
-   source = source.replace(/`([^`\n]+)`/g, (match, code) => {
-      const idx = inlineCodes.length;
-      const escaped = (code || "")
-         .replace(/&/g, "&amp;")
-         .replace(/</g, "&lt;")
-         .replace(/>/g, "&gt;");
-      inlineCodes.push(`<code class="px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-white/[0.08] text-blue-600 dark:text-blue-400 font-mono text-[11px] font-medium border border-slate-200/50 dark:border-white/[0.05]">${escaped}</code>`);
-      return `@@@SPLINLINECODE${idx}@@@`;
-   });
-
-   // 3. Preserve inline math and display math
+   // 1. Preserve math blocks before markdown processing
    const mathBlocks = [];
    source = source.replace(/\$\$([\s\S]+?)\$\$/g, (_, math) => {
       const idx = mathBlocks.length;
@@ -659,80 +628,80 @@ function markdownToHtml(md) {
       return `@@@SPLINLINEMATH${idx}@@@`;
    });
 
-   // 4. Escape general HTML in surrounding markdown text
-   let html = source
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
+   // 2. Custom renderer for marked
+   const renderer = {
+      code({ text, lang }) {
+         const cleanLang = (lang || "").trim().toLowerCase();
+         const escaped = (text || "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
 
-   // 5. Markdown Tables
-   html = html.replace(/(?:^|\n)(\|.+?\|\n\|[\s\-:|]+\|\n(?:\|.+?\|\n?)+)/g, (match) => {
-      const lines = match.trim().split("\n");
-      if (lines.length < 2) return match;
-      const headers = lines[0]
-         .split("|")
-         .filter((_, i, arr) => i > 0 && i < arr.length - 1)
-         .map((h) => `<th class="border border-slate-300 dark:border-slate-700 px-3 py-1.5 bg-slate-100 dark:bg-white/[0.06] text-xs font-bold text-slate-900 dark:text-white">${h.trim()}</th>`)
-         .join("");
-      const rows = lines.slice(2).map((r) => {
-         const cells = r
-            .split("|")
-            .filter((_, i, arr) => i > 0 && i < arr.length - 1)
-            .map((c) => `<td class="border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-xs text-slate-800 dark:text-slate-200">${c.trim()}</td>`)
-            .join("");
-         return `<tr class="hover:bg-slate-50 dark:hover:bg-white/[0.02]">${cells}</tr>`;
-      }).join("");
-      return `<div class="overflow-x-auto my-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] shadow-xs"><table class="w-full border-collapse text-left text-xs"><thead><tr>${headers}</tr></thead><tbody class="divide-y divide-slate-200/60 dark:divide-white/[0.05]">${rows}</tbody></table></div>`;
-   });
+         const langHeader = cleanLang
+            ? `<div class="flex items-center justify-between px-3.5 py-1.5 bg-slate-100 dark:bg-slate-800/90 border-b border-slate-200/80 dark:border-slate-700/60 text-[11px] font-mono text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider select-none"><span>${cleanLang}</span></div>`
+            : "";
 
-   // Horizontal rules
-   html = html.replace(/(?:^|\n)(?:---|\*\*\*|___)(?:\n|$)/g, '<hr class="my-3 border-slate-200 dark:border-white/[0.08]" />');
+         return `<div class="spectralens-code-card my-3 rounded-xl overflow-hidden border border-slate-200/90 dark:border-slate-700/70 bg-slate-50 dark:bg-[#0d1117] shadow-xs select-text">${langHeader}<pre class="p-3.5 overflow-x-auto text-xs font-mono text-slate-800 dark:text-slate-100 leading-relaxed custom-scrollbar whitespace-pre"><code class="language-${cleanLang}">${escaped}</code></pre></div>`;
+      },
+      codespan({ text }) {
+         return `<code class="px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-white/[0.08] text-blue-600 dark:text-blue-400 font-mono text-[11px] font-medium border border-slate-200/60 dark:border-white/[0.06]">${text}</code>`;
+      },
+      table({ header, rows }) {
+         return `<div class="overflow-x-auto my-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] shadow-xs"><table class="w-full border-collapse text-left text-xs"><thead>${header}</thead><tbody class="divide-y divide-slate-200/60 dark:divide-white/[0.05]">${rows}</tbody></table></div>`;
+      },
+      blockquote({ text }) {
+         return `<blockquote class="border-l-3 border-blue-500 pl-3 py-1 my-2 italic text-xs text-slate-600 dark:text-slate-300 bg-blue-50/50 dark:bg-blue-950/20 rounded-r-lg">${text}</blockquote>`;
+      },
+      link({ href, title, text }) {
+         return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-blue-400 underline hover:text-blue-700 dark:hover:text-blue-300 font-medium" ${title ? `title="${title}"` : ""}>${text}</a>`;
+      },
+      list({ items, ordered, start }) {
+         const type = ordered ? "ol" : "ul";
+         const listClass = ordered ? "list-decimal" : "list-disc";
+         const startAttr = ordered && start !== 1 ? ` start="${start}"` : "";
+         return `<${type} class="ml-4 ${listClass} text-xs leading-relaxed my-1 text-slate-800 dark:text-slate-200 space-y-0.5"${startAttr}>${items}</${type}>`;
+      },
+      listitem({ text }) {
+         let itemText = text;
+         if (itemText.startsWith("[x] ") || itemText.startsWith("[X] ")) {
+            itemText = `<span class="inline-block text-emerald-500 font-bold mr-1.5">✓</span>` + itemText.slice(4);
+         } else if (itemText.startsWith("[ ] ")) {
+            itemText = `<span class="inline-block text-slate-400 mr-1.5">○</span>` + itemText.slice(4);
+         }
+         return `<li class="leading-relaxed text-slate-800 dark:text-slate-200">${itemText}</li>`;
+      },
+      heading({ text, depth }) {
+         if (depth === 1) {
+            return `<h1 class="text-sm font-bold text-slate-900 dark:text-white mt-3.5 mb-1.5 pb-1 border-b border-slate-200/60 dark:border-white/[0.06]">${text}</h1>`;
+         }
+         if (depth === 2) {
+            return `<h2 class="text-xs font-bold text-slate-900 dark:text-white mt-3 mb-1">${text}</h2>`;
+         }
+         return `<h3 class="text-xs font-bold text-slate-900 dark:text-white mt-2.5 mb-1">${text}</h3>`;
+      },
+      hr() {
+         return '<hr class="my-3 border-slate-200 dark:border-white/[0.08]" />';
+      }
+   };
 
-   // Blockquotes
-   html = html.replace(/(?:^|\n)>[ ]?(.*?)(?=\n[^\n>]|\n*$)/g, '<blockquote class="border-l-3 border-blue-500 pl-3 py-1 my-2 italic text-xs text-slate-600 dark:text-slate-300 bg-blue-50/50 dark:bg-blue-950/20 rounded-r-lg">$1</blockquote>');
+   let html = "";
+   try {
+      html = marked.parse(source, {
+         gfm: true,
+         breaks: true,
+         renderer,
+      });
+   } catch {
+      html = source;
+   }
 
-   // Headings
-   html = html.replace(/^### (.*?)$/gm, '<h3 class="text-xs font-bold text-slate-900 dark:text-white mt-2.5 mb-1">$1</h3>');
-   html = html.replace(/^## (.*?)$/gm, '<h2 class="text-xs font-bold text-slate-900 dark:text-white mt-3 mb-1">$1</h2>');
-   html = html.replace(/^# (.*?)$/gm, '<h1 class="text-sm font-bold text-slate-900 dark:text-white mt-3.5 mb-1.5 pb-1 border-b border-slate-200/60 dark:border-white/[0.06]">$1</h1>');
-
-   // Task lists
-   html = html.replace(/\[x\]\s+/gi, '<span class="inline-block text-emerald-500 font-bold mr-1.5">✓</span>');
-   html = html.replace(/\[\s\]\s+/gi, '<span class="inline-block text-slate-400 mr-1.5">○</span>');
-
-   // Inline styles (bold, italic, strikethrough, highlight)
-   html = html.replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-slate-900 dark:text-white">$1</strong>');
-   html = html.replace(/__([^_]+)__/g, '<strong class="font-bold text-slate-900 dark:text-white">$1</strong>');
-   html = html.replace(/\*(.*?)\*/g, '<em class="italic text-slate-800 dark:text-slate-200">$1</em>');
-   html = html.replace(/_([^_]+)_/g, '<em class="italic text-slate-800 dark:text-slate-200">$1</em>');
-   html = html.replace(/~~(.*?)~~/g, '<del class="line-through opacity-70">$1</del>');
-   html = html.replace(/==(.*?)==/g, '<mark class="bg-yellow-200 dark:bg-yellow-900/60 text-slate-900 dark:text-yellow-200 px-1 rounded-sm">$1</mark>');
-
-   // Links
-   html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-blue-400 underline hover:text-blue-700 dark:hover:text-blue-300 font-medium">$1</a>');
-
-   // Lists
-   html = html.replace(/^\s*-\s+(.*?)$/gm, '<li class="ml-4 list-disc text-xs leading-relaxed my-0.5 text-slate-800 dark:text-slate-200">$1</li>');
-   html = html.replace(/^\s*\*\s+(.*?)$/gm, '<li class="ml-4 list-disc text-xs leading-relaxed my-0.5 text-slate-800 dark:text-slate-200">$1</li>');
-   html = html.replace(/^\s*(\d+)\.\s+(.*?)$/gm, '<li class="ml-4 list-decimal text-xs leading-relaxed my-0.5 text-slate-800 dark:text-slate-200">$2</li>');
-
-   // 6. Restore all protected blocks safely using function replacement to prevent regex escape bugs
-   codeBlocks.forEach((block, idx) => {
-      html = html.replace(`@@@SPLCODEBLOCK${idx}@@@`, () => block);
-   });
-   inlineCodes.forEach((block, idx) => {
-      html = html.replace(`@@@SPLINLINECODE${idx}@@@`, () => block);
-   });
+   // 3. Restore Math Blocks
    mathBlocks.forEach((block, idx) => {
       html = html.replace(`@@@SPLMATHBLOCK${idx}@@@`, () => block);
    });
    inlineMathBlocks.forEach((block, idx) => {
       html = html.replace(`@@@SPLINLINEMATH${idx}@@@`, () => block);
    });
-
-   // 7. Paragraphs & newlines
-   html = html.replace(/\n\n+/g, '<div class="my-2"></div>');
-   html = html.replace(/\n/g, '<br/>');
 
    return html;
 }

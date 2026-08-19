@@ -477,7 +477,28 @@ html.dark .spectralens-isolated-response {
 }
 
 .spectralens-isolated-response pre,
-.spectralens-response-wrapper pre,
+.spectralens-response-wrapper pre {
+  display: block !important;
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  white-space: pre !important;
+  word-wrap: normal !important;
+  overflow-wrap: normal !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
+  font-size: 11.5px !important;
+  line-height: 1.6 !important;
+  background-color: var(--sl-bg-surface, #f8fafc) !important;
+  color: var(--sl-text-primary, #0f172a) !important;
+  border: 1px solid var(--sl-border-subtle, #e2e8f0) !important;
+  border-radius: 8px !important;
+  padding: 10px 12px !important;
+  margin: 6px 0 !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(148, 163, 184, 0.45) transparent !important;
+  -webkit-overflow-scrolling: touch;
+}
+
 .spectralens-code-card pre {
   display: block !important;
   max-width: 100% !important;
@@ -489,21 +510,14 @@ html.dark .spectralens-isolated-response {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
   font-size: 11.5px !important;
   line-height: 1.6 !important;
-  background-color: #0f172a !important;
-  color: #f8fafc !important;
-  border: 1px solid #1e293b !important;
-  border-radius: 8px !important;
-  padding: 10px 12px !important;
-  margin: 6px 0 !important;
-  scrollbar-width: thin !important;
-  scrollbar-color: rgba(148, 163, 184, 0.45) transparent !important;
-  -webkit-overflow-scrolling: touch;
-}
-
-.spectralens-code-card pre {
+  background-color: transparent !important;
+  color: inherit !important;
   border: none !important;
   border-radius: 0 0 10px 10px !important;
+  padding: 12px 14px !important;
   margin: 0 !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(148, 163, 184, 0.45) transparent !important;
 }
 
 .spectralens-isolated-response pre code,
@@ -521,7 +535,14 @@ html.dark .spectralens-isolated-response {
   font-family: inherit !important;
   font-size: inherit !important;
   line-height: inherit !important;
-  color: #f8fafc !important;
+  color: inherit !important;
+}
+
+.dark .spectralens-isolated-response pre,
+.dark .spectralens-response-wrapper pre {
+  background-color: #0d1117 !important;
+  color: #f0f6fc !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
 }
 
 .spectralens-isolated-response code:not(pre code),

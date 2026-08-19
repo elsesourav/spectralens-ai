@@ -647,10 +647,10 @@ function markdownToHtml(md) {
          .replace(/>/g, "&gt;");
 
       const langHeader = cleanLang
-         ? `<div class="flex items-center justify-between px-3.5 py-1.5 bg-[#161b22] border-b border-slate-700/60 text-[11px] font-mono text-slate-300 font-bold uppercase tracking-wider select-none"><span>${cleanLang}</span></div>`
+         ? `<div class="flex items-center justify-between px-3.5 py-1.5 bg-slate-100 dark:bg-slate-800/90 border-b border-slate-200/80 dark:border-slate-700/60 text-[11px] font-mono text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider select-none"><span>${cleanLang}</span></div>`
          : '';
 
-      const blockHtml = `\n<div class="spectralens-code-card my-3 rounded-xl overflow-hidden border border-slate-700/70 bg-[#0d1117] shadow-md select-text">${langHeader}<pre class="p-3.5 overflow-x-auto text-xs font-mono text-slate-100 leading-relaxed custom-scrollbar whitespace-pre"><code class="language-${cleanLang}">${escapedCode}</code></pre></div>\n`;
+      const blockHtml = `\n<div class="spectralens-code-card my-3 rounded-xl overflow-hidden border border-slate-200/90 dark:border-slate-700/70 bg-slate-50 dark:bg-[#0d1117] shadow-xs select-text">${langHeader}<pre class="p-3.5 overflow-x-auto text-xs font-mono text-slate-800 dark:text-slate-100 leading-relaxed custom-scrollbar whitespace-pre"><code class="language-${cleanLang}">${escapedCode}</code></pre></div>\n`;
       codeBlocks.push(blockHtml);
       return `\n@@@SPLCODEBLOCK${idx}@@@\n`;
    });

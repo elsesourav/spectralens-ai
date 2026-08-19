@@ -848,7 +848,7 @@
     }
 
     /** Observe response streaming until completion */
-    observeResponse(timeoutMs = 25000, previousContent = "") {
+    observeResponse(timeoutMs = 90000, previousContent = "") {
       return new Promise(async (resolve) => {
         const startTime = Date.now();
         let lastTextLength = 0;
@@ -878,9 +878,9 @@
                 return;
               }
 
-              if (currentLength > 0 && currentLength === lastTextLength) {
+              if (currentLength > 20 && currentLength === lastTextLength) {
                 idleCount++;
-                if (idleCount >= 3) {
+                if (idleCount >= 8) {
                   clearInterval(checkInterval);
                   resolve(await this.getCurrentResponse());
                   return;
@@ -1109,13 +1109,20 @@
       ];
     }
 
-    observeResponse(timeoutMs = 25000, previousContent = "") {
-      return new Promise(async (resolve) => {
+    isStreaming() {
+      return Boolean(
+        document.querySelector(
+          'button[data-testid="stop-button"], button[aria-label*="Stop streaming" i], button[aria-label*="Stop generating" i], button[aria-label*="Stop" i], .result-streaming, [data-is-streaming="true"], div[class*="streaming"]'
+        )
+      );
+    }
+
+    observeResponse(timeoutMs = 90000, previousContent = "") {
+      return new Promise((resolve) => {
         const startTime = Date.now();
         let lastTextLength = 0;
         let idleCount = 0;
         let hasSeenStreaming = false;
-
         const initialTurnCount = document.querySelectorAll(
           '[data-message-author-role="assistant"]',
         ).length;
@@ -1124,6 +1131,7 @@
           const isStreamingNow = this.isStreaming();
           if (isStreamingNow) {
             hasSeenStreaming = true;
+            idleCount = 0;
           }
 
           const currentTurnCount = document.querySelectorAll(
@@ -1145,11 +1153,17 @@
             }
 
             if (currentLength > 20) {
-              const isFinished = !isStreamingNow && (hasSeenStreaming ? idleCount >= 2 : idleCount >= 5);
-
               if (currentLength === lastTextLength) {
-                idleCount++;
-                if (isFinished || idleCount >= 6) {
+                if (!isStreamingNow) {
+                  idleCount++;
+                }
+
+                const requiredIdle = hasSeenStreaming ? 8 : 12;
+                const hasActionBar = Boolean(
+                  container.closest('article, [data-message-author-role="assistant"]')?.querySelector('button[aria-label*="Copy" i], button[data-testid*="copy" i]')
+                );
+
+                if (idleCount >= requiredIdle || (hasSeenStreaming && !isStreamingNow && hasActionBar && idleCount >= 4)) {
                   clearInterval(checkInterval);
                   const md = await this.getCurrentResponse();
                   resolve(md);
@@ -1175,14 +1189,6 @@
           }
         }, 350);
       });
-    }
-
-    isStreaming() {
-      return Boolean(
-        document.querySelector(
-          'button[data-testid="stop-button"], button[aria-label*="Stop streaming" i], button[aria-label*="Stop generating" i]',
-        ),
-      );
     }
 
     isComplete() {
@@ -1437,8 +1443,16 @@
       ];
     }
 
-    observeResponse(timeoutMs = 30000, previousContent = "") {
-      return new Promise(async (resolve) => {
+    isStreaming() {
+      return Boolean(
+        document.querySelector(
+          'div[data-is-streaming="true"], button[aria-label*="Stop" i], button[data-testid="stop-button"], svg.animate-spin, div.animate-pulse, .ant-spin'
+        )
+      );
+    }
+
+    observeResponse(timeoutMs = 90000, previousContent = "") {
+      return new Promise((resolve) => {
         const startTime = Date.now();
         let lastTextLength = 0;
         let idleCount = 0;
@@ -1455,6 +1469,7 @@
           const isStreamingNow = this.isStreaming();
           if (isStreamingNow) {
             hasSeenStreaming = true;
+            idleCount = 0;
           }
 
           const currentTurnCount = getTurnCount();
@@ -1473,14 +1488,18 @@
               }
             }
 
-            if (currentLength > 0) {
+            if (currentLength > 20) {
               if (currentLength === lastTextLength) {
-                idleCount++;
-                const isFinished = hasSeenStreaming
-                  ? !isStreamingNow && idleCount >= 2
-                  : idleCount >= 3;
+                if (!isStreamingNow) {
+                  idleCount++;
+                }
 
-                if (isFinished) {
+                const requiredIdle = hasSeenStreaming ? 8 : 12;
+                const hasCopyBtn = Boolean(
+                  container.closest('[data-test-render-count], .font-claude-message, [role="article"]')?.querySelector('button[aria-label*="Copy" i], button[data-testid*="copy" i]')
+                );
+
+                if (idleCount >= requiredIdle || (hasSeenStreaming && !isStreamingNow && hasCopyBtn && idleCount >= 4)) {
                   clearInterval(checkInterval);
                   const md = await this.getCurrentResponse();
                   resolve(md);
@@ -1506,14 +1525,6 @@
           }
         }, 350);
       });
-    }
-
-    isStreaming() {
-      return Boolean(
-        document.querySelector(
-          'div[data-is-streaming="true"], button[aria-label*="Stop" i], svg.animate-spin, div.animate-pulse',
-        ),
-      );
     }
 
     isComplete() {
@@ -1830,7 +1841,7 @@
       ];
     }
 
-    observeResponse(timeoutMs = 40000, previousContent = "") {
+    observeResponse(timeoutMs = 90000, previousContent = "") {
       return new Promise(async (resolve) => {
         const startTime = Date.now();
         let lastTextLength = 0;
@@ -1847,6 +1858,8 @@
         const netChunkListener = (e) => {
           if (e.detail?.raw) {
             hasReceivedNetChunk = true;
+            hasSeenStreaming = true;
+            idleCount = 0;
             tabLog(
               "GeminiTab",
               `📡 Network stream chunk captured from Gemini StreamGenerate (${e.detail.raw.length} bytes)`,
@@ -1870,6 +1883,7 @@
           const isStreamingNow = this.isStreaming();
           if (isStreamingNow) {
             hasSeenStreaming = true;
+            idleCount = 0;
           }
 
           const currentTurnCount = document.querySelectorAll(
@@ -1900,9 +1914,19 @@
 
             if (currentLength > 20) {
               if (currentLength === lastTextLength) {
-                idleCount++;
-                // Once text has stabilized for 5 consecutive checks (1.75s), extraction is complete!
-                if (idleCount >= 5) {
+                if (!isStreamingNow) {
+                  idleCount++;
+                }
+
+                const hasFooter = Boolean(
+                  document.querySelector(
+                    "div.response-footer.complete, button[aria-label*='Copy' i], button[aria-label*='Good response' i], div.actions-container"
+                  )
+                );
+
+                const requiredIdle = hasSeenStreaming ? 8 : 12;
+
+                if (idleCount >= requiredIdle || (hasSeenStreaming && !isStreamingNow && hasFooter && idleCount >= 4)) {
                   cleanUp();
                   const md = await this.getCurrentResponse();
                   tabLog(
@@ -3243,7 +3267,7 @@
       ];
     }
 
-    observeResponse(timeoutMs = 25000, previousContent = "") {
+    observeResponse(timeoutMs = 90000, previousContent = "") {
       return new Promise(async (resolve) => {
         const startTime = Date.now();
         let lastTextLength = 0;
@@ -3263,6 +3287,7 @@
         const netChunkListener = (e) => {
           if (e.detail?.raw) {
             hasReceivedNetChunk = true;
+            idleCount = 0;
             tabLog(
               "GoogleTab",
               `📡 Network stream chunk captured from /async/folif (${e.detail.raw.length} bytes)`,
@@ -3292,6 +3317,16 @@
             'div[data-scope-id="turn"], div.CKgc1d[jsname="CS7uPe"], div.CKgc1d',
           ).length;
 
+          const isLoading = Boolean(
+            document.querySelector(
+              'div.wDYxhc.UDvLbd, div.Dn7Fzd[aria-busy="true"], div.animate-pulse, div.FzLjke, span.CkgRle, div[class*="shimmer"]'
+            )
+          );
+
+          if (isLoading) {
+            idleCount = 0;
+          }
+
           const container = this.findResponseContainer();
 
           if (container) {
@@ -3312,20 +3347,14 @@
             }
 
             if (currentLength > 25) {
-              // Completion signal:
-              // Turn 1: any copy button on page OR stable text
-              // Turn 2+: new copy button appeared OR text is stable for 3 consecutive checks
-              const isTurnFinished = previousContent
-                ? currentCopyBtnCount > initialCopyBtnCount ||
-                  (hasReceivedNetChunk && idleCount >= 2) ||
-                  (currentTurnCount > initialTurnCount && idleCount >= 3)
-                : currentCopyBtnCount > 0 ||
-                  (hasReceivedNetChunk && idleCount >= 2) ||
-                  idleCount >= 3;
-
               if (currentLength === lastTextLength) {
-                idleCount++;
-                if (isTurnFinished || idleCount >= 4) {
+                if (!isLoading) {
+                  idleCount++;
+                }
+
+                const requiredIdle = (previousContent && currentTurnCount > initialTurnCount) ? 6 : 8;
+
+                if (idleCount >= requiredIdle) {
                   cleanUp();
                   const md = await this.getCurrentResponse();
                   tabLog(
