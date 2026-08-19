@@ -804,6 +804,30 @@ function fetchAiAnswer(
             return;
           }
 
+          if (!injectResult || injectResult.length === 0) {
+            console.log(
+              `%c[SpectraLens:Pipeline] ⏳ Tab #${tabId} script awaiting page ready or navigation...`,
+              "color: #f59e0b;",
+            );
+            isExecuting = false;
+            return;
+          }
+
+          if (
+            typeof resultVal === "string" &&
+            resultVal.includes("INPUT_VERIFICATION_FAILED") &&
+            retryCount === 0
+          ) {
+            console.log(
+              `[SL REQUEST] ${requestId} provider=${providerId} event=RETRY phase=VERIFY_INPUT timestamp=${Date.now()}`,
+            );
+            isExecuting = false;
+            setTimeout(() => {
+              if (!isResolved) runInjection();
+            }, 600);
+            return;
+          }
+
           if (typeof resultVal === "string" && resultVal.trim().length > 0) {
             hasSubmittedForRequest = true;
             timing.submitAt = timing.submitAt || Date.now();
@@ -821,23 +845,6 @@ function fetchAiAnswer(
             currentPhase = "COMPLETION";
             safeResolve(resultVal.answer || resultVal.content);
           } else {
-            // If submission failed before completion and safe to retry
-            if (!hasSubmittedForRequest && retryCount === 0) {
-              detachTurnListeners();
-              persistentProviderTabs.delete(providerId);
-              console.log(
-                `[SL REQUEST] ${requestId} provider=${providerId} event=RETRY phase=SENDING timestamp=${Date.now()}`,
-              );
-              const retryResult = await fetchAiAnswer(
-                url,
-                extractFn,
-                extractArgs,
-                requestId,
-                1,
-              );
-              safeResolve(retryResult);
-              return;
-            }
             hasSubmittedForRequest = true;
             timing.submitAt = Date.now();
             currentPhase = "RESPONSE_START";
@@ -971,34 +978,39 @@ function runTabAdapter(
         return;
       }
 
-      // 0b. If already on search results page for THIS exact query (initial search), observe directly without re-typing
-      const isSearchPage = window.location.pathname.startsWith("/search");
-      if (isSearchPage) {
-        const urlParams = new URLSearchParams(window.location.search);
-        const urlQuery = (urlParams.get("q") || "").trim().toLowerCase();
-        const promptQuery = (prompt || "").trim().toLowerCase();
+      // 0b. If already on search/query page for this query or response already streaming/present, observe directly!
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlQuery = (
+        urlParams.get("q") ||
+        urlParams.get("query") ||
+        urlParams.get("prompt") ||
+        ""
+      )
+        .trim()
+        .toLowerCase();
+      const promptQuery = (prompt || "").trim().toLowerCase();
+      const isUrlMatch =
+        urlQuery &&
+        (urlQuery === promptQuery ||
+          promptQuery.startsWith(urlQuery) ||
+          urlQuery.startsWith(promptQuery));
+      const hasDirectAnswer = Boolean(adapter.findResponseContainer());
 
-        if (
-          urlQuery &&
-          (urlQuery === promptQuery ||
-            promptQuery.startsWith(urlQuery) ||
-            urlQuery.startsWith(promptQuery))
-        ) {
-          if (requestId) {
-            window.__SL_SUBMITTED_REQUESTS__.add(requestId);
-          }
-          console.log(
-            `%c[SpectraLens:Adapter] 🎯 Search page already executing query ("${prompt.slice(0, 25)}..."). Observing AI stream directly...`,
-            "color: #10b981; font-weight: bold;",
-          );
-          const answer = await adapter.observeResponse(
-            streamTimeoutMs,
-            "",
-            requestId,
-          );
-          resolve(answer || getShortError(providerId, "No response generated"));
-          return;
+      if (isUrlMatch || adapter.isStreaming() || hasDirectAnswer) {
+        if (requestId) {
+          window.__SL_SUBMITTED_REQUESTS__.add(requestId);
         }
+        console.log(
+          `%c[SpectraLens:Adapter] 🎯 Provider already executing query ("${prompt.slice(0, 25)}..."). Observing AI stream directly...`,
+          "color: #10b981; font-weight: bold;",
+        );
+        const answer = await adapter.observeResponse(
+          streamTimeoutMs,
+          "",
+          requestId,
+        );
+        resolve(answer || getShortError(providerId, "No response generated"));
+        return;
       }
 
       // Execute verified lifecycle: findInput -> focusInput -> attachImage -> insertPrompt -> verifyInput -> submit -> verifySubmission
@@ -1033,6 +1045,7 @@ function runTabAdapter(
       }
 
       // If initial submission from Google homepage that navigates to /search results:
+      const isSearchPage = window.location.pathname.startsWith("/search");
       if (!isSearchPage && providerId === "google") {
         console.log(
           `%c[SpectraLens:Adapter] 🚀 Google homepage submitted. Awaiting search navigation to complete...`,
@@ -1072,7 +1085,7 @@ function runTabAdapter(
 }
 
 async function getGoogleAiAnswer(q, requestId, image = null) {
-  const url = "https://www.google.com/?hl=en";
+  const url = `https://www.google.com/search?q=${encodeURIComponent(q)}&hl=en`;
   console.log(
     `[SpectraLens:Background] 🔍 getGoogleAiAnswer for: "${q.slice(0, 30)}..."${image ? " (with image)" : ""} (requestId: ${requestId})`,
   );

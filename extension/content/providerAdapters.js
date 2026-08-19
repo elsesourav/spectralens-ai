@@ -352,9 +352,15 @@
         score += 40;
       }
 
-      // Signal B (+25): Response text & hash have stabilized across window
+      // Signal B (+35 / +25 / +15): Response text & hash have stabilized across window
       const stableDuration = now - tracker.lastProgressAt;
       if (
+        stableDuration >= 1500 &&
+        tracker.lastTextLength > 20 &&
+        !isStreamingNow
+      ) {
+        score += 35; // Guaranteed completion if text hasn't mutated for 1.5s and stop button is absent
+      } else if (
         stableDuration >= this.STABILIZATION_REQUIRED_MS &&
         tracker.lastTextLength > 20
       ) {
@@ -368,15 +374,16 @@
       const input = this.adapter.findInput();
       const inputReady =
         input &&
+        input.isConnected &&
         !input.disabled &&
         input.getAttribute("contenteditable") !== "false";
-      if (inputReady || (sendControl && !sendControl.disabled)) {
+      if (inputReady || (sendControl && sendControl.isConnected && !sendControl.disabled)) {
         score += 15;
       }
 
       // Signal D (+10): Response action buttons (copy, feedback, share) rendered
       const copyBtn = this.adapter.findCopyButton();
-      if (copyBtn && copyBtn.offsetParent !== null) {
+      if (copyBtn && copyBtn.isConnected) {
         score += 10;
       }
 
@@ -765,6 +772,9 @@
 
     /** Verify that the prompt input actually contains the expected text */
     verifyInput(expectedText) {
+      if (this.isStreaming() || Boolean(this.findResponseContainer())) {
+        return true;
+      }
       const input = this.findInput();
       if (!input) return false;
       const val = (
@@ -782,7 +792,8 @@
       const sample = normExp.slice(0, Math.min(40, normExp.length));
       return (
         normVal.includes(sample) ||
-        normVal.length >= Math.min(expected.length * 0.8, 20)
+        normVal.length >= Math.min(expected.length * 0.5, 10) ||
+        val.length > 0
       );
     }
 
@@ -1028,18 +1039,38 @@
 
       // 0. Settle delay for fresh tab
       if (!isReused) {
-        await new Promise((r) => setTimeout(r, 1000));
+        await new Promise((r) => setTimeout(r, 600));
+      }
+
+      // Check if response is already streaming or rendered (e.g. from URL ?q= parameter)
+      const existingContainer = this.findResponseContainer();
+      if (
+        this.isStreaming() ||
+        (existingContainer &&
+          (existingContainer.textContent || "").trim().length > 0)
+      ) {
+        tabLog(
+          this.id,
+          `[SL REQUEST] ${reqId} provider=${this.id} event=ALREADY_SUBMITTED timestamp=${Date.now()}`,
+        );
+        return { success: true, alreadySubmitted: true };
       }
 
       // 1. Locate Input
       const locateStart = Date.now();
       let input = this.findInput();
       while (!input && Date.now() - locateStart < this.INPUT_TIMEOUT) {
+        if (this.isStreaming() || this.findResponseContainer()) {
+          return { success: true, alreadySubmitted: true };
+        }
         await new Promise((r) => setTimeout(r, isReused ? 200 : 350));
         input = this.findInput();
       }
 
       if (!input) {
+        if (this.isStreaming() || this.findResponseContainer()) {
+          return { success: true, alreadySubmitted: true };
+        }
         return {
           success: false,
           requestId: reqId,
@@ -1069,6 +1100,9 @@
       // 4. Insert Prompt
       const inserted = await this.insertPrompt(prompt);
       if (!inserted) {
+        if (this.isStreaming() || this.findResponseContainer()) {
+          return { success: true, alreadySubmitted: true };
+        }
         return {
           success: false,
           requestId: reqId,
@@ -1089,6 +1123,9 @@
         await new Promise((r) => setTimeout(r, 200));
         await this.insertPrompt(prompt);
         if (!this.verifyInput(prompt)) {
+          if (this.isStreaming() || this.findResponseContainer()) {
+            return { success: true, alreadySubmitted: true };
+          }
           return {
             success: false,
             requestId: reqId,
@@ -2275,7 +2312,7 @@
 
     findInput() {
       return document.querySelector(
-        'div[role="textbox"][aria-label*="Ask Grok"], main div.ProseMirror, textarea[placeholder*="Ask Grok"], div[contenteditable="true"]',
+        'div[role="textbox"], textarea[placeholder*="Ask" i], textarea[placeholder*="anything" i], textarea[placeholder*="Grok" i], textarea, main div.ProseMirror, div[contenteditable="true"]',
       );
     }
 
@@ -2341,20 +2378,25 @@
       this.focusInput();
       await new Promise((r) => setTimeout(r, 50));
 
-      if (input.tagName.toLowerCase() === "textarea") {
+      if (
+        input.tagName.toLowerCase() === "textarea" ||
+        input.tagName.toLowerCase() === "input"
+      ) {
         input.value = text;
         input.dispatchEvent(new Event("input", { bubbles: true }));
         input.dispatchEvent(new Event("change", { bubbles: true }));
       } else {
-        input.textContent = "";
-        const beforeInput = new InputEvent("beforeinput", {
-          bubbles: true,
-          cancelable: true,
-          inputType: "insertText",
-          data: text,
-        });
-        input.dispatchEvent(beforeInput);
-        document.execCommand("insertText", false, text);
+        try {
+          input.focus();
+          document.execCommand("selectAll", false, null);
+          document.execCommand("insertText", false, text);
+        } catch {}
+        if (
+          !input.textContent ||
+          !input.textContent.includes(text.slice(0, 10))
+        ) {
+          input.textContent = text;
+        }
         input.dispatchEvent(
           new InputEvent("input", {
             bubbles: true,
@@ -2364,6 +2406,7 @@
           }),
         );
         input.dispatchEvent(new Event("input", { bubbles: true }));
+        input.dispatchEvent(new Event("change", { bubbles: true }));
       }
 
       await new Promise((r) => setTimeout(r, 100));
@@ -2372,7 +2415,7 @@
 
     findSendButton() {
       return document.querySelector(
-        'button[aria-label*="Send" i], button[type="submit"], button.bg-highlight',
+        'button[aria-label*="Send" i], button[type="submit"], button.bg-highlight, div[role="button"][aria-label*="Send" i]',
       );
     }
 
@@ -2399,12 +2442,12 @@
         const stopBtn = document.querySelector(
           '.thinking-container, div.thinking-indicator, button[aria-label*="Stop" i]',
         );
-        if (stopBtn && stopBtn.offsetParent !== null) {
+        if (stopBtn && stopBtn.isConnected) {
           return true;
         }
 
-        // Signal 3: Streaming started
-        if (this.isStreaming()) {
+        // Signal 3: Streaming started or response container ready
+        if (this.isStreaming() || Boolean(this.findResponseContainer())) {
           return true;
         }
       }
@@ -2412,25 +2455,40 @@
     }
 
     findResponseContainer() {
-      const messages = document.querySelectorAll(
-        '[data-testid="assistant-message"], div.response-content-markdown, main #last-reply-container, div.message-bubble',
-      );
+      const selectors = [
+        '[data-testid="assistant-message"]',
+        'div.response-content-markdown',
+        'div.markdown',
+        'main #last-reply-container',
+        'div.message-bubble',
+        'div[dir="auto"]',
+        'main div[class*="message"]',
+        'div[class*="bubble"]',
+      ];
+      const messages = document.querySelectorAll(selectors.join(", "));
       if (messages.length > 0) {
         for (let i = messages.length - 1; i >= 0; i--) {
           const msg = messages[i];
-          const innerMarkdown =
-            msg.querySelector(
-              "div.response-content-markdown, div.markdown, [dir='auto']",
-            ) || msg;
-          const text = (innerMarkdown.textContent || "").trim();
-          if (text.length > 10) {
-            return innerMarkdown;
+          if (
+            msg.closest('[data-testid="user-message"]') ||
+            msg.classList.contains("user-message") ||
+            msg.closest(".user-message")
+          ) {
+            continue;
+          }
+          const text = (msg.textContent || "").trim();
+          if (text.length > 5) {
+            return (
+              msg.querySelector(
+                "div.markdown, div.response-content-markdown, [dir='auto']",
+              ) || msg
+            );
           }
         }
         return messages[messages.length - 1];
       }
       return document.querySelector(
-        "main #last-reply-container > div:nth-child(2) > div > [dir='auto']",
+        "main #last-reply-container > div:nth-child(2) > div > [dir='auto'], main div[dir='auto']",
       );
     }
 

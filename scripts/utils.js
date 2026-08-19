@@ -153,7 +153,12 @@ function runtimeSendMessage(type, message, callback) {
     if (typeof message === "function") {
       chrome.runtime.sendMessage({ type }, (response) => {
         const err = chrome.runtime?.lastError;
-        if (err && __isDevMode) {
+        if (
+          err &&
+          __isDevMode &&
+          !err.message?.includes("closed before a response") &&
+          !err.message?.includes("message channel closed")
+        ) {
           console.warn("Message Error:", err.message);
         }
         message(response);
@@ -161,7 +166,12 @@ function runtimeSendMessage(type, message, callback) {
     } else {
       chrome.runtime.sendMessage({ ...message, type }, (response) => {
         const err = chrome.runtime?.lastError;
-        if (err && __isDevMode) {
+        if (
+          err &&
+          __isDevMode &&
+          !err.message?.includes("closed before a response") &&
+          !err.message?.includes("message channel closed")
+        ) {
           console.warn("Message Error:", err.message);
         }
         callback && callback(response);
