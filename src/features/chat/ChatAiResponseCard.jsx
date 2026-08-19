@@ -1,9 +1,10 @@
+import { memo, useCallback, useMemo } from "react";
 import PropTypes from "prop-types";
 import { IoCheckmark, IoCopyOutline } from "react-icons/io5";
 import { ProviderIcon } from "../../components/Icons.jsx";
 import UTILS from "../../utils/utilsModule.js";
 
-export default function ChatAiResponseCard({
+const ChatAiResponseCard = memo(function ChatAiResponseCard({
   activeAiResponseContent,
   isLoading,
   activeAiProviderMetadata,
@@ -16,6 +17,21 @@ export default function ChatAiResponseCard({
   if (!activeAiResponseContent && !isLoading) {
     return null;
   }
+
+  // Memoize the expensive markdown→HTML→sanitize pipeline
+  // This only recomputes when the raw content string actually changes
+  const sanitizedHtml = useMemo(() => {
+    if (!activeAiResponseContent) return null;
+    const raw = typeof UTILS.markdownToHtml === "function"
+      ? UTILS.markdownToHtml(activeAiResponseContent)
+      : activeAiResponseContent;
+    return { __html: UTILS.sanitizeHtml(raw) };
+  }, [activeAiResponseContent]);
+
+  // Stable copy handler that reads current content and provider from props
+  const handleCopy = useCallback(() => {
+    onCopyAiResponse(activeAiResponseContent, selectedProvider);
+  }, [onCopyAiResponse, activeAiResponseContent, selectedProvider]);
 
   return (
     <div className="flex flex-col gap-2 animate-fade-in">
@@ -53,13 +69,7 @@ export default function ChatAiResponseCard({
         {activeAiResponseContent ? (
           <div
             className="spectralens-response-wrapper text-slate-900 dark:text-slate-100 overflow-x-hidden break-words leading-relaxed font-normal select-text cursor-text max-w-full"
-            dangerouslySetInnerHTML={{
-              __html: UTILS.sanitizeHtml(
-                typeof UTILS.markdownToHtml === "function"
-                  ? UTILS.markdownToHtml(activeAiResponseContent)
-                  : activeAiResponseContent,
-              ),
-            }}
+            dangerouslySetInnerHTML={sanitizedHtml}
           />
         ) : (
           <div className="space-y-2.5 py-2">
@@ -91,7 +101,7 @@ export default function ChatAiResponseCard({
           <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-white/[0.04] text-[10px] text-slate-500 dark:text-slate-400 font-medium">
             <button
               type="button"
-              onClick={onCopyAiResponse}
+              onClick={handleCopy}
               className="flex items-center gap-1.5 px-2 py-0.5 rounded-md hover:bg-slate-100 dark:hover:bg-white/[0.08] hover:text-blue-600 dark:hover:text-blue-400 transition-all cursor-pointer focus:outline-none"
               title="Copy answer"
             >
@@ -115,7 +125,9 @@ export default function ChatAiResponseCard({
       </div>
     </div>
   );
-}
+});
+
+export default ChatAiResponseCard;
 
 ChatAiResponseCard.propTypes = {
   activeAiResponseContent: PropTypes.string,

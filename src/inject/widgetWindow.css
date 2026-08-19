@@ -4,7 +4,18 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    Oxygen,
+    Ubuntu,
+    Cantarell,
+    "Open Sans",
+    "Helvetica Neue",
+    sans-serif;
   line-height: 1.5;
   font-weight: 400;
   color-scheme: normal !important;
@@ -26,7 +37,8 @@
   --text-muted: #94a3b8;
 }
 
-.dark, html.dark {
+.dark,
+html.dark {
   color-scheme: normal !important;
   --bg-app: #0e1015;
   --bg-sidebar: #14161e;
@@ -45,7 +57,9 @@
   --text-muted: #64748b;
 }
 
-html, body, #root {
+html,
+body,
+#root {
   overscroll-behavior: contain;
   background: transparent !important;
   background-color: transparent !important;
@@ -76,7 +90,8 @@ body::-webkit-scrollbar {
   scrollbar-color: rgba(148, 163, 184, 0.28) transparent;
 }
 
-.dark *, html.dark * {
+.dark *,
+html.dark * {
   scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
 }
 
@@ -99,11 +114,13 @@ body::-webkit-scrollbar {
   background: rgba(148, 163, 184, 0.55);
 }
 
-.dark *::-webkit-scrollbar-thumb, html.dark *::-webkit-scrollbar-thumb {
+.dark *::-webkit-scrollbar-thumb,
+html.dark *::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.2);
 }
 
-.dark *::-webkit-scrollbar-thumb:hover, html.dark *::-webkit-scrollbar-thumb:hover {
+.dark *::-webkit-scrollbar-thumb:hover,
+html.dark *::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.45);
 }
 
@@ -118,7 +135,8 @@ body::-webkit-scrollbar {
   overscroll-behavior: contain;
 }
 
-.dark .custom-scrollbar, html.dark .custom-scrollbar {
+.dark .custom-scrollbar,
+html.dark .custom-scrollbar {
   scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
 }
 
@@ -140,11 +158,13 @@ body::-webkit-scrollbar {
   background: rgba(148, 163, 184, 0.55);
 }
 
-.dark .custom-scrollbar::-webkit-scrollbar-thumb, html.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+.dark .custom-scrollbar::-webkit-scrollbar-thumb,
+html.dark .custom-scrollbar::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.2);
 }
 
-.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover, html.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover,
+html.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.45);
 }
 
@@ -223,31 +243,31 @@ html.dark .animated-pill-glow::before {
 }
 
 @keyframes scaleUp {
-   from {
-      opacity: 0;
-      transform: scale(0.92) translateY(6px);
-   }
-   to {
-      opacity: 1;
-      transform: scale(1) translateY(0);
-   }
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 .animate-scale-up {
-   animation: scaleUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: scaleUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 @keyframes fadeIn {
-   from {
-      opacity: 0;
-   }
-   to {
-      opacity: 1;
-   }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .animate-fade-in {
-   animation: fadeIn 0.2s ease-out forwards;
+  animation: fadeIn 0.2s ease-out forwards;
 }
 
 /* ==========================================================================
@@ -256,104 +276,115 @@ html.dark .animated-pill-glow::before {
    ========================================================================== */
 
 .spectralens-isolated-response {
-   display: block;
-   width: 100%;
-   max-width: 100%;
-   box-sizing: border-box;
-   overflow-wrap: break-word;
-   word-break: break-word;
-   font-family: var(--sl-font-family, 'Google Sans', Roboto, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif);
-   font-size: 13px;
-   line-height: 1.55;
-   user-select: text !important;
-   -webkit-user-select: text !important;
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  font-family: var(
+    --sl-font-family,
+    "Google Sans",
+    Roboto,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    system-ui,
+    sans-serif
+  );
+  font-size: 13px;
+  line-height: 1.55;
+  user-select: text !important;
+  -webkit-user-select: text !important;
 
-   /* --- LIGHT THEME TOKENS (Default) --- */
-   --sl-font-family: 'Google Sans', Roboto, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-   --sl-text-primary: #0f172a;        /* Slate-900: Crisp headings, body text, bold */
-   --sl-text-secondary: #334155;      /* Slate-700: Secondary text */
-   --sl-text-muted: #64748b;          /* Slate-500: Captions, helper text */
-   --sl-text-link: #2563eb;           /* Blue-600: Links & actionable items */
-   --sl-text-link-hover: #1d4ed8;     /* Blue-700: Hovered links */
-   --sl-text-danger: #ef4444;         /* Red-500 */
-   --sl-text-success: #10b981;        /* Emerald-500 */
+  /* --- LIGHT THEME TOKENS (Default) --- */
+  --sl-font-family:
+    "Google Sans", Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    system-ui, sans-serif;
+  --sl-text-primary: #ff4e08; /* Slate-900: Crisp headings, body text, bold */
+  --sl-text-secondary: #334155; /* Slate-700: Secondary text */
+  --sl-text-muted: #64748b; /* Slate-500: Captions, helper text */
+  --sl-text-link: #2563eb; /* Blue-600: Links & actionable items */
+  --sl-text-link-hover: #1d4ed8; /* Blue-700: Hovered links */
+  --sl-text-danger: #ef4444; /* Red-500 */
+  --sl-text-success: #10b981; /* Emerald-500 */
 
-   --sl-bg-canvas: transparent;       /* Seamlessly blends into chatbot response card */
-   --sl-bg-surface: #f8fafc;          /* Slate-50: Container / card background */
-   --sl-bg-surface-elevated: #ffffff; /* White: Elevated pill / badge background */
-   --sl-bg-surface-subtle: #f1f5f9;   /* Slate-100: Subtle chip / tag background */
-   --sl-bg-code: #f1f5f9;             /* Slate-100: Code block background */
+  --sl-bg-canvas: transparent; /* Seamlessly blends into chatbot response card */
+  --sl-bg-surface: #f8fafc; /* Slate-50: Container / card background */
+  --sl-bg-surface-elevated: #ffffff; /* White: Elevated pill / badge background */
+  --sl-bg-surface-subtle: #f1f5f9; /* Slate-100: Subtle chip / tag background */
+  --sl-bg-code: #f1f5f9; /* Slate-100: Code block background */
 
-   --sl-border-subtle: #e2e8f0;       /* Slate-200: Soft divider & card borders */
-   --sl-border-strong: #cbd5e1;       /* Slate-300: Active / focus borders */
-   
-   --sl-accent: #3b82f6;              /* Blue-500: Accent highlights */
-   --sl-accent-bg: rgba(59, 130, 246, 0.08); /* Blue-500 soft chip background */
-   --sl-table-row-even: #f8fafc;
-   --sl-table-border: #e2e8f0;
-   --sl-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --sl-border-subtle: #e2e8f077; /* Slate-200: Soft divider & card borders */
+  --sl-border-strong: #cbd5e177; /* Slate-300: Active / focus borders */
 
-   color: var(--sl-text-primary, #0f172a);
+  --sl-accent: #3b82f6; /* Blue-500: Accent highlights */
+  --sl-accent-bg: rgba(59, 130, 246, 0.08); /* Blue-500 soft chip background */
+  --sl-table-row-even: #f8fafc;
+  --sl-table-border: #e2e8f0;
+  --sl-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+
+  color: var(--sl-text-primary, #0f172a);
 }
 
 /* --- DARK THEME TOKENS --- */
 .dark .spectralens-isolated-response,
 [data-theme="dark"] .spectralens-isolated-response,
 html.dark .spectralens-isolated-response {
-   --sl-text-primary: #f8fafc;        /* Slate-50: Crisp bright text */
-   --sl-text-secondary: #cbd5e1;      /* Slate-300: Clear readable secondary text */
-   --sl-text-muted: #94a3b8;          /* Slate-400: Muted helper text */
-   --sl-text-link: #60a5fa;           /* Blue-400: High-visibility links */
-   --sl-text-link-hover: #93c5fd;     /* Blue-300: Hovered link */
-   --sl-text-danger: #f87171;         /* Red-400 */
-   --sl-text-success: #34d399;        /* Emerald-400 */
+  --sl-text-primary: #ff4e08; /* Slate-50: Crisp bright text */
+  --sl-text-secondary: #cbd5e1; /* Slate-300: Clear readable secondary text */
+  --sl-text-muted: #94a3b8; /* Slate-400: Muted helper text */
+  --sl-text-link: #60a5fa; /* Blue-400: High-visibility links */
+  --sl-text-link-hover: #93c5fd; /* Blue-300: Hovered link */
+  --sl-text-danger: #f87171; /* Red-400 */
+  --sl-text-success: #34d399; /* Emerald-400 */
 
-   --sl-bg-canvas: transparent;
-   --sl-bg-surface: rgba(30, 41, 59, 0.7);  /* Slate-800 subtle card */
-   --sl-bg-surface-elevated: #1e293b;        /* Slate-800 solid elevated pill */
-   --sl-bg-surface-subtle: rgba(51, 65, 85, 0.6); /* Slate-700 chip */
-   --sl-bg-code: #0f172a;                    /* Slate-900 deep code bg */
+  --sl-bg-canvas: transparent;
+  --sl-bg-surface: rgba(30, 41, 59, 0.7); /* Slate-800 subtle card */
+  --sl-bg-surface-elevated: #1e293b; /* Slate-800 solid elevated pill */
+  --sl-bg-surface-subtle: rgba(51, 65, 85, 0.6); /* Slate-700 chip */
+  --sl-bg-code: #0f172a; /* Slate-900 deep code bg */
 
-   --sl-border-subtle: #334155;       /* Slate-700 border */
-   --sl-border-strong: #475569;       /* Slate-600 border */
+  --sl-border-subtle: #33415577; /* Slate-700 border */
+  --sl-border-strong: #47556977; /* Slate-600 border */
 
-   --sl-accent: #60a5fa;
-   --sl-accent-bg: rgba(96, 165, 250, 0.15);
-   --sl-table-row-even: rgba(30, 41, 59, 0.5);
-   --sl-table-border: #334155;
-   --sl-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  --sl-accent: #60a5fa;
+  --sl-accent-bg: rgba(96, 165, 250, 0.15);
+  --sl-table-row-even: rgba(30, 41, 59, 0.5);
+  --sl-table-border: #334155;
+  --sl-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
 
-   color: var(--sl-text-primary, #f8fafc);
+  color: var(--sl-text-primary, #f8fafc);
 }
 
 /* --- HIGH CONTRAST & SOLID MODE TOKENS --- */
 [data-contrast="high"] .spectralens-isolated-response,
 .dark[data-contrast="high"] .spectralens-isolated-response,
 [data-contrast="solid"] .spectralens-isolated-response {
-   --sl-text-primary: #000000;
-   --sl-text-secondary: #1e293b;
-   --sl-text-muted: #334155;
-   --sl-text-link: #1d4ed8;
-   --sl-border-subtle: #94a3b8;
-   --sl-border-strong: #64748b;
+  --sl-text-primary: #000000;
+  --sl-text-secondary: #1e293b;
+  --sl-text-muted: #334155;
+  --sl-text-link: #1d4ed8;
+  --sl-border-subtle: #94a3b8;
+  --sl-border-strong: #64748b;
 }
 
 .dark[data-contrast="high"] .spectralens-isolated-response,
 .dark[data-contrast="solid"] .spectralens-isolated-response {
-   --sl-text-primary: #ffffff;
-   --sl-text-secondary: #f8fafc;
-   --sl-text-muted: #cbd5e1;
-   --sl-text-link: #93c5fd;
-   --sl-border-subtle: #64748b;
-   --sl-border-strong: #94a3b8;
+  --sl-text-primary: #ffffff;
+  --sl-text-secondary: #f8fafc;
+  --sl-text-muted: #cbd5e1;
+  --sl-text-link: #93c5fd;
+  --sl-border-subtle: #64748b;
+  --sl-border-strong: #94a3b8;
 }
 
 /* --- DEEP THEME-AWARE ELEMENT RULES --- */
 .spectralens-isolated-response * {
-   max-width: 100% !important;
-   box-sizing: border-box !important;
-   user-select: text !important;
-   -webkit-user-select: text !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  user-select: text !important;
+  -webkit-user-select: text !important;
 }
 
 /* Force full opacity on any provider animation/streaming hidden nodes (e.g. Google [data-sae]) */
@@ -363,25 +394,28 @@ html.dark .spectralens-isolated-response {
 .spectralens-isolated-response [style*="opacity:0"],
 .spectralens-isolated-response [style*="pointer-events: none"],
 .spectralens-isolated-response [style*="pointer-events:none"] {
-   opacity: 1 !important;
-   pointer-events: auto !important;
-   visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  visibility: visible !important;
 }
 
 .spectralens-isolated-response p,
 .spectralens-isolated-response span,
-.spectralens-isolated-response div:not([style*="background"]):not([role="button"]):not([class*="btn"]),
+.spectralens-isolated-response
+  div:not([style*="background"]):not([role="button"]):not([class*="btn"]),
 .spectralens-isolated-response li,
 .spectralens-isolated-response td,
 .spectralens-isolated-response th,
 .spectralens-isolated-response strong,
 .spectralens-isolated-response b {
-   color: var(--sl-text-primary, inherit);
+  color: var(--sl-text-primary, inherit);
 }
 
 .dark .spectralens-isolated-response p,
 .dark .spectralens-isolated-response span,
-.dark .spectralens-isolated-response div:not([style*="background"]):not([role="button"]):not([class*="btn"]),
+.dark
+  .spectralens-isolated-response
+  div:not([style*="background"]):not([role="button"]):not([class*="btn"]),
 .dark .spectralens-isolated-response li,
 .dark .spectralens-isolated-response td,
 .dark .spectralens-isolated-response th,
@@ -389,13 +423,15 @@ html.dark .spectralens-isolated-response {
 .dark .spectralens-isolated-response b,
 [data-theme="dark"] .spectralens-isolated-response p,
 [data-theme="dark"] .spectralens-isolated-response span,
-[data-theme="dark"] .spectralens-isolated-response div:not([style*="background"]):not([role="button"]):not([class*="btn"]),
+[data-theme="dark"]
+  .spectralens-isolated-response
+  div:not([style*="background"]):not([role="button"]):not([class*="btn"]),
 [data-theme="dark"] .spectralens-isolated-response li,
 [data-theme="dark"] .spectralens-isolated-response td,
 [data-theme="dark"] .spectralens-isolated-response th,
 [data-theme="dark"] .spectralens-isolated-response strong,
 [data-theme="dark"] .spectralens-isolated-response b {
-   color: var(--sl-text-primary, #f8fafc);
+  color: var(--sl-text-primary, #f8fafc);
 }
 
 .spectralens-isolated-response h1,
@@ -404,89 +440,115 @@ html.dark .spectralens-isolated-response {
 .spectralens-isolated-response h4,
 .spectralens-isolated-response h5,
 .spectralens-isolated-response h6 {
-   color: var(--sl-text-primary, inherit);
+  color: var(--sl-text-primary, inherit);
 }
 
 .spectralens-isolated-response a,
 .spectralens-isolated-response a * {
-   color: var(--sl-text-link) !important;
-   text-decoration: none;
-   transition: color 0.15s ease, text-decoration 0.15s ease;
+  color: var(--sl-text-link) !important;
+  text-decoration: none;
+  transition:
+    color 0.15s ease,
+    text-decoration 0.15s ease;
 }
 
 .spectralens-isolated-response,
 .spectralens-response-wrapper {
-   overflow-x: hidden !important;
-   max-width: 100% !important;
-   word-break: break-word !important;
-   overflow-wrap: anywhere !important;
+  overflow-x: hidden !important;
+  max-width: 100% !important;
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;
 }
 
 .spectralens-isolated-response table,
 .spectralens-response-wrapper table {
-   display: block !important;
-   max-width: 100% !important;
-   overflow-x: auto !important;
-   border-collapse: collapse !important;
-   margin: 8px 0 !important;
+  display: block !important;
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  border-collapse: collapse !important;
+  margin: 8px 0 !important;
 }
 
 .spectralens-isolated-response img,
 .spectralens-response-wrapper img {
-   max-width: 100% !important;
-   height: auto !important;
-   border-radius: 6px !important;
+  max-width: 100% !important;
+  height: auto !important;
+  border-radius: 6px !important;
 }
 
 .spectralens-isolated-response pre,
 .spectralens-response-wrapper pre {
-   display: block !important;
-   max-width: 100% !important;
-   overflow-x: auto !important;
-   overflow-y: hidden !important;
-   white-space: pre !important;
-   word-wrap: normal !important;
-   overflow-wrap: normal !important;
-   font-family: var(--sl-font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace) !important;
-   font-size: 12px !important;
-   line-height: 1.6 !important;
-   background-color: var(--sl-bg-code) !important;
-   color: var(--sl-text-primary) !important;
-   border: 1px solid var(--sl-border-subtle) !important;
-   border-radius: 8px !important;
-   padding: 8px 10px !important;
-   margin: 6px 0 !important;
-   scrollbar-width: thin !important;
-   scrollbar-color: rgba(148, 163, 184, 0.45) transparent !important;
-   -webkit-overflow-scrolling: touch;
+  display: block !important;
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  white-space: pre !important;
+  word-wrap: normal !important;
+  overflow-wrap: normal !important;
+  font-family: var(
+    --sl-font-mono,
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    monospace
+  ) !important;
+  font-size: 12px !important;
+  line-height: 1.6 !important;
+  background-color: var(--sl-bg-code) !important;
+  color: var(--sl-text-primary) !important;
+  border: 1px solid var(--sl-border-subtle) !important;
+  border-radius: 8px !important;
+  padding: 8px 10px !important;
+  margin: 6px 0 !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(148, 163, 184, 0.45) transparent !important;
+  -webkit-overflow-scrolling: touch;
 }
 
 .spectralens-isolated-response pre code,
 .spectralens-response-wrapper pre code {
-   display: inline-block !important;
-   min-width: 100% !important;
-   background: transparent !important;
-   border: none !important;
-   padding: 0 !important;
-   margin: 0 !important;
-   white-space: pre !important;
-   word-wrap: normal !important;
-   overflow-wrap: normal !important;
-   font-family: var(--sl-font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace) !important;
-   font-size: inherit !important;
-   line-height: inherit !important;
-   color: inherit !important;
+  display: inline-block !important;
+  min-width: 100% !important;
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  white-space: pre !important;
+  word-wrap: normal !important;
+  overflow-wrap: normal !important;
+  font-family: var(
+    --sl-font-mono,
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    monospace
+  ) !important;
+  font-size: inherit !important;
+  line-height: inherit !important;
+  color: inherit !important;
 }
 
 .spectralens-isolated-response code:not(pre code),
 .spectralens-response-wrapper code:not(pre code) {
-   background-color: var(--sl-bg-code) !important;
-   color: var(--sl-text-primary) !important;
-   border: 1px solid var(--sl-border-subtle) !important;
-   border-radius: 4px !important;
-   padding: 1.5px 5px !important;
-   font-family: var(--sl-font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace) !important;
-   font-size: 0.9em !important;
+  background-color: var(--sl-bg-code) !important;
+  color: var(--sl-text-primary) !important;
+  border: 1px solid var(--sl-border-subtle) !important;
+  border-radius: 4px !important;
+  padding: 1.5px 5px !important;
+  font-family: var(
+    --sl-font-mono,
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    monospace
+  ) !important;
+  font-size: 0.9em !important;
 }
 
 /* High-Visibility Custom Horizontal & Vertical Scrollbars for Code and AI Responses */
@@ -494,69 +556,72 @@ html.dark .spectralens-isolated-response {
 .spectralens-response-wrapper::-webkit-scrollbar,
 .spectralens-response-wrapper *::-webkit-scrollbar,
 .spectralens-isolated-response [style*="overflow"]::-webkit-scrollbar {
-   width: 6px;
-   height: 6px;
+  width: 6px;
+  height: 6px;
 }
 
 .spectralens-isolated-response pre::-webkit-scrollbar-track,
 .spectralens-response-wrapper::-webkit-scrollbar-track,
 .spectralens-response-wrapper *::-webkit-scrollbar-track,
 .spectralens-isolated-response [style*="overflow"]::-webkit-scrollbar-track {
-   background: rgba(0, 0, 0, 0.05);
-   border-radius: 9999px;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 9999px;
 }
 
 .dark .spectralens-isolated-response pre::-webkit-scrollbar-track,
 .dark .spectralens-response-wrapper::-webkit-scrollbar-track,
 .dark .spectralens-response-wrapper *::-webkit-scrollbar-track,
-.dark .spectralens-isolated-response [style*="overflow"]::-webkit-scrollbar-track {
-   background: rgba(255, 255, 255, 0.05);
+.dark
+  .spectralens-isolated-response
+  [style*="overflow"]::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .spectralens-isolated-response pre::-webkit-scrollbar-thumb,
 .spectralens-response-wrapper::-webkit-scrollbar-thumb,
 .spectralens-response-wrapper *::-webkit-scrollbar-thumb,
 .spectralens-isolated-response [style*="overflow"]::-webkit-scrollbar-thumb {
-   background: rgba(148, 163, 184, 0.5);
-   border-radius: 9999px;
+  background: rgba(148, 163, 184, 0.5);
+  border-radius: 9999px;
 }
 
 .spectralens-isolated-response pre::-webkit-scrollbar-thumb:hover,
 .spectralens-response-wrapper::-webkit-scrollbar-thumb:hover,
 .spectralens-response-wrapper *::-webkit-scrollbar-thumb:hover,
-.spectralens-isolated-response [style*="overflow"]::-webkit-scrollbar-thumb:hover {
-   background: rgba(148, 163, 184, 0.8);
+.spectralens-isolated-response
+  [style*="overflow"]::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.8);
 }
 
 .spectralens-isolated-response table {
-   border-collapse: collapse;
-   width: 100%;
-   border-color: var(--sl-table-border) !important;
+  border-collapse: collapse;
+  width: 100%;
+  border-color: var(--sl-table-border) !important;
 }
 
 .spectralens-isolated-response th,
 .spectralens-isolated-response td {
-   border-color: var(--sl-table-border) !important;
-   color: var(--sl-text-primary);
+  border-color: var(--sl-table-border) !important;
+  color: var(--sl-text-primary);
 }
 
 .spectralens-isolated-response th {
-   background-color: var(--sl-bg-surface-subtle) !important;
+  background-color: var(--sl-bg-surface-subtle) !important;
 }
 
 .spectralens-isolated-response tr:nth-child(even) {
-   background-color: var(--sl-table-row-even);
+  background-color: var(--sl-table-row-even);
 }
 
 .spectralens-isolated-response svg {
-   color: inherit;
-   fill: currentColor;
+  color: inherit;
+  fill: currentColor;
 }
 
 .spectralens-isolated-response hr {
-   border: 0;
-   border-top: 1px solid var(--sl-border-subtle);
-   margin: 0.75rem 0;
+  border: 0;
+  border-top: 1px solid var(--sl-border-subtle);
+  margin: 0.75rem 0;
 }
 
 /* Explicit Select-Text Class for User Messages and AI Responses */
@@ -564,7 +629,7 @@ html.dark .spectralens-isolated-response {
 .select-text *,
 .user-message-bubble,
 .user-message-bubble * {
-   user-select: text !important;
-   -webkit-user-select: text !important;
-   cursor: text;
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  cursor: text;
 }

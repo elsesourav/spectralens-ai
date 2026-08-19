@@ -1,15 +1,21 @@
+import { memo, useCallback } from "react";
 import PropTypes from "prop-types";
 import { IoCheckmark, IoCopyOutline } from "react-icons/io5";
 
-export default function ChatMessageBubble({
+const ChatMessageBubble = memo(function ChatMessageBubble({
   lastQuestion,
   lastQuestionImage,
   lastQuestionPage,
   messageTime,
   isUserCopied,
+  turnId,
   onCopyUserQuestion,
 }) {
   if (!lastQuestion) return null;
+
+  const handleCopy = useCallback(() => {
+    onCopyUserQuestion(lastQuestion, turnId);
+  }, [onCopyUserQuestion, lastQuestion, turnId]);
 
   return (
     <div className="flex flex-col items-end gap-1 animate-fade-in group">
@@ -91,7 +97,7 @@ export default function ChatMessageBubble({
         <div className="flex items-center justify-between gap-4 mt-2 pt-1.5 border-t border-white/15 text-[10px] text-blue-100 font-medium select-none">
           <button
             type="button"
-            onClick={onCopyUserQuestion}
+            onClick={handleCopy}
             className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white/15 hover:bg-white/25 active:scale-95 transition-all text-white cursor-pointer focus:outline-none"
             title="Copy sent message"
           >
@@ -114,7 +120,9 @@ export default function ChatMessageBubble({
       </div>
     </div>
   );
-}
+});
+
+export default ChatMessageBubble;
 
 ChatMessageBubble.propTypes = {
   lastQuestion: PropTypes.string,
@@ -122,5 +130,6 @@ ChatMessageBubble.propTypes = {
   lastQuestionPage: PropTypes.object,
   messageTime: PropTypes.string.isRequired,
   isUserCopied: PropTypes.bool.isRequired,
+  turnId: PropTypes.string,
   onCopyUserQuestion: PropTypes.func.isRequired,
 };

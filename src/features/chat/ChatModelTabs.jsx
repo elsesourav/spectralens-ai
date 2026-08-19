@@ -1,7 +1,8 @@
+import { memo } from "react";
 import PropTypes from "prop-types";
 import { ProviderIcon, ThreeDotsIcon } from "../../components/Icons.jsx";
 
-export default function ChatModelTabs({
+const ChatModelTabs = memo(function ChatModelTabs({
   primaryProviderTabs,
   overflowProviderTabs,
   selectedProvider,
@@ -134,7 +135,9 @@ export default function ChatModelTabs({
       )}
     </div>
   );
-}
+});
+
+export default ChatModelTabs;
 
 ChatModelTabs.propTypes = {
   primaryProviderTabs: PropTypes.array.isRequired,

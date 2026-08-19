@@ -65,6 +65,7 @@ export default function ChatBot({
   
   // Continuous Conversation Turns: Array<{ id, question, questionImage, questionPage, messageTime, answers, isLoading, selectedProvider }>
   const [turns, setTurns] = useState([]);
+  const turnsRef = useRef(turns);
   const [selectedProvider, setSelectedProvider] = useState(
     initialHistoryItem
       ? Object.keys(initialHistoryItem.answers || {})[0] || null
@@ -362,6 +363,7 @@ export default function ChatBot({
       setIsViewingHistory(true);
       if (Array.isArray(initialHistoryItem.turns) && initialHistoryItem.turns.length > 0) {
         setTurns(initialHistoryItem.turns);
+        turnsRef.current = initialHistoryItem.turns;
         const answeredProviders = [];
         for (const t of initialHistoryItem.turns) {
           if (t.answers) {
@@ -393,6 +395,7 @@ export default function ChatBot({
           selectedProvider: firstAnswered,
         };
         setTurns([legacyTurn]);
+        turnsRef.current = [legacyTurn];
         setSelectedProvider(firstAnswered);
       }
       if (onClearLoadedHistory) {
@@ -405,7 +408,11 @@ export default function ChatBot({
   const handleStopFetch = useCallback(() => {
     currentRequestIdRef.current = "stopped_" + Date.now();
     setIsLoading(false);
-    setTurns((prev) => prev.map((t) => ({ ...t, isLoading: false })));
+    setTurns((prev) => {
+      const next = prev.map((t) => ({ ...t, isLoading: false }));
+      turnsRef.current = next;
+      return next;
+    });
     UTILS.pagePostMessage("IF_B_STOP_FETCH", {}, window.parent);
   }, []);
 
@@ -415,6 +422,7 @@ export default function ChatBot({
     setIsViewingHistory(false);
     setInput("");
     setTurns([]);
+    turnsRef.current = [];
     setAttachedImage(null);
     setAttachedPage(null);
     setAttachedContextType(null);
@@ -567,15 +575,15 @@ export default function ChatBot({
               return;
             }
 
-            setTurns((currentTurns) => {
-              const currentTurn = currentTurns.find((t) => t.id === requestId);
-              if (currentTurn?.answers?.[provider.id]) {
-                resolve({ provider, completed: true });
-              } else {
-                setTimeout(checkAnswer, 400);
-              }
-              return currentTurns;
-            });
+            // Read from ref instead of abusing setTurns as a state reader
+            // This avoids triggering React reconciliation on every poll tick
+            const currentTurns = turnsRef.current;
+            const currentTurn = currentTurns.find((t) => t.id === requestId);
+            if (currentTurn?.answers?.[provider.id]) {
+              resolve({ provider, completed: true });
+            } else {
+              setTimeout(checkAnswer, 400);
+            }
           };
           checkAnswer();
         });
@@ -741,7 +749,11 @@ export default function ChatBot({
         selectedProvider: targetProvider,
       };
 
-      setTurns((prev) => [...prev, newTurn]);
+      setTurns((prev) => {
+        const next = [...prev, newTurn];
+        turnsRef.current = next;
+        return next;
+      });
 
       setInput("");
       setAttachedImage(null);
@@ -884,6 +896,9 @@ export default function ChatBot({
         const newTurns = [...prevTurns];
         newTurns[targetIndex] = updatedTurn;
 
+        // Keep turnsRef in sync for the polling loop to read without re-renders
+        turnsRef.current = newTurns;
+
         // Save complete conversation thread to Chrome local storage history
         UTILS.chromeStorageGetLocal(UTILS.KEYS.HISTORY, (prevHistory = []) => {
           const historyList = Array.isArray(prevHistory) ? prevHistory : [];
@@ -927,7 +942,11 @@ export default function ChatBot({
 
     UTILS.pageOnMessage("IF_B_AI_REQUEST_COMPLETE", () => {
       setIsLoading(false);
-      setTurns((prev) => prev.map((t) => ({ ...t, isLoading: false })));
+      setTurns((prev) => {
+        const next = prev.map((t) => ({ ...t, isLoading: false }));
+        turnsRef.current = next;
+        return next;
+      });
     });
 
     UTILS.pageOnMessage("C_IF_SET_INPUTS", (data) => {
@@ -1068,9 +1087,8 @@ export default function ChatBot({
                 lastQuestionPage={turn.questionPage}
                 messageTime={turn.messageTime}
                 isUserCopied={copiedTurnId === turn.id}
-                onCopyUserQuestion={() =>
-                  handleCopyUserQuestion(turn.question, turn.id)
-                }
+                turnId={turn.id}
+                onCopyUserQuestion={handleCopyUserQuestion}
               />
 
               {/* AI Response Card for this Turn (Strictly shows only the selected provider's response) */}
@@ -1086,9 +1104,7 @@ export default function ChatBot({
                 selectedProvider={currentProviderId}
                 messageTime={turn.messageTime}
                 contrastMode={contrastMode}
-                onCopyAiResponse={() =>
-                  handleCopyAiResponse(activeContent, currentProviderId)
-                }
+                onCopyAiResponse={handleCopyAiResponse}
               />
             </div>
           );
