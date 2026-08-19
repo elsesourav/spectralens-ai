@@ -615,64 +615,118 @@ function htmlToMarkdown(html) {
 }
 
 /**
- * Converts clean Markdown text into secure styled HTML for rendering.
+ * Converts clean Markdown text (or legacy HTML) into secure, responsive, lightweight styled HTML for rendering.
  */
 function markdownToHtml(md) {
    if (!md || typeof md !== "string") return "";
-   if (/<(?:div|p|h[1-6]|ul|ol|li|table|pre)[^>]*>/i.test(md)) {
-      return md; // Already HTML
+
+   let source = md;
+
+   // If the content is raw HTML (e.g. from legacy storage or old sessions), normalize it to clean Markdown first
+   if (/<(?:div|p|h[1-6]|ul|ol|li|table|pre|section|article)\b[^>]*>/i.test(source)) {
+      source = domToMarkdown(source);
    }
 
-   let html = md
+   // Preserve code blocks before escaping HTML special chars
+   const codeBlocks = [];
+   source = source.replace(/(?:^|\n)```([a-z0-9_-]*)\s*\n?([\s\S]*?)```(?:\n|$)/gi, (_, lang, code) => {
+      const idx = codeBlocks.length;
+      const langDisplay = lang ? lang.trim().toLowerCase() : "";
+      const cleanCode = (code || "").replace(/^\n+|\n+$/g, "");
+      const escapedCode = cleanCode
+         .replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;");
+      const blockHtml = `\n<div class="my-2.5 rounded-xl overflow-hidden border border-slate-700/60 bg-slate-900 shadow-xs"><div class="flex items-center justify-between px-3 py-1.5 bg-slate-800/80 border-b border-slate-700/60 text-[10px] font-mono text-slate-400 font-semibold uppercase tracking-wider"><span>${langDisplay || "code"}</span></div><pre class="p-3 overflow-x-auto text-xs font-mono text-slate-100 leading-relaxed"><code class="language-${langDisplay}">${escapedCode}</code></pre></div>\n`;
+      codeBlocks.push(blockHtml);
+      return `\n%%SPECTRALENS_CODE_BLOCK_${idx}%%\n`;
+   });
+
+   // Preserve inline math and display math
+   const mathBlocks = [];
+   source = source.replace(/\$\$([\s\S]+?)\$\$/g, (_, math) => {
+      const idx = mathBlocks.length;
+      const cleanMath = (math || "").trim()
+         .replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;");
+      mathBlocks.push(`<div class="my-2 p-2.5 rounded-xl bg-slate-100 dark:bg-white/[0.06] border border-slate-200/80 dark:border-white/[0.08] text-center font-mono text-xs text-blue-600 dark:text-blue-400 overflow-x-auto">${cleanMath}</div>`);
+      return `%%SPECTRALENS_MATH_BLOCK_${idx}%%`;
+   });
+
+   source = source.replace(/\$([^\$\n]+?)\$/g, (_, math) => {
+      const idx = mathBlocks.length;
+      const cleanMath = (math || "").trim()
+         .replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;");
+      mathBlocks.push(`<code class="px-1.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-mono text-[11px] font-medium border border-blue-200/50 dark:border-blue-800/40">${cleanMath}</code>`);
+      return `%%SPECTRALENS_MATH_BLOCK_${idx}%%`;
+   });
+
+   let html = source
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;");
 
-   // Code blocks (fenced)
-   html = html.replace(/```([a-z0-9_-]*)\n([\s\S]*?)```/g, (_, lang, code) => {
-      return `<pre class="bg-slate-900 text-slate-100 p-3 rounded-xl overflow-x-auto my-2 text-xs font-mono"><code class="language-${lang}">${code}</code></pre>`;
-   });
-
-   // Tables
+   // Markdown Tables
    html = html.replace(/(?:^|\n)(\|.+?\|\n\|[\s\-:|]+\|\n(?:\|.+?\|\n?)+)/g, (match) => {
       const lines = match.trim().split("\n");
       if (lines.length < 2) return match;
       const headers = lines[0]
          .split("|")
          .filter((_, i, arr) => i > 0 && i < arr.length - 1)
-         .map((h) => `<th class="border border-slate-300 dark:border-slate-700 px-3 py-1.5 bg-slate-100 dark:bg-white/[0.06] text-xs font-bold">${h.trim()}</th>`)
+         .map((h) => `<th class="border border-slate-300 dark:border-slate-700 px-3 py-1.5 bg-slate-100 dark:bg-white/[0.06] text-xs font-bold text-slate-900 dark:text-white">${h.trim()}</th>`)
          .join("");
       const rows = lines.slice(2).map((r) => {
          const cells = r
             .split("|")
             .filter((_, i, arr) => i > 0 && i < arr.length - 1)
-            .map((c) => `<td class="border border-slate-300 dark:border-slate-700 px-3 py-1 text-xs">${c.trim()}</td>`)
+            .map((c) => `<td class="border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-xs text-slate-800 dark:text-slate-200">${c.trim()}</td>`)
             .join("");
-         return `<tr>${cells}</tr>`;
+         return `<tr class="hover:bg-slate-50 dark:hover:bg-white/[0.02]">${cells}</tr>`;
       }).join("");
-      return `<div class="overflow-x-auto my-2"><table class="w-full border-collapse border border-slate-300 dark:border-slate-700 text-left"><thead><tr>${headers}</tr></thead><tbody>${rows}</tbody></table></div>`;
+      return `<div class="overflow-x-auto my-2.5 rounded-xl border border-slate-200 dark:border-white/[0.08] shadow-xs"><table class="w-full border-collapse text-left text-xs"><thead><tr>${headers}</tr></thead><tbody class="divide-y divide-slate-200/60 dark:divide-white/[0.05]">${rows}</tbody></table></div>`;
    });
 
+   // Horizontal rules
+   html = html.replace(/(?:^|\n)(?:---|\*\*\*|___)(?:\n|$)/g, '<hr class="my-3 border-slate-200 dark:border-white/[0.08]" />');
+
    // Blockquotes
-   html = html.replace(/(?:^|\n)>[ ]?(.*?)(?=\n[^\n>]|\n*$)/g, '<blockquote class="border-l-4 border-blue-500 pl-3 py-1 my-2 italic text-slate-600 dark:text-slate-300">$1</blockquote>');
+   html = html.replace(/(?:^|\n)>[ ]?(.*?)(?=\n[^\n>]|\n*$)/g, '<blockquote class="border-l-3 border-blue-500 pl-3 py-1 my-2 italic text-xs text-slate-600 dark:text-slate-300 bg-blue-50/50 dark:bg-blue-950/20 rounded-r-lg">$1</blockquote>');
 
    // Headings
-   html = html.replace(/^### (.*?)$/gm, '<h3 class="text-sm font-bold text-slate-900 dark:text-white mt-3 mb-1">$1</h3>');
-   html = html.replace(/^## (.*?)$/gm, '<h2 class="text-base font-bold text-slate-900 dark:text-white mt-3.5 mb-1.5">$1</h2>');
-   html = html.replace(/^# (.*?)$/gm, '<h1 class="text-lg font-extrabold text-slate-900 dark:text-white mt-4 mb-2">$1</h1>');
+   html = html.replace(/^### (.*?)$/gm, '<h3 class="text-xs font-bold text-slate-900 dark:text-white mt-2.5 mb-1">$1</h3>');
+   html = html.replace(/^## (.*?)$/gm, '<h2 class="text-xs font-bold text-slate-900 dark:text-white mt-3 mb-1">$1</h2>');
+   html = html.replace(/^# (.*?)$/gm, '<h1 class="text-sm font-bold text-slate-900 dark:text-white mt-3.5 mb-1.5 pb-1 border-b border-slate-200/60 dark:border-white/[0.06]">$1</h1>');
+
+   // Task lists
+   html = html.replace(/\[x\]\s+/gi, '<span class="inline-block text-emerald-500 font-bold mr-1.5">✓</span>');
+   html = html.replace(/\[\s\]\s+/gi, '<span class="inline-block text-slate-400 mr-1.5">○</span>');
 
    // Inline styles
    html = html.replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-slate-900 dark:text-white">$1</strong>');
-   html = html.replace(/\*(.*?)\*/g, '<em class="italic">$1</em>');
+   html = html.replace(/\*(.*?)\*/g, '<em class="italic text-slate-800 dark:text-slate-200">$1</em>');
    html = html.replace(/~~(.*?)~~/g, '<del class="line-through opacity-70">$1</del>');
-   html = html.replace(/`([^`]+)`/g, '<code class="px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-white/[0.08] text-blue-600 dark:text-blue-400 font-mono text-[11px]">$1</code>');
+   html = html.replace(/==(.*?)==/g, '<mark class="bg-yellow-200 dark:bg-yellow-900/60 text-slate-900 dark:text-yellow-200 px-1 rounded-sm">$1</mark>');
+   html = html.replace(/`([^`]+)`/g, '<code class="px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-white/[0.08] text-blue-600 dark:text-blue-400 font-mono text-[11px] font-medium border border-slate-200/50 dark:border-white/[0.05]">$1</code>');
 
    // Links
-   html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-blue-400 underline hover:text-blue-700 font-medium">$1</a>');
+   html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-blue-400 underline hover:text-blue-700 dark:hover:text-blue-300 font-medium">$1</a>');
 
    // Lists
-   html = html.replace(/^\s*-\s+(.*?)$/gm, '<li class="ml-4 list-disc text-xs leading-relaxed">$1</li>');
-   html = html.replace(/^\s*(\d+)\.\s+(.*?)$/gm, '<li class="ml-4 list-decimal text-xs leading-relaxed">$2</li>');
+   html = html.replace(/^\s*-\s+(.*?)$/gm, '<li class="ml-4 list-disc text-xs leading-relaxed my-0.5 text-slate-800 dark:text-slate-200">$1</li>');
+   html = html.replace(/^\s*(\d+)\.\s+(.*?)$/gm, '<li class="ml-4 list-decimal text-xs leading-relaxed my-0.5 text-slate-800 dark:text-slate-200">$2</li>');
+
+   // Restore Code Blocks
+   codeBlocks.forEach((block, idx) => {
+      html = html.replace(`%%SPECTRALENS_CODE_BLOCK_${idx}%%`, block);
+   });
+
+   // Restore Math Blocks
+   mathBlocks.forEach((block, idx) => {
+      html = html.replace(`%%SPECTRALENS_MATH_BLOCK_${idx}%%`, block);
+   });
 
    // Paragraphs & newlines
    html = html.replace(/\n\n+/g, '<div class="my-2"></div>');
