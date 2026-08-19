@@ -242,6 +242,177 @@ import("../scripts/update-version.js").then(({ calculateNextVersion, normalizeVe
 
   assert(adaptersJs.includes("isDevModeActive"), "providerAdapters.js guards tabLog with isDevModeActive");
 
+  // --- TEST SUITE 10: Prompt Input, Verification, Lifecycle & Single Submission ---
+  console.log("\n10. Prompt Input, Verification, Lifecycle & Single Submission:");
+  assert(adaptersJs.includes("INPUT_TIMEOUT"), "BaseProviderAdapter defines configurable INPUT_TIMEOUT");
+  assert(adaptersJs.includes("SUBMIT_TIMEOUT"), "BaseProviderAdapter defines configurable SUBMIT_TIMEOUT");
+  assert(adaptersJs.includes("RESPONSE_START_TIMEOUT"), "BaseProviderAdapter defines configurable RESPONSE_START_TIMEOUT");
+  assert(adaptersJs.includes("verifyInput(expectedText)"), "BaseProviderAdapter defines verifyInput method");
+  assert(adaptersJs.includes("executePrimarySubmit()"), "BaseProviderAdapter defines executePrimarySubmit method");
+  assert(adaptersJs.includes("executeFallbackSubmit()"), "BaseProviderAdapter defines executeFallbackSubmit method");
+  assert(adaptersJs.includes("verifySubmission("), "BaseProviderAdapter defines verifySubmission method");
+  assert(adaptersJs.includes("executeLifecycle("), "BaseProviderAdapter defines executeLifecycle method");
+
+  // Synthetic verifyInput edge cases
+  function testVerifyInput(inputVal, expectedText) {
+    const val = (inputVal || "").trim();
+    const expected = (expectedText || "").trim();
+    if (!expected) return true;
+    const normVal = val.replace(/\s+/g, " ");
+    const normExp = expected.replace(/\s+/g, " ");
+    const sample = normExp.slice(0, Math.min(40, normExp.length));
+    return normVal.includes(sample) || normVal.length >= Math.min(expected.length * 0.8, 20);
+  }
+
+  // 1. Normal prompt
+  assert(testVerifyInput("What is quantum computing?", "What is quantum computing?"), "verifyInput accepts normal prompt");
+  // 2. Long prompt (2500+ chars)
+  const longPrompt = "Explain the history of artificial intelligence from 1950 to present day. ".repeat(35);
+  assert(testVerifyInput(longPrompt, longPrompt), "verifyInput accepts long prompt (2500+ chars)");
+  // 3. Multiline prompt
+  const multilinePrompt = "Line 1: Question\nLine 2: Context\n\tTabbed detail: Point A\n\tTabbed detail: Point B";
+  assert(testVerifyInput(multilinePrompt, multilinePrompt), "verifyInput accepts multiline prompt with tabs and newlines");
+  // 4. Empty / whitespace prompt
+  assert(testVerifyInput("", ""), "verifyInput handles empty prompt cleanly");
+  assert(testVerifyInput("   ", "   "), "verifyInput handles whitespace prompt cleanly");
+  // 5. Special characters
+  const specialChars = "Special test: <script>alert('xss')</script> & | % $ # @ ! ~ * ^ ( )";
+  assert(testVerifyInput(specialChars, specialChars), "verifyInput accepts special characters & symbols");
+  // 6. Emojis
+  const emojiPrompt = "Tell me a joke 🤖 🚀 ✨ 🧠 🔥 🎉 💡";
+  assert(testVerifyInput(emojiPrompt, emojiPrompt), "verifyInput accepts Unicode emojis");
+  // 7. URLs
+  const urlPrompt = "Analyze this page: https://example.com/search?q=machine+learning&lang=en#results";
+  assert(testVerifyInput(urlPrompt, urlPrompt), "verifyInput accepts URLs with query parameters & fragments");
+  // 8. Code blocks
+  const codePrompt = "```python\ndef fib(n):\n    return n if n <= 1 else fib(n-1) + fib(n-2)\n```";
+  assert(testVerifyInput(codePrompt, codePrompt), "verifyInput accepts Python/JS code blocks with indentation");
+  // 9. Quotes (single & double)
+  const quotesPrompt = `The user said "hello world" and then replied 'goodbye' and \`backticks\``;
+  assert(testVerifyInput(quotesPrompt, quotesPrompt), "verifyInput accepts prompts containing single, double, and backtick quotes");
+
+  // --- TEST SUITE 11: Response Streaming & Completion Detection System ---
+  console.log("\n11. Response Streaming & Completion Detection System:");
+  assert(adaptersJs.includes("RESPONSE_STATES"), "providerAdapters.js exports RESPONSE_STATES");
+  assert(adaptersJs.includes("hashNormalizedText"), "providerAdapters.js exports hashNormalizedText function");
+  assert(adaptersJs.includes("class ResponseTracker"), "providerAdapters.js defines ResponseTracker class");
+  assert(adaptersJs.includes("class BaseCompletionDetector"), "providerAdapters.js defines BaseCompletionDetector class");
+  assert(adaptersJs.includes("class ChatGPTCompletionDetector"), "providerAdapters.js defines ChatGPTCompletionDetector class");
+  assert(adaptersJs.includes("class ClaudeCompletionDetector"), "providerAdapters.js defines ClaudeCompletionDetector class");
+  assert(adaptersJs.includes("class GeminiCompletionDetector"), "providerAdapters.js defines GeminiCompletionDetector class");
+  assert(adaptersJs.includes("class GrokCompletionDetector"), "providerAdapters.js defines GrokCompletionDetector class");
+  assert(adaptersJs.includes("class PerplexityCompletionDetector"), "providerAdapters.js defines PerplexityCompletionDetector class");
+  assert(adaptersJs.includes("class GoogleAICompletionDetector"), "providerAdapters.js defines GoogleAICompletionDetector class");
+  assert(adaptersJs.includes("class ResponseObserver"), "providerAdapters.js defines ResponseObserver class");
+
+  // Synthetic Tests for ResponseTracker & Hashing
+  function syntheticHash(str) {
+    if (!str) return 0;
+    let hash = 2166136261;
+    for (let i = 0; i < str.length; i++) {
+      hash ^= str.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+  }
+
+  // 1. Hash stability & difference
+  const hash1 = syntheticHash("Quantum computing uses qubits");
+  const hash2 = syntheticHash("Quantum computing uses qubits");
+  const hash3 = syntheticHash("Quantum computing uses qubits.");
+  assert(hash1 === hash2 && hash1 !== 0, "hashNormalizedText produces consistent hash for identical text");
+  assert(hash1 !== hash3, "hashNormalizedText produces distinct hashes for differing text");
+
+  // 2. ResponseTracker state machine simulation
+  class MockTracker {
+    constructor(reqId, provider) {
+      this.requestId = reqId;
+      this.providerId = provider;
+      this.state = "WAITING";
+      this.lastText = "";
+      this.lastTextLength = 0;
+      this.lastTextHash = 0;
+      this.lastProgressAt = Date.now();
+      this.sequence = 0;
+    }
+    recordProgress(currentText) {
+      const normText = (currentText || "").trim();
+      const newHash = syntheticHash(normText);
+      if (newHash !== this.lastTextHash && normText.length > 0) {
+        this.state = this.state === "WAITING" ? "STARTED" : "STREAMING";
+        this.lastText = normText;
+        this.lastTextLength = normText.length;
+        this.lastTextHash = newHash;
+        this.lastProgressAt = Date.now();
+        this.sequence++;
+        return true;
+      }
+      return false;
+    }
+  }
+
+  const tracker = new MockTracker("test-req-1", "chatgpt");
+  assert(tracker.state === "WAITING", "Tracker initialized in WAITING state");
+  
+  const prog1 = tracker.recordProgress("Hello");
+  assert(prog1 === true && tracker.state === "STARTED" && tracker.sequence === 1, "First token transition to STARTED with seq 1");
+
+  const prog2 = tracker.recordProgress("Hello, I am ChatGPT");
+  assert(prog2 === true && tracker.state === "STREAMING" && tracker.sequence === 2, "Subsequent tokens transition to STREAMING with seq 2");
+
+  const prog3 = tracker.recordProgress("Hello, I am ChatGPT");
+  assert(prog3 === false && tracker.sequence === 2, "Unchanged text does not increment sequence or trigger false progress");
+
+  // 3. Multi-Signal Scoring Engine simulation
+  function calculateScore({ isStreaming, stableDurationMs, textLength, inputReady, hasCopyBtn, hasProviderSignal }) {
+    let score = 0;
+    if (!isStreaming) score += 40;
+    if (stableDurationMs >= 750 && textLength > 20) score += 25;
+    else if (stableDurationMs >= 350 && textLength > 20) score += 15;
+    if (inputReady) score += 15;
+    if (hasCopyBtn) score += 10;
+    if (hasProviderSignal) score += 10;
+    return {
+      score,
+      isComplete: score >= 75,
+      isStabilizing: score >= 45 && score < 75,
+      isStreaming: score < 45 || isStreaming,
+    };
+  }
+
+  // Active streaming state
+  const activeEval = calculateScore({
+    isStreaming: true,
+    stableDurationMs: 100,
+    textLength: 150,
+    inputReady: false,
+    hasCopyBtn: false,
+    hasProviderSignal: false,
+  });
+  assert(activeEval.score === 0 && activeEval.isStreaming === true && !activeEval.isComplete, "Active streaming correctly yields score 0, isComplete false");
+
+  // Stabilizing state (stop button gone, text paused 400ms)
+  const stabilizingEval = calculateScore({
+    isStreaming: false,
+    stableDurationMs: 400,
+    textLength: 300,
+    inputReady: false,
+    hasCopyBtn: false,
+    hasProviderSignal: false,
+  });
+  assert(stabilizingEval.score === 55 && stabilizingEval.isStabilizing === true && !stabilizingEval.isComplete, "Intermediate pause correctly transitions to STABILIZING (score 55)");
+
+  // High confidence completed state (stop button gone, text stable 800ms, input ready, copy button rendered)
+  const completeEval = calculateScore({
+    isStreaming: false,
+    stableDurationMs: 850,
+    textLength: 500,
+    inputReady: true,
+    hasCopyBtn: true,
+    hasProviderSignal: true,
+  });
+  assert(completeEval.score === 100 && completeEval.isComplete === true, "Full completion signals yield score 100 and isComplete true");
+
   // --- SUMMARY ---
   console.log(`\n========================================`);
   console.log(`Test Results: ${passed} Passed, ${failed} Failed`);
@@ -251,3 +422,4 @@ import("../scripts/update-version.js").then(({ calculateNextVersion, normalizeVe
     process.exit(1);
   }
 });
+

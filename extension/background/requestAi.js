@@ -618,97 +618,46 @@ function runTabAdapter(
             `%c[SpectraLens:Adapter] 🎯 Search page already executing query ("${prompt.slice(0, 25)}..."). Observing AI stream directly...`,
             "color: #10b981; font-weight: bold;",
           );
-          const answer = await adapter.observeResponse(streamTimeoutMs);
+          const answer = await adapter.observeResponse(
+            streamTimeoutMs,
+            "",
+            requestId,
+          );
           resolve(answer || getShortError(providerId, "No response generated"));
           return;
         }
       }
 
-      // For first-time message in newly opened window, let the SPA settle and hydrate gracefully
-      if (!isReused) {
-        console.log(
-          `%c[SpectraLens:Adapter] ⏳ First message in new window for "${providerId}". Allowing page scripts to settle...`,
-          "color: #8b5cf6;",
-        );
-        await new Promise((r) => setTimeout(r, 1200));
-      }
-
-      // 1. Locate input editor (up to 20 attempts for first time, up to 10 for reused)
+      // Execute verified lifecycle: findInput -> focusInput -> attachImage -> insertPrompt -> verifyInput -> submit -> verifySubmission
       console.log(
-        `%c[SpectraLens:Adapter] ✍️ [ADAPTER 2/4] Locating input editor for "${providerId}"...`,
-        "color: #f59e0b;",
-      );
-      let input = adapter.findInput();
-      let attempts = 0;
-      const maxLocateAttempts = isReused ? 10 : 25;
-      const locateInterval = isReused ? 300 : 450;
-      while (!input && attempts < maxLocateAttempts) {
-        await new Promise((r) => setTimeout(r, locateInterval));
-        input = adapter.findInput();
-        attempts++;
-      }
-
-      if (!input) {
-        // If on search page and response already exists
-        if (existingContainer && previousContent.length > 25) {
-          const answer = await adapter.observeResponse(streamTimeoutMs);
-          resolve(answer || getShortError(providerId, "Empty response"));
-          return;
-        }
-        console.warn(
-          `%c[SpectraLens:Adapter] ⚠️ Input box not found for "${providerId}" after ${maxLocateAttempts} attempts.`,
-          "color: #ef4444; font-weight: bold;",
-        );
-        resolve(
-          getShortError(providerId, "Input box not found or login required"),
-        );
-        return;
-      }
-
-      // 2. Attach image file if present
-      if (image) {
-        console.log(
-          `%c[SpectraLens:Adapter] 🖼️ Attaching image file to "${providerId}" editor...`,
-          "color: #3b82f6; font-weight: bold;",
-        );
-        if (typeof adapter.attachImage === "function") {
-          await adapter.attachImage(image);
-          const imageSettleDelay = isReused ? 400 : 800;
-          await new Promise((r) => setTimeout(r, imageSettleDelay));
-        }
-      }
-
-      console.log(
-        `%c[SpectraLens:Adapter] ✍️ [ADAPTER 3/4] Input located. Inserting prompt into "${providerId}"...`,
-        "color: #10b981;",
+        `%c[SpectraLens:Adapter] 🚀 [ADAPTER 2/4] Executing verified lifecycle for "${providerId}" (requestId: ${requestId})...`,
+        "color: #3b82f6; font-weight: bold;",
       );
 
-      // 3. Insert prompt
-      const inserted = await adapter.insertPrompt(prompt);
-      if (!inserted) {
-        console.error(
-          `%c[SpectraLens:Adapter] ❌ Failed to insert prompt into "${providerId}" editor.`,
-          "color: #ef4444;",
-        );
-        resolve(getShortError(providerId, "Failed to insert prompt"));
-        return;
-      }
-
-      // Gentle pause before clicking send (gives send buttons time to enable)
-      const preSubmitDelay = isReused ? 200 : 700;
-      await new Promise((r) => setTimeout(r, preSubmitDelay));
-
-      // 4. Submit
-      console.log(
-        `[SL REQUEST] ${requestId} provider=${providerId} event=SUBMIT_START timestamp=${Date.now()}`,
-      );
       if (requestId) {
         window.__SL_SUBMITTED_REQUESTS__.add(requestId);
       }
-      await adapter.submit();
-      console.log(
-        `[SL REQUEST] ${requestId} provider=${providerId} event=SUBMIT_SUCCESS timestamp=${Date.now()}`,
+
+      const lifecycleResult = await adapter.executeLifecycle(
+        prompt,
+        image,
+        requestId,
+        isReused,
       );
+
+      if (!lifecycleResult.success) {
+        console.error(
+          `%c[SpectraLens:Adapter] ❌ Lifecycle failed for "${providerId}" at phase "${lifecycleResult.phase}": ${lifecycleResult.error}`,
+          "color: #ef4444; font-weight: bold;",
+        );
+        resolve(
+          getShortError(
+            providerId,
+            lifecycleResult.error || "Submission failed",
+          ),
+        );
+        return;
+      }
 
       // If initial submission from Google homepage that navigates to /search results:
       if (!isSearchPage && providerId === "google") {
@@ -720,20 +669,21 @@ function runTabAdapter(
         return;
       }
 
-      const postSubmitDelay = isReused ? 150 : 400;
-      await new Promise((r) => setTimeout(r, postSubmitDelay));
-
-      // 5. Observe and return streaming response (waiting for new content to generate)
+      // Transition to Response Observation
       console.log(
-        `%c[SpectraLens:Adapter] ⏳ [ADAPTER 4/4] Observing stream response for "${providerId}" (timeout: ${streamTimeoutMs / 1000}s)...`,
+        `[SL REQUEST] ${requestId} provider=${providerId} event=RESPONSE_WAITING timestamp=${Date.now()}`,
+      );
+      console.log(
+        `%c[SpectraLens:Adapter] ⏳ [ADAPTER 3/4] Observing stream response for "${providerId}" (timeout: ${streamTimeoutMs / 1000}s)...`,
         "color: #f59e0b; font-weight: bold;",
       );
       const answer = await adapter.observeResponse(
         streamTimeoutMs,
         previousContent,
+        requestId,
       );
       console.log(
-        `%c[SpectraLens:Adapter] ✅ [ADAPTER COMPLETE] Response extracted for "${providerId}", length: ${answer?.length || 0} chars`,
+        `%c[SpectraLens:Adapter] ✅ [ADAPTER 4/4] Response extracted for "${providerId}", length: ${answer?.length || 0} chars`,
         "color: #10b981; font-weight: bold;",
       );
       resolve(answer || getShortError(providerId, "No response generated"));

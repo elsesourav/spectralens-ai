@@ -247,6 +247,435 @@
     return val;
   }
 
+  /* -------------------------------------------------------------------------- */
+  /* Response Tracking & Completion Detection Architecture                      */
+  /* -------------------------------------------------------------------------- */
+
+  const RESPONSE_STATES = {
+    WAITING: "WAITING",
+    STARTED: "STARTED",
+    STREAMING: "STREAMING",
+    STABILIZING: "STABILIZING",
+    COMPLETED: "COMPLETED",
+    FAILED: "FAILED",
+    TIMED_OUT: "TIMED_OUT",
+    CANCELLED: "CANCELLED",
+  };
+
+  /**
+   * Fast 32-bit FNV-1a Hash for normalized text comparison
+   */
+  function hashNormalizedText(str) {
+    if (!str) return 0;
+    let hash = 2166136261;
+    for (let i = 0; i < str.length; i++) {
+      hash ^= str.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+  }
+
+  /**
+   * ResponseTracker: Manages state machine, progress tracking, and text hashing.
+   */
+  class ResponseTracker {
+    constructor(requestId, providerId) {
+      this.requestId = requestId || "req_" + Date.now();
+      this.providerId = providerId;
+      this.state = RESPONSE_STATES.WAITING;
+      this.responseNode = null;
+      this.lastText = "";
+      this.lastTextLength = 0;
+      this.lastTextHash = 0;
+      this.lastMutationTime = Date.now();
+      this.startedAt = Date.now();
+      this.lastProgressAt = Date.now();
+      this.completedAt = null;
+      this.sequence = 0;
+      this.hasSeenStreaming = false;
+      this.stabilizationStartTime = null;
+    }
+
+    setState(newState) {
+      if (this.state === newState) return;
+      this.state = newState;
+    }
+
+    recordProgress(currentText, node = null) {
+      const normText = (currentText || "").trim();
+      const newHash = hashNormalizedText(normText);
+      const now = Date.now();
+
+      if (node) this.responseNode = node;
+
+      if (newHash !== this.lastTextHash && normText.length > 0) {
+        if (this.state === RESPONSE_STATES.WAITING) {
+          this.setState(RESPONSE_STATES.STARTED);
+        } else {
+          this.setState(RESPONSE_STATES.STREAMING);
+        }
+        this.lastText = normText;
+        this.lastTextLength = normText.length;
+        this.lastTextHash = newHash;
+        this.lastProgressAt = now;
+        this.lastMutationTime = now;
+        this.sequence++;
+        this.stabilizationStartTime = null;
+        return true; // Meaningful progress occurred
+      }
+
+      this.lastMutationTime = now;
+      return false; // No meaningful progress
+    }
+  }
+
+  /**
+   * BaseCompletionDetector: Evaluates multi-signal confidence scoring.
+   */
+  class BaseCompletionDetector {
+    constructor(adapter) {
+      this.adapter = adapter;
+      this.CONFIDENCE_THRESHOLD = 75;
+      this.STABILIZATION_REQUIRED_MS = 750;
+    }
+
+    /**
+     * Calculates completion confidence score (0 - 100)
+     */
+    evaluate(tracker, currentText) {
+      let score = 0;
+      const now = Date.now();
+      const isStreamingNow = this.adapter.isStreaming();
+
+      // Signal A (+40): Generation / stop control is absent
+      if (!isStreamingNow) {
+        score += 40;
+      }
+
+      // Signal B (+25): Response text & hash have stabilized across window
+      const stableDuration = now - tracker.lastProgressAt;
+      if (
+        stableDuration >= this.STABILIZATION_REQUIRED_MS &&
+        tracker.lastTextLength > 20
+      ) {
+        score += 25;
+      } else if (stableDuration >= 350 && tracker.lastTextLength > 20) {
+        score += 15;
+      }
+
+      // Signal C (+15): Send control or input editor is enabled & ready
+      const sendControl = this.adapter.findSubmitControl();
+      const input = this.adapter.findInput();
+      const inputReady =
+        input &&
+        !input.disabled &&
+        input.getAttribute("contenteditable") !== "false";
+      if (inputReady || (sendControl && !sendControl.disabled)) {
+        score += 15;
+      }
+
+      // Signal D (+10): Response action buttons (copy, feedback, share) rendered
+      const copyBtn = this.adapter.findCopyButton();
+      if (copyBtn && copyBtn.offsetParent !== null) {
+        score += 10;
+      }
+
+      // Signal E (+10): Provider-specific completion signal
+      if (this.checkProviderSpecificSignal(tracker, currentText)) {
+        score += 10;
+      }
+
+      return {
+        score,
+        isComplete: score >= this.CONFIDENCE_THRESHOLD,
+        isStabilizing: score >= 45 && score < this.CONFIDENCE_THRESHOLD,
+        isStreaming: score < 45 || isStreamingNow,
+        stableDuration,
+      };
+    }
+
+    checkProviderSpecificSignal(tracker, currentText) {
+      return false;
+    }
+  }
+
+  class ChatGPTCompletionDetector extends BaseCompletionDetector {
+    checkProviderSpecificSignal(tracker, currentText) {
+      const container = this.adapter.findResponseContainer();
+      if (!container) return false;
+      const turnArticle = container.closest(
+        'article, [data-message-author-role="assistant"]',
+      );
+      const hasActionBar = Boolean(
+        turnArticle?.querySelector(
+          'button[aria-label*="Copy" i], button[data-testid*="copy" i], button[aria-label*="Good response" i]',
+        ),
+      );
+      const isResultStreaming = Boolean(
+        document.querySelector(".result-streaming, [data-is-streaming='true']"),
+      );
+      return hasActionBar && !isResultStreaming;
+    }
+  }
+
+  class ClaudeCompletionDetector extends BaseCompletionDetector {
+    checkProviderSpecificSignal(tracker, currentText) {
+      const container = this.adapter.findResponseContainer();
+      if (!container) return false;
+      const turnContainer = container.closest(
+        '[data-test-render-count], .font-claude-message, [role="article"]',
+      );
+      const hasCopyBtn = Boolean(
+        turnContainer?.querySelector(
+          'button[aria-label*="Copy" i], button[data-testid*="copy" i]',
+        ),
+      );
+      const isStreamingAttr = Boolean(
+        document.querySelector(
+          'div[data-is-streaming="true"], svg.animate-spin',
+        ),
+      );
+      return hasCopyBtn && !isStreamingAttr;
+    }
+  }
+
+  class GeminiCompletionDetector extends BaseCompletionDetector {
+    checkProviderSpecificSignal(tracker, currentText) {
+      const isProgressBarActive = Boolean(
+        document.querySelector(
+          'mat-progress-bar, mat-spinner, div[role="progressbar"], .mat-mdc-progress-bar',
+        ),
+      );
+      const hasFooter = Boolean(
+        document.querySelector(
+          "div.response-footer, button[aria-label*='Copy' i], button[aria-label*='Good response' i], div.actions-container",
+        ),
+      );
+      return hasFooter && !isProgressBarActive;
+    }
+  }
+
+  class GrokCompletionDetector extends BaseCompletionDetector {
+    checkProviderSpecificSignal(tracker, currentText) {
+      const isThinking = Boolean(
+        document.querySelector(
+          ".thinking-container, div.thinking-indicator",
+        ),
+      );
+      const hasActions = Boolean(
+        document.querySelector(
+          'button[aria-label*="Copy" i], button[aria-label*="Share" i]',
+        ),
+      );
+      return hasActions && !isThinking;
+    }
+  }
+
+  class PerplexityCompletionDetector extends BaseCompletionDetector {
+    checkProviderSpecificSignal(tracker, currentText) {
+      const isPulsing = Boolean(
+        document.querySelector(".animate-pulse, svg.animate-spin"),
+      );
+      const hasCopy = Boolean(
+        document.querySelector(
+          'button[aria-label="Copy"], button[aria-label*="Copy" i]:not([aria-label*="query" i])',
+        ),
+      );
+      return hasCopy && !isPulsing;
+    }
+  }
+
+  class GoogleAICompletionDetector extends BaseCompletionDetector {
+    checkProviderSpecificSignal(tracker, currentText) {
+      const isBusy = Boolean(
+        document.querySelector(
+          'div.wDYxhc.UDvLbd, div.Dn7Fzd[aria-busy="true"], div.animate-pulse, div.FzLjke, span.CkgRle, div[class*="shimmer"]',
+        ),
+      );
+      const hasCopy = Boolean(
+        document.querySelector(
+          'button[aria-label="Copy text"].bKxaof, button[aria-label*="Copy text" i], button.bKxaof',
+        ),
+      );
+      return hasCopy && !isBusy;
+    }
+  }
+
+  /**
+   * ResponseObserver: Manages MutationObserver and stabilization interval.
+   */
+  class ResponseObserver {
+    constructor(adapter, detector) {
+      this.adapter = adapter;
+      this.detector = detector || new BaseCompletionDetector(adapter);
+      this.THROTTLE_INTERVAL_MS = 200;
+      this.START_TIMEOUT_MS = 15000;
+      this.MAX_TIMEOUT_MS = 90000;
+    }
+
+    observe(timeoutMs = 90000, previousContent = "", requestId = null) {
+      return new Promise(async (resolve) => {
+        const tracker = new ResponseTracker(requestId, this.adapter.id);
+        const maxTimeout = timeoutMs || this.MAX_TIMEOUT_MS;
+        const initialTurnCount = this.getTurnCount();
+        let isFinalized = false;
+        let mutationObserver = null;
+        let intervalTimer = null;
+        let lastEvaluationTime = 0;
+
+        tabLog(
+          this.adapter.id,
+          `[SL REQUEST] ${tracker.requestId} provider=${this.adapter.id} event=RESPONSE_OBSERVE_START timestamp=${Date.now()}`,
+        );
+
+        const finalize = async (status, responseOverride = null) => {
+          if (isFinalized) return;
+          isFinalized = true;
+
+          if (mutationObserver) {
+            mutationObserver.disconnect();
+            mutationObserver = null;
+          }
+          if (intervalTimer) {
+            clearInterval(intervalTimer);
+            intervalTimer = null;
+          }
+
+          tracker.completedAt = Date.now();
+          tracker.setState(status);
+
+          let finalMarkdown = "";
+          if (responseOverride !== null) {
+            finalMarkdown = responseOverride;
+          } else {
+            finalMarkdown = (await this.adapter.getCurrentResponse()) || "";
+          }
+
+          tabLog(
+            this.adapter.id,
+            `[SL REQUEST] ${tracker.requestId} provider=${this.adapter.id} event=TAB_FINAL_RESPONSE sequence=${tracker.sequence} length=${finalMarkdown.length} timestamp=${Date.now()}`,
+          );
+
+          resolve({
+            status:
+              status === RESPONSE_STATES.COMPLETED ? "success" : "failure",
+            isComplete: status === RESPONSE_STATES.COMPLETED,
+            content: finalMarkdown,
+            answer: finalMarkdown,
+            provider: this.adapter.id,
+            requestId: tracker.requestId,
+            sequence: tracker.sequence,
+            completedAt: tracker.completedAt,
+          });
+        };
+
+        // Safety timeout
+        const overallTimeoutId = setTimeout(() => {
+          tabLog(
+            this.adapter.id,
+            `[SL REQUEST] ${tracker.requestId} provider=${this.adapter.id} event=RESPONSE_TIMED_OUT timestamp=${Date.now()}`,
+          );
+          finalize(RESPONSE_STATES.TIMED_OUT);
+        }, maxTimeout);
+
+        const evaluate = async () => {
+          if (isFinalized) return;
+          const now = Date.now();
+          if (now - lastEvaluationTime < this.THROTTLE_INTERVAL_MS) return;
+          lastEvaluationTime = now;
+
+          const isStreamingNow = this.adapter.isStreaming();
+          if (isStreamingNow) {
+            tracker.hasSeenStreaming = true;
+          }
+
+          const currentTurnCount = this.getTurnCount();
+          const container = this.adapter.findResponseContainer();
+
+          if (!container) {
+            // Check start timeout if no container appeared
+            if (
+              now - tracker.startedAt > this.START_TIMEOUT_MS &&
+              !tracker.hasSeenStreaming
+            ) {
+              clearTimeout(overallTimeoutId);
+              finalize(RESPONSE_STATES.TIMED_OUT);
+            }
+            return;
+          }
+
+          const currentRawText = (container.textContent || "").trim();
+
+          // Multi-turn check: wait for new content
+          if (previousContent) {
+            const isNewTurn =
+              currentTurnCount > initialTurnCount ||
+              tracker.hasSeenStreaming;
+            if (!isNewTurn || currentRawText === previousContent) {
+              return;
+            }
+          }
+
+          // Record meaningful progress
+          const progressMade = tracker.recordProgress(
+            currentRawText,
+            container,
+          );
+          if (progressMade) {
+            tabLog(
+              this.adapter.id,
+              `[SL REQUEST] ${tracker.requestId} provider=${this.adapter.id} event=TAB_STREAM_RESPONSE sequence=${tracker.sequence} chars=${tracker.lastTextLength} timestamp=${now}`,
+            );
+          }
+
+          // Evaluate completion confidence score
+          const evaluation = this.detector.evaluate(tracker, currentRawText);
+
+          if (evaluation.isComplete) {
+            clearTimeout(overallTimeoutId);
+            finalize(RESPONSE_STATES.COMPLETED);
+          } else if (evaluation.isStabilizing) {
+            tracker.setState(RESPONSE_STATES.STABILIZING);
+          }
+        };
+
+        // 1. Setup MutationObserver on document.body or container
+        try {
+          const target = document.body;
+          if (target) {
+            mutationObserver = new MutationObserver(() => {
+              evaluate();
+            });
+            mutationObserver.observe(target, {
+              childList: true,
+              subtree: true,
+              characterData: true,
+            });
+          }
+        } catch (err) {
+          tabLog(
+            this.adapter.id,
+            `MutationObserver setup notice: ${err?.message}`,
+          );
+        }
+
+        // 2. Periodic polling tick (every 250ms) to ensure time-based stabilization triggers
+        intervalTimer = setInterval(() => {
+          evaluate();
+        }, 250);
+      });
+    }
+
+    getTurnCount() {
+      const container = this.adapter.findResponseContainer();
+      if (!container) return 0;
+      const turns = document.querySelectorAll(
+        '[data-message-author-role="assistant"], [data-testid="assistant-message"], model-response, div.font-claude-message, div[data-scope-id="turn"], div.response-content-markdown',
+      );
+      return turns.length;
+    }
+  }
+
   /**
    * Abstract Base Provider Adapter
    */
@@ -255,6 +684,12 @@
       this.id = id;
       this.name = name;
       this.hostPattern = hostPattern;
+      this._isSubmitting = false;
+
+      // Configurable lifecycle timeouts (ms)
+      this.INPUT_TIMEOUT = 10000;
+      this.SUBMIT_TIMEOUT = 5000;
+      this.RESPONSE_START_TIMEOUT = 15000;
     }
 
     /** Check if the current page matches this provider */
@@ -275,6 +710,21 @@
       const input = this.findInput();
       if (input) {
         input.focus();
+        try {
+          if (input.setSelectionRange && typeof input.value === "string") {
+            const len = input.value.length;
+            input.setSelectionRange(len, len);
+          } else {
+            const sel = window.getSelection();
+            if (sel) {
+              const range = document.createRange();
+              range.selectNodeContents(input);
+              range.collapse(false);
+              sel.removeAllRanges();
+              sel.addRange(range);
+            }
+          }
+        } catch {}
         return true;
       }
       return false;
@@ -285,6 +735,34 @@
       throw new Error("insertPrompt() must be implemented by subclass");
     }
 
+    /** Verify that the prompt input actually contains the expected text */
+    verifyInput(expectedText) {
+      const input = this.findInput();
+      if (!input) return false;
+      const val = (
+        input.value ||
+        input.textContent ||
+        input.innerText ||
+        ""
+      ).trim();
+      const expected = (expectedText || "").trim();
+      if (!expected) return true;
+
+      // Normalizing whitespace and checking if leading snippet is present
+      const normVal = val.replace(/\s+/g, " ");
+      const normExp = expected.replace(/\s+/g, " ");
+      const sample = normExp.slice(0, Math.min(40, normExp.length));
+      return (
+        normVal.includes(sample) ||
+        normVal.length >= Math.min(expected.length * 0.8, 20)
+      );
+    }
+
+    /** Find the submit/send control (button or form) */
+    findSubmitControl() {
+      return this.findSendButton();
+    }
+
     /** Find the submit/send button */
     findSendButton() {
       return null;
@@ -292,7 +770,7 @@
 
     /** Check if submission is ready */
     canSubmit() {
-      return Boolean(this.findSendButton() || this.findInput());
+      return Boolean(this.findSubmitControl() || this.findInput());
     }
 
     /** Attach an image (Base64 dataUrl) to the provider editor or file input */
@@ -353,34 +831,30 @@
       return false;
     }
 
-    /** Trigger submission via button click or Enter keydown */
-    async submit() {
-      if (this._isSubmitting) {
-        tabLog(this.id, "Submit lock active - ignoring duplicate submit call");
-        return false;
-      }
-      this._isSubmitting = true;
-      try {
-        const sendBtn = this.findSendButton();
-        if (
-          sendBtn &&
-          !sendBtn.disabled &&
-          sendBtn.getAttribute("aria-disabled") !== "true"
-        ) {
-          try {
-            sendBtn.click();
-            return true;
-          } catch (err) {
-            tabLog(
-              this.id,
-              "Send button click threw, fallback to Enter key:",
-              err?.message,
-            );
-          }
+    /** Execute primary submission (Send button click) */
+    async executePrimarySubmit() {
+      const control = this.findSubmitControl();
+      if (
+        control &&
+        !control.disabled &&
+        control.getAttribute("aria-disabled") !== "true"
+      ) {
+        try {
+          control.focus?.();
+          control.click();
+          return true;
+        } catch (err) {
+          tabLog(this.id, "Primary submit threw error:", err?.message);
         }
+      }
+      return false;
+    }
 
-        const input = this.findInput();
-        if (input) {
+    /** Execute fallback submission (Enter key / form requestSubmit) */
+    async executeFallbackSubmit() {
+      const input = this.findInput();
+      if (input) {
+        try {
           input.focus();
           input.dispatchEvent(
             new KeyboardEvent("keydown", {
@@ -393,13 +867,224 @@
             }),
           );
           return true;
+        } catch (err) {
+          tabLog(this.id, "Fallback submit threw error:", err?.message);
         }
-        return false;
+      }
+      return false;
+    }
+
+    /** Verify whether submission actually occurred */
+    async verifySubmission(timeoutMs = 3000) {
+      const startTime = Date.now();
+      const input = this.findInput();
+      const initialText = (
+        input?.value ||
+        input?.textContent ||
+        input?.innerText ||
+        ""
+      ).trim();
+
+      while (Date.now() - startTime < timeoutMs) {
+        await new Promise((r) => setTimeout(r, 150));
+
+        // Signal 1: Input editor was cleared or reset
+        const currentInput = this.findInput();
+        const currentText = (
+          currentInput?.value ||
+          currentInput?.textContent ||
+          currentInput?.innerText ||
+          ""
+        ).trim();
+        if (initialText.length > 0 && currentText.length === 0) {
+          return true;
+        }
+
+        // Signal 2: Stop button / generating spinner appeared
+        const stopBtn = document.querySelector(
+          'button[data-testid="stop-button"], button[aria-label*="Stop" i], button[aria-label*="Cancel" i], .thinking-container, div[role="progressbar"], mat-progress-bar',
+        );
+        if (stopBtn && stopBtn.offsetParent !== null) {
+          return true;
+        }
+
+        // Signal 3: Response streaming has started
+        if (this.isStreaming()) {
+          return true;
+        }
+      }
+
+      return false;
+    }
+
+    /** Submit method with primary + verified fallback */
+    async submit(requestId = null) {
+      if (this._isSubmitting) {
+        tabLog(this.id, "Submit lock active - ignoring duplicate submit call");
+        return { success: false, error: "SUBMISSION_LOCKED" };
+      }
+      this._isSubmitting = true;
+
+      const reqId = requestId || "req_" + Date.now();
+      tabLog(
+        this.id,
+        `[SL REQUEST] ${reqId} provider=${this.id} event=SUBMIT_STARTED timestamp=${Date.now()}`,
+      );
+
+      try {
+        await new Promise((r) => setTimeout(r, 150));
+
+        // 1. Try Primary Method
+        tabLog(
+          this.id,
+          `[SL REQUEST] ${reqId} provider=${this.id} event=SUBMIT_METHOD=BUTTON timestamp=${Date.now()}`,
+        );
+        const primaryOk = await this.executePrimarySubmit();
+        const primaryConfirmed =
+          primaryOk && (await this.verifySubmission(this.SUBMIT_TIMEOUT));
+
+        if (primaryConfirmed) {
+          tabLog(
+            this.id,
+            `[SL REQUEST] ${reqId} provider=${this.id} event=SUBMIT_VERIFIED fallbackUsed=false timestamp=${Date.now()}`,
+          );
+          return { success: true, fallbackUsed: false };
+        }
+
+        // 2. Try Fallback Method ONLY IF primary was not confirmed
+        tabLog(
+          this.id,
+          `[SL REQUEST] ${reqId} provider=${this.id} event=SUBMIT_METHOD=ENTER fallbackUsed=true timestamp=${Date.now()}`,
+        );
+        const fallbackOk = await this.executeFallbackSubmit();
+        const fallbackConfirmed =
+          fallbackOk && (await this.verifySubmission(this.SUBMIT_TIMEOUT));
+
+        if (fallbackConfirmed) {
+          tabLog(
+            this.id,
+            `[SL REQUEST] ${reqId} provider=${this.id} event=SUBMIT_VERIFIED fallbackUsed=true timestamp=${Date.now()}`,
+          );
+          return { success: true, fallbackUsed: true };
+        }
+
+        // If neither was confirmed, return structured failure
+        tabLog(
+          this.id,
+          `[SL REQUEST] ${reqId} provider=${this.id} event=SUBMISSION_NOT_CONFIRMED timestamp=${Date.now()}`,
+        );
+        return {
+          success: false,
+          requestId: reqId,
+          provider: this.id,
+          phase: "SUBMIT",
+          error: "SUBMISSION_NOT_CONFIRMED",
+        };
       } finally {
         setTimeout(() => {
           this._isSubmitting = false;
         }, 500);
       }
+    }
+
+    /**
+     * Executes the complete verified end-to-end input and submission lifecycle.
+     */
+    async executeLifecycle(
+      prompt,
+      image = null,
+      requestId = null,
+      isReused = false,
+    ) {
+      const reqId = requestId || "req_" + Date.now();
+
+      // 0. Settle delay for fresh tab
+      if (!isReused) {
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+
+      // 1. Locate Input
+      const locateStart = Date.now();
+      let input = this.findInput();
+      while (!input && Date.now() - locateStart < this.INPUT_TIMEOUT) {
+        await new Promise((r) => setTimeout(r, isReused ? 200 : 350));
+        input = this.findInput();
+      }
+
+      if (!input) {
+        return {
+          success: false,
+          requestId: reqId,
+          provider: this.id,
+          phase: "INPUT",
+          error: "INPUT_NOT_FOUND",
+        };
+      }
+      tabLog(
+        this.id,
+        `[SL REQUEST] ${reqId} provider=${this.id} event=INPUT_FOUND timestamp=${Date.now()}`,
+      );
+
+      // 2. Focus Input
+      this.focusInput();
+      tabLog(
+        this.id,
+        `[SL REQUEST] ${reqId} provider=${this.id} event=INPUT_FOCUSED timestamp=${Date.now()}`,
+      );
+
+      // 3. Attach Image
+      if (image) {
+        await this.attachImage(image);
+        await new Promise((r) => setTimeout(r, isReused ? 300 : 600));
+      }
+
+      // 4. Insert Prompt
+      const inserted = await this.insertPrompt(prompt);
+      if (!inserted) {
+        return {
+          success: false,
+          requestId: reqId,
+          provider: this.id,
+          phase: "INPUT",
+          error: "INSERT_PROMPT_FAILED",
+        };
+      }
+      tabLog(
+        this.id,
+        `[SL REQUEST] ${reqId} provider=${this.id} event=PROMPT_INSERTED timestamp=${Date.now()}`,
+      );
+
+      // 5. Verify Input
+      const inputVerified = this.verifyInput(prompt);
+      if (!inputVerified) {
+        // Retry insertion once
+        await new Promise((r) => setTimeout(r, 200));
+        await this.insertPrompt(prompt);
+        if (!this.verifyInput(prompt)) {
+          return {
+            success: false,
+            requestId: reqId,
+            provider: this.id,
+            phase: "VERIFY_INPUT",
+            error: "INPUT_VERIFICATION_FAILED",
+          };
+        }
+      }
+      tabLog(
+        this.id,
+        `[SL REQUEST] ${reqId} provider=${this.id} event=INPUT_VERIFIED timestamp=${Date.now()}`,
+      );
+
+      // Pause before clicking send
+      await new Promise((r) => setTimeout(r, isReused ? 150 : 400));
+
+      // 6. Submit (Primary + Verified Fallback)
+      const submitResult = await this.submit(reqId);
+      if (!submitResult.success) {
+        return submitResult;
+      }
+
+      return { success: true, ...submitResult };
     }
 
     /** Find the response/assistant message container */
@@ -717,52 +1402,25 @@
       return (container.innerHTML || container.textContent || "").trim();
     }
 
+    /** Factory method to create provider-specific completion detector */
+    createCompletionDetector() {
+      return new BaseCompletionDetector(this);
+    }
+
     /** Observe response streaming until completion */
-    observeResponse(timeoutMs = 90000, previousContent = "") {
-      return new Promise(async (resolve) => {
-        const startTime = Date.now();
-        let lastTextLength = 0;
-        let idleCount = 0;
-        let hasSeenChange = !previousContent;
-
-        const checkInterval = setInterval(async () => {
-          if (Date.now() - startTime > timeoutMs) {
-            clearInterval(checkInterval);
-            const response = await this.getCurrentResponse();
-            resolve(response || "<mark>Response generation timed out.</mark>");
-            return;
-          }
-
-          if (this.isComplete()) {
-            const container = this.findResponseContainer();
-            if (container) {
-              const currentContent = (container.textContent || "").trim();
-              const currentLength = currentContent.length;
-
-              if (previousContent && !hasSeenChange) {
-                if (currentContent !== previousContent && currentLength > 10) {
-                  hasSeenChange = true;
-                  lastTextLength = currentLength;
-                  idleCount = 0;
-                }
-                return;
-              }
-
-              if (currentLength > 20 && currentLength === lastTextLength) {
-                idleCount++;
-                if (idleCount >= 8) {
-                  clearInterval(checkInterval);
-                  resolve(await this.getCurrentResponse());
-                  return;
-                }
-              } else {
-                lastTextLength = currentLength;
-                idleCount = 0;
-              }
-            }
-          }
-        }, 400);
-      });
+    async observeResponse(
+      timeoutMs = 90000,
+      previousContent = "",
+      requestId = null,
+    ) {
+      const detector = this.createCompletionDetector();
+      const observer = new ResponseObserver(this, detector);
+      const result = await observer.observe(
+        timeoutMs,
+        previousContent,
+        requestId,
+      );
+      return result.content || result.answer || "";
     }
 
     cleanup() {}
@@ -895,46 +1553,39 @@
       );
     }
 
-    async submit() {
-      if (this._isSubmitting) return false;
-      this._isSubmitting = true;
-      try {
-        await new Promise((r) => setTimeout(r, 150));
-        const btn = this.findSendButton();
-        if (btn && !btn.disabled) {
-          tabLog("ChatGPTTab", "🔘 Clicking ChatGPT Send button...");
-          try {
-            btn.click();
-            return true;
-          } catch (err) {
-            tabLog("ChatGPTTab", "Button click threw, trying Enter fallback:", err?.message);
-          }
-        }
+    async verifySubmission(timeoutMs = 3000) {
+      const startTime = Date.now();
+      const input = this.findInput();
+      const initialText = (input?.value || input?.textContent || "").trim();
 
-        // Fallback: Dispatch Enter key ONLY IF button click did not succeed
-        const input = this.findInput();
-        if (input) {
-          tabLog("ChatGPTTab", "↵ Dispatching Enter key to ChatGPT input...");
-          input.focus();
-          input.dispatchEvent(
-            new KeyboardEvent("keydown", {
-              key: "Enter",
-              code: "Enter",
-              keyCode: 13,
-              which: 13,
-              bubbles: true,
-              cancelable: true,
-            }),
-          );
+      while (Date.now() - startTime < timeoutMs) {
+        await new Promise((r) => setTimeout(r, 150));
+
+        // Signal 1: Input editor cleared
+        const currentInput = this.findInput();
+        const currentText = (
+          currentInput?.value ||
+          currentInput?.textContent ||
+          ""
+        ).trim();
+        if (initialText.length > 0 && currentText.length === 0) {
           return true;
         }
 
-        return false;
-      } finally {
-        setTimeout(() => {
-          this._isSubmitting = false;
-        }, 500);
+        // Signal 2: Stop button appeared
+        const stopBtn = document.querySelector(
+          'button[data-testid="stop-button"], button[aria-label*="Stop" i]',
+        );
+        if (stopBtn && stopBtn.offsetParent !== null) {
+          return true;
+        }
+
+        // Signal 3: Assistant response streaming has started
+        if (this.isStreaming()) {
+          return true;
+        }
       }
+      return false;
     }
 
     findResponseContainer() {
@@ -980,78 +1631,8 @@
       );
     }
 
-    observeResponse(timeoutMs = 90000, previousContent = "") {
-      return new Promise((resolve) => {
-        const startTime = Date.now();
-        let lastTextLength = 0;
-        let idleCount = 0;
-        let hasSeenStreaming = false;
-        const initialTurnCount = document.querySelectorAll(
-          '[data-message-author-role="assistant"]',
-        ).length;
-
-        const checkInterval = setInterval(async () => {
-          const isStreamingNow = this.isStreaming();
-          if (isStreamingNow) {
-            hasSeenStreaming = true;
-            idleCount = 0;
-          }
-
-          const currentTurnCount = document.querySelectorAll(
-            '[data-message-author-role="assistant"]',
-          ).length;
-
-          const container = this.findResponseContainer();
-          if (container) {
-            const currentContent = (container.textContent || "").trim();
-            const currentLength = currentContent.length;
-
-            if (previousContent) {
-              const isNewTurn =
-                currentTurnCount > initialTurnCount ||
-                (hasSeenStreaming && !isStreamingNow);
-              if (!isNewTurn || currentContent === previousContent) {
-                return;
-              }
-            }
-
-            if (currentLength > 20) {
-              if (currentLength === lastTextLength) {
-                if (!isStreamingNow) {
-                  idleCount++;
-                }
-
-                const requiredIdle = hasSeenStreaming ? 8 : 12;
-                const hasActionBar = Boolean(
-                  container.closest('article, [data-message-author-role="assistant"]')?.querySelector('button[aria-label*="Copy" i], button[data-testid*="copy" i]')
-                );
-
-                if (idleCount >= requiredIdle || (hasSeenStreaming && !isStreamingNow && hasActionBar && idleCount >= 4)) {
-                  clearInterval(checkInterval);
-                  const md = await this.getCurrentResponse();
-                  resolve(md);
-                  return;
-                }
-              } else {
-                lastTextLength = currentLength;
-                idleCount = 0;
-              }
-            }
-          }
-
-          if (Date.now() - startTime > timeoutMs) {
-            clearInterval(checkInterval);
-            const response = await this.getCurrentResponse();
-            resolve(
-              response ||
-                formatProviderError(
-                  this.id,
-                  "No response generated or login required",
-                ),
-            );
-          }
-        }, 350);
-      });
+    createCompletionDetector() {
+      return new ChatGPTCompletionDetector(this);
     }
 
     isComplete() {
@@ -1199,47 +1780,42 @@
       );
     }
 
-    async submit() {
-      if (this._isSubmitting) return false;
-      this._isSubmitting = true;
-      try {
-        await new Promise((r) => setTimeout(r, 150));
-        const btn = this.findSendButton();
-        if (btn && !btn.disabled) {
-          tabLog("ClaudeTab", "🔘 Clicking Claude Send button...");
-          try {
-            btn.focus();
-            btn.click();
-            return true;
-          } catch (err) {
-            tabLog("ClaudeTab", "Button click threw, trying Enter fallback:", err?.message);
-          }
-        }
+    async verifySubmission(timeoutMs = 3000) {
+      const startTime = Date.now();
+      const input = this.findInput();
+      const initialText = (input?.textContent || input?.value || "").trim();
 
-        // Fallback: Dispatch Enter key ONLY IF button click did not succeed
-        const input = this.findInput();
-        if (input) {
-          tabLog("ClaudeTab", "↵ Dispatching Enter key to Claude input...");
-          input.focus();
-          input.dispatchEvent(
-            new KeyboardEvent("keydown", {
-              key: "Enter",
-              code: "Enter",
-              keyCode: 13,
-              which: 13,
-              bubbles: true,
-              cancelable: true,
-            }),
-          );
+      while (Date.now() - startTime < timeoutMs) {
+        await new Promise((r) => setTimeout(r, 150));
+
+        // Signal 1: Input editor cleared
+        const currentInput = this.findInput();
+        const currentText = (
+          currentInput?.textContent ||
+          currentInput?.value ||
+          ""
+        ).trim();
+        if (
+          initialText.length > 0 &&
+          (currentText.length === 0 || currentInput?.innerHTML === "<p><br></p>")
+        ) {
           return true;
         }
 
-        return false;
-      } finally {
-        setTimeout(() => {
-          this._isSubmitting = false;
-        }, 500);
+        // Signal 2: Stop button appeared
+        const stopBtn = document.querySelector(
+          'button[aria-label*="Stop" i], button[data-testid="stop-button"]',
+        );
+        if (stopBtn && stopBtn.offsetParent !== null) {
+          return true;
+        }
+
+        // Signal 3: Assistant streaming started
+        if (this.isStreaming()) {
+          return true;
+        }
       }
+      return false;
     }
 
     findResponseContainer() {
@@ -1297,80 +1873,8 @@
       );
     }
 
-    observeResponse(timeoutMs = 90000, previousContent = "") {
-      return new Promise((resolve) => {
-        const startTime = Date.now();
-        let lastTextLength = 0;
-        let idleCount = 0;
-        let hasSeenStreaming = false;
-
-        const getTurnCount = () =>
-          document.querySelectorAll(
-            '[data-message-author-role="assistant"], div.font-claude-response, [role="article"][aria-label*="Claude responded" i], div.font-claude-message',
-          ).length;
-
-        const initialTurnCount = getTurnCount();
-
-        const checkInterval = setInterval(async () => {
-          const isStreamingNow = this.isStreaming();
-          if (isStreamingNow) {
-            hasSeenStreaming = true;
-            idleCount = 0;
-          }
-
-          const currentTurnCount = getTurnCount();
-          const container = this.findResponseContainer();
-
-          if (container) {
-            const currentContent = (container.textContent || "").trim();
-            const currentLength = currentContent.length;
-
-            if (previousContent) {
-              const isNewTurn =
-                currentTurnCount > initialTurnCount ||
-                (hasSeenStreaming && !isStreamingNow);
-              if (!isNewTurn || currentContent === previousContent) {
-                return;
-              }
-            }
-
-            if (currentLength > 20) {
-              if (currentLength === lastTextLength) {
-                if (!isStreamingNow) {
-                  idleCount++;
-                }
-
-                const requiredIdle = hasSeenStreaming ? 8 : 12;
-                const hasCopyBtn = Boolean(
-                  container.closest('[data-test-render-count], .font-claude-message, [role="article"]')?.querySelector('button[aria-label*="Copy" i], button[data-testid*="copy" i]')
-                );
-
-                if (idleCount >= requiredIdle || (hasSeenStreaming && !isStreamingNow && hasCopyBtn && idleCount >= 4)) {
-                  clearInterval(checkInterval);
-                  const md = await this.getCurrentResponse();
-                  resolve(md);
-                  return;
-                }
-              } else {
-                lastTextLength = currentLength;
-                idleCount = 0;
-              }
-            }
-          }
-
-          if (Date.now() - startTime > timeoutMs) {
-            clearInterval(checkInterval);
-            const response = await this.getCurrentResponse();
-            resolve(
-              response ||
-                formatProviderError(
-                  this.id,
-                  "No response generated or login required",
-                ),
-            );
-          }
-        }, 350);
-      });
+    createCompletionDetector() {
+      return new ClaudeCompletionDetector(this);
     }
 
     isComplete() {
@@ -1601,46 +2105,39 @@
       return null;
     }
 
-    async submit() {
-      if (this._isSubmitting) return false;
-      this._isSubmitting = true;
-      try {
-        await new Promise((r) => setTimeout(r, 150));
-        const btn = this.findSendButton();
-        if (btn) {
-          tabLog("GeminiTab", "🔘 Clicking Gemini Send button...");
-          try {
-            btn.click();
-            return true;
-          } catch (err) {
-            tabLog("GeminiTab", "Button click threw, trying Enter fallback:", err?.message);
-          }
-        }
+    async verifySubmission(timeoutMs = 3000) {
+      const startTime = Date.now();
+      const input = this.findInput();
+      const initialText = (input?.textContent || input?.value || "").trim();
 
-        // Fallback: Dispatch Enter key ONLY IF button click did not succeed
-        const input = this.findInput();
-        if (input) {
-          tabLog("GeminiTab", "↵ Dispatching Enter key to Gemini input...");
-          input.focus();
-          input.dispatchEvent(
-            new KeyboardEvent("keydown", {
-              key: "Enter",
-              code: "Enter",
-              keyCode: 13,
-              which: 13,
-              bubbles: true,
-              cancelable: true,
-            }),
-          );
+      while (Date.now() - startTime < timeoutMs) {
+        await new Promise((r) => setTimeout(r, 150));
+
+        // Signal 1: Input editor cleared
+        const currentInput = this.findInput();
+        const currentText = (
+          currentInput?.textContent ||
+          currentInput?.value ||
+          ""
+        ).trim();
+        if (initialText.length > 0 && currentText.length === 0) {
           return true;
         }
 
-        return false;
-      } finally {
-        setTimeout(() => {
-          this._isSubmitting = false;
-        }, 500);
+        // Signal 2: Stop button or progress bar appeared
+        const stopBtn = document.querySelector(
+          'button[aria-label*="Stop" i], mat-progress-bar, mat-spinner, div[role="progressbar"], .mat-mdc-progress-bar',
+        );
+        if (stopBtn && stopBtn.offsetParent !== null) {
+          return true;
+        }
+
+        // Signal 3: Assistant streaming active
+        if (this.isStreaming()) {
+          return true;
+        }
       }
+      return false;
     }
 
     findResponseContainer() {
@@ -1680,126 +2177,8 @@
       ];
     }
 
-    observeResponse(timeoutMs = 90000, previousContent = "") {
-      return new Promise(async (resolve) => {
-        const startTime = Date.now();
-        let lastTextLength = 0;
-        let idleCount = 0;
-        let isDone = false;
-        let hasSeenStreaming = false;
-
-        const initialTurnCount = document.querySelectorAll(
-          'model-response, message-content, div[data-test-id="model-response"]',
-        ).length;
-
-        // Listen for live network stream chunks from StreamGenerate / BardFrontendService
-        let hasReceivedNetChunk = false;
-        const netChunkListener = (e) => {
-          if (e.detail?.raw) {
-            hasReceivedNetChunk = true;
-            hasSeenStreaming = true;
-            idleCount = 0;
-            tabLog(
-              "GeminiTab",
-              `📡 Network stream chunk captured from Gemini StreamGenerate (${e.detail.raw.length} bytes)`,
-            );
-          }
-        };
-        window.addEventListener("spectralens:network_chunk", netChunkListener);
-
-        const cleanUp = () => {
-          isDone = true;
-          clearInterval(checkInterval);
-          window.removeEventListener(
-            "spectralens:network_chunk",
-            netChunkListener,
-          );
-        };
-
-        const checkInterval = setInterval(async () => {
-          if (isDone) return;
-
-          const isStreamingNow = this.isStreaming();
-          if (isStreamingNow) {
-            hasSeenStreaming = true;
-            idleCount = 0;
-          }
-
-          const currentTurnCount = document.querySelectorAll(
-            'model-response, message-content, div[data-test-id="model-response"]',
-          ).length;
-
-          // For multi-turn follow-up queries, wait until new turn starts
-          if (previousContent) {
-            const isNewTurnActive =
-              currentTurnCount > initialTurnCount ||
-              hasSeenStreaming ||
-              hasReceivedNetChunk;
-
-            if (!isNewTurnActive) {
-              return;
-            }
-          }
-
-          const container = this.findResponseContainer();
-
-          if (container) {
-            const currentContent = (container.textContent || "").trim();
-            const currentLength = currentContent.length;
-
-            if (previousContent && currentContent === previousContent) {
-              return;
-            }
-
-            if (currentLength > 20) {
-              if (currentLength === lastTextLength) {
-                if (!isStreamingNow) {
-                  idleCount++;
-                }
-
-                const hasFooter = Boolean(
-                  document.querySelector(
-                    "div.response-footer.complete, button[aria-label*='Copy' i], button[aria-label*='Good response' i], div.actions-container"
-                  )
-                );
-
-                const requiredIdle = hasSeenStreaming ? 8 : 12;
-
-                if (idleCount >= requiredIdle || (hasSeenStreaming && !isStreamingNow && hasFooter && idleCount >= 4)) {
-                  cleanUp();
-                  const md = await this.getCurrentResponse();
-                  tabLog(
-                    "GeminiTab",
-                    `✅ Gemini response extracted, length: ${md?.length || 0}`,
-                  );
-                  resolve(md);
-                  return;
-                }
-              } else {
-                lastTextLength = currentLength;
-                idleCount = 0;
-              }
-            }
-          }
-
-          if (Date.now() - startTime > timeoutMs) {
-            cleanUp();
-            const response = await this.getCurrentResponse();
-            if (response && response.length > 20) {
-              resolve(response);
-            } else {
-              resolve(
-                typeof formatProviderError === "function"
-                  ? formatProviderError(
-                      this.id,
-                      "No response generated or login required",
-                    )
-                  : "> ⚠️ **Unable to retrieve Gemini response**",
-              );
-            }
-          }
-        }, 350);
-      });
+    createCompletionDetector() {
+      return new GeminiCompletionDetector(this);
     }
 
     isStreaming() {
@@ -1944,46 +2323,39 @@
       );
     }
 
-    async submit() {
-      if (this._isSubmitting) return false;
-      this._isSubmitting = true;
-      try {
-        await new Promise((r) => setTimeout(r, 150));
-        const btn = this.findSendButton();
-        if (btn && !btn.disabled) {
-          tabLog("GrokTab", "🔘 Clicking Grok Send button...");
-          try {
-            btn.click();
-            return true;
-          } catch (err) {
-            tabLog("GrokTab", "Button click threw, trying Enter fallback:", err?.message);
-          }
-        }
+    async verifySubmission(timeoutMs = 3000) {
+      const startTime = Date.now();
+      const input = this.findInput();
+      const initialText = (input?.value || input?.textContent || "").trim();
 
-        // Fallback: Dispatch Enter key ONLY IF button click did not succeed
-        const input = this.findInput();
-        if (input) {
-          tabLog("GrokTab", "↵ Dispatching Enter key to Grok input...");
-          input.focus();
-          input.dispatchEvent(
-            new KeyboardEvent("keydown", {
-              key: "Enter",
-              code: "Enter",
-              keyCode: 13,
-              which: 13,
-              bubbles: true,
-              cancelable: true,
-            }),
-          );
+      while (Date.now() - startTime < timeoutMs) {
+        await new Promise((r) => setTimeout(r, 150));
+
+        // Signal 1: Input cleared
+        const currentInput = this.findInput();
+        const currentText = (
+          currentInput?.value ||
+          currentInput?.textContent ||
+          ""
+        ).trim();
+        if (initialText.length > 0 && currentText.length === 0) {
           return true;
         }
 
-        return false;
-      } finally {
-        setTimeout(() => {
-          this._isSubmitting = false;
-        }, 500);
+        // Signal 2: Thinking / stop container appeared
+        const stopBtn = document.querySelector(
+          '.thinking-container, div.thinking-indicator, button[aria-label*="Stop" i]',
+        );
+        if (stopBtn && stopBtn.offsetParent !== null) {
+          return true;
+        }
+
+        // Signal 3: Streaming started
+        if (this.isStreaming()) {
+          return true;
+        }
       }
+      return false;
     }
 
     findResponseContainer() {
@@ -2019,74 +2391,8 @@
       ];
     }
 
-    observeResponse(timeoutMs = 25000, previousContent = "") {
-      return new Promise(async (resolve) => {
-        const startTime = Date.now();
-        let lastTextLength = 0;
-        let idleCount = 0;
-        let hasSeenStreaming = false;
-
-        const initialTurnCount = document.querySelectorAll(
-          '[data-testid="assistant-message"], div.response-content-markdown, main #last-reply-container',
-        ).length;
-
-        const checkInterval = setInterval(async () => {
-          const isStreamingNow = this.isStreaming();
-          if (isStreamingNow) {
-            hasSeenStreaming = true;
-          }
-
-          const currentTurnCount = document.querySelectorAll(
-            '[data-testid="assistant-message"], div.response-content-markdown, main #last-reply-container',
-          ).length;
-
-          const container = this.findResponseContainer();
-          if (container) {
-            const currentContent = (container.textContent || "").trim();
-            const currentLength = currentContent.length;
-
-            if (previousContent) {
-              const isNewTurn =
-                currentTurnCount > initialTurnCount ||
-                (hasSeenStreaming && !isStreamingNow);
-              if (!isNewTurn || currentContent === previousContent) {
-                return;
-              }
-            }
-
-            if (currentLength > 20) {
-              const isFinished = hasSeenStreaming
-                ? !isStreamingNow
-                : idleCount >= 3;
-
-              if (currentLength === lastTextLength) {
-                idleCount++;
-                if (isFinished || idleCount >= 4) {
-                  clearInterval(checkInterval);
-                  const md = await this.getCurrentResponse();
-                  resolve(md);
-                  return;
-                }
-              } else {
-                lastTextLength = currentLength;
-                idleCount = 0;
-              }
-            }
-          }
-
-          if (Date.now() - startTime > timeoutMs) {
-            clearInterval(checkInterval);
-            const response = await this.getCurrentResponse();
-            resolve(
-              response ||
-                formatProviderError(
-                  this.id,
-                  "No response generated or login required",
-                ),
-            );
-          }
-        }, 350);
-      });
+    createCompletionDetector() {
+      return new GrokCompletionDetector(this);
     }
 
     isStreaming() {
@@ -2284,64 +2590,76 @@
       );
     }
 
-    async submit() {
-      if (this._isSubmitting) return false;
-      this._isSubmitting = true;
-      try {
-        await new Promise((r) => setTimeout(r, 200));
-        const btn = this.findSendButton();
-        const input = this.findInput();
+    async executePrimarySubmit() {
+      const btn = this.findSendButton();
+      let activeBtn =
+        btn && !btn.disabled && !btn.classList.contains("pointer-events-none")
+          ? btn
+          : null;
 
-        // Check if send button is active / enabled
-        let activeBtn =
-          btn && !btn.disabled && !btn.classList.contains("pointer-events-none")
-            ? btn
-            : null;
-
-        if (!activeBtn && btn) {
-          for (let i = 0; i < 10; i++) {
-            await new Promise((r) => setTimeout(r, 100));
-            if (!btn.disabled && !btn.classList.contains("pointer-events-none")) {
-              activeBtn = btn;
-              break;
-            }
+      if (!activeBtn && btn) {
+        for (let i = 0; i < 8; i++) {
+          await new Promise((r) => setTimeout(r, 100));
+          if (!btn.disabled && !btn.classList.contains("pointer-events-none")) {
+            activeBtn = btn;
+            break;
           }
         }
+      }
 
-        if (activeBtn) {
-          tabLog("PerplexityTab", "🔘 Triggering submit on Perplexity send button...");
-          try {
-            activeBtn.focus();
-            activeBtn.click();
-            return true;
-          } catch (err) {
-            tabLog("PerplexityTab", "Button click threw, trying Enter fallback:", err?.message);
-          }
-        }
-
-        // Fallback: Dispatch Enter key ONLY IF button click did not succeed
-        if (input) {
-          tabLog("PerplexityTab", "↵ Dispatching Enter key to Perplexity input...");
-          input.focus();
-          input.dispatchEvent(
-            new KeyboardEvent("keydown", {
-              key: "Enter",
-              code: "Enter",
-              keyCode: 13,
-              which: 13,
-              bubbles: true,
-              cancelable: true,
-            }),
+      if (activeBtn) {
+        tabLog(
+          "PerplexityTab",
+          "🔘 Triggering submit on Perplexity send button...",
+        );
+        try {
+          activeBtn.focus();
+          activeBtn.click();
+          return true;
+        } catch (err) {
+          tabLog(
+            "PerplexityTab",
+            "Button click threw, trying Enter fallback:",
+            err?.message,
           );
+        }
+      }
+      return false;
+    }
+
+    async verifySubmission(timeoutMs = 3000) {
+      const startTime = Date.now();
+      const input = this.findInput();
+      const initialText = (input?.value || input?.textContent || "").trim();
+
+      while (Date.now() - startTime < timeoutMs) {
+        await new Promise((r) => setTimeout(r, 150));
+
+        // Signal 1: Input cleared
+        const currentInput = this.findInput();
+        const currentText = (
+          currentInput?.value ||
+          currentInput?.textContent ||
+          ""
+        ).trim();
+        if (initialText.length > 0 && currentText.length === 0) {
           return true;
         }
 
-        return false;
-      } finally {
-        setTimeout(() => {
-          this._isSubmitting = false;
-        }, 500);
+        // Signal 2: Stop button appeared
+        const stopBtn = document.querySelector(
+          'button[aria-label*="Stop" i], button[aria-label*="Cancel" i], .animate-pulse',
+        );
+        if (stopBtn && stopBtn.offsetParent !== null) {
+          return true;
+        }
+
+        // Signal 3: Assistant streaming started
+        if (this.isStreaming()) {
+          return true;
+        }
       }
+      return false;
     }
 
     findResponseContainer() {
@@ -2381,73 +2699,8 @@
       ];
     }
 
-    observeResponse(timeoutMs = 35000, previousContent = "") {
-      return new Promise(async (resolve) => {
-        const startTime = Date.now();
-        let lastTextLength = 0;
-        let idleCount = 0;
-        let hasSeenStreaming = false;
-
-        const initialCopyCount = document.querySelectorAll(
-          'button[aria-label="Copy"], button[aria-label*="Copy" i]:not([aria-label*="query" i])',
-        ).length;
-
-        const checkInterval = setInterval(async () => {
-          const isStreamingNow = this.isStreaming();
-          if (isStreamingNow) {
-            hasSeenStreaming = true;
-          }
-
-          const currentCopyCount = document.querySelectorAll(
-            'button[aria-label="Copy"], button[aria-label*="Copy" i]:not([aria-label*="query" i])',
-          ).length;
-
-          // For follow-up queries, wait until new response begins
-          if (previousContent && currentCopyCount <= initialCopyCount && !hasSeenStreaming) {
-            return;
-          }
-
-          const container = this.findResponseContainer();
-          if (container) {
-            const currentContent = (container.textContent || "").trim();
-            const currentLength = currentContent.length;
-
-            if (previousContent && currentContent === previousContent) {
-              return;
-            }
-
-            if (currentLength > 20) {
-              const isFinished = !isStreamingNow && (hasSeenStreaming ? idleCount >= 2 : idleCount >= 4);
-
-              if (currentLength === lastTextLength) {
-                idleCount++;
-                if (isFinished || idleCount >= 5) {
-                  clearInterval(checkInterval);
-                  tabLog("PerplexityTab", `🎉 Generation complete! Extracted ${currentLength} chars response.`);
-                  const md = await this.getCurrentResponse();
-                  resolve(md);
-                  return;
-                }
-              } else {
-                lastTextLength = currentLength;
-                idleCount = 0;
-              }
-            }
-          }
-
-          if (Date.now() - startTime > timeoutMs) {
-            clearInterval(checkInterval);
-            const response = await this.getCurrentResponse();
-            resolve(
-              response ||
-                formatProviderError(
-                  this.id,
-                  "No response generated or login required",
-                ),
-            );
-          }
-        }, 350);
-      });
+    createCompletionDetector() {
+      return new PerplexityCompletionDetector(this);
     }
 
     isStreaming() {
@@ -2801,98 +3054,146 @@
       return null;
     }
 
-    async submit() {
-      if (this._isSubmitting) return false;
-      this._isSubmitting = true;
-      try {
-        await new Promise((r) => setTimeout(r, 150));
+    async executePrimarySubmit() {
+      const isSearchPage = window.location.pathname.startsWith("/search");
+      const input = this.findInput();
 
-        const isSearchPage = window.location.pathname.startsWith("/search");
-        const input = this.findInput();
+      // Case 1: In-page follow-up conversation turn on /search page
+      if (isSearchPage || input?.classList?.contains("ITIRGe")) {
+        const sendBtn =
+          document.querySelector(
+            'button[aria-label*="Send" i], button[aria-label*="Search" i], button[type="submit"]',
+          ) || this.findSendButton();
 
-        // Case 1: In-page follow-up conversation turn on /search page
-        if (isSearchPage || input?.classList?.contains("ITIRGe")) {
-          const sendBtn =
-            document.querySelector(
-              'button[aria-label*="Send" i], button[aria-label*="Search" i], button[type="submit"]',
-            ) || this.findSendButton();
-
-          if (sendBtn && !sendBtn.disabled) {
-            tabLog("GoogleTab", "🔘 Clicking Google follow-up send button...");
-            try {
-              sendBtn.click();
-              return true;
-            } catch (err) {
-              tabLog("GoogleTab", "Send button click threw, fallback to Enter:", err?.message);
-            }
-          }
-
-          if (input) {
-            tabLog("GoogleTab", "↵ Dispatching Enter key to follow-up chat box...");
-            input.focus();
-            input.dispatchEvent(
-              new KeyboardEvent("keydown", {
-                key: "Enter",
-                code: "Enter",
-                keyCode: 13,
-                which: 13,
-                bubbles: true,
-                cancelable: true,
-              }),
-            );
-            return true;
-          }
-          return false;
-        }
-
-        // Case 2: Google Homepage initial search submission
-        tabLog(
-          "GoogleTab",
-          "🚀 Submitting search from Google homepage with AI Mode...",
-        );
-        const btn = this.findSendButton();
-        if (btn) {
-          tabLog("GoogleTab", "🔘 Clicking Google Search / AI button...");
+        if (sendBtn && !sendBtn.disabled) {
+          tabLog("GoogleTab", "🔘 Clicking Google follow-up send button...");
           try {
-            btn.click();
+            sendBtn.click();
             return true;
           } catch (err) {
-            tabLog("GoogleTab", "Homepage search button click threw:", err?.message);
+            tabLog(
+              "GoogleTab",
+              "Send button click threw, fallback to Enter:",
+              err?.message,
+            );
           }
         }
+        return false;
+      }
 
-        const form = input
-          ? input.closest("form")
-          : document.querySelector('form[role="search"], form[action="/search"]');
-        if (form) {
-          tabLog("GoogleTab", "📄 Triggering form submit...");
+      // Case 2: Google Homepage initial search submission
+      tabLog(
+        "GoogleTab",
+        "🚀 Submitting search from Google homepage with AI Mode...",
+      );
+      const btn = this.findSendButton();
+      if (btn) {
+        tabLog("GoogleTab", "🔘 Clicking Google Search / AI button...");
+        try {
+          btn.click();
+          return true;
+        } catch (err) {
+          tabLog(
+            "GoogleTab",
+            "Homepage search button click threw:",
+            err?.message,
+          );
+        }
+      }
+      return false;
+    }
+
+    async executeFallbackSubmit() {
+      const isSearchPage = window.location.pathname.startsWith("/search");
+      const input = this.findInput();
+
+      if (isSearchPage || input?.classList?.contains("ITIRGe")) {
+        if (input) {
+          tabLog("GoogleTab", "↵ Dispatching Enter key to follow-up chat box...");
+          input.focus();
+          input.dispatchEvent(
+            new KeyboardEvent("keydown", {
+              key: "Enter",
+              code: "Enter",
+              keyCode: 13,
+              which: 13,
+              bubbles: true,
+              cancelable: true,
+            }),
+          );
+          return true;
+        }
+        return false;
+      }
+
+      const form = input
+        ? input.closest("form")
+        : document.querySelector('form[role="search"], form[action="/search"]');
+      if (form) {
+        tabLog("GoogleTab", "📄 Triggering form submit...");
+        try {
+          if (typeof form.requestSubmit === "function") {
+            form.requestSubmit();
+          } else {
+            form.submit();
+          }
+          return true;
+        } catch {
           try {
-            if (typeof form.requestSubmit === "function") {
-              form.requestSubmit();
-            } else {
-              form.submit();
-            }
+            form.submit();
             return true;
-          } catch {
-            try {
-              form.submit();
-              return true;
-            } catch {}
-          }
+          } catch {}
         }
+      }
 
-        if (this._lastPrompt) {
-          tabLog("GoogleTab", "🌐 Navigating directly to AI search results...");
-          window.location.href = `https://www.google.com/search?q=${encodeURIComponent(this._lastPrompt)}&hl=en&udm=50`;
+      if (this._lastPrompt) {
+        tabLog("GoogleTab", "🌐 Navigating directly to AI search results...");
+        window.location.href = `https://www.google.com/search?q=${encodeURIComponent(this._lastPrompt)}&hl=en&udm=50`;
+        return true;
+      }
+
+      return false;
+    }
+
+    async verifySubmission(timeoutMs = 4000) {
+      const startTime = Date.now();
+      const isSearchPage = window.location.pathname.startsWith("/search");
+      const input = this.findInput();
+      const initialText = (input?.value || input?.textContent || "").trim();
+
+      while (Date.now() - startTime < timeoutMs) {
+        await new Promise((r) => setTimeout(r, 150));
+
+        // Signal 1: Homepage navigated to /search results
+        if (!isSearchPage && window.location.pathname.startsWith("/search")) {
           return true;
         }
 
-        return true;
-      } finally {
-        setTimeout(() => {
-          this._isSubmitting = false;
-        }, 500);
+        // Signal 2: Search follow-up input was cleared
+        if (isSearchPage) {
+          const currentInput = this.findInput();
+          const currentText = (
+            currentInput?.value ||
+            currentInput?.textContent ||
+            ""
+          ).trim();
+          if (initialText.length > 0 && currentText.length === 0) {
+            return true;
+          }
+        }
+
+        // Signal 3: Assistant streaming active
+        if (this.isStreaming()) {
+          return true;
+        }
       }
+
+      // If we are on homepage and triggered search navigation, return true
+      if (!isSearchPage && this._lastPrompt) {
+        return true;
+      }
+
+      return false;
     }
 
     findResponseContainer() {
@@ -3001,125 +3302,17 @@
       ];
     }
 
-    observeResponse(timeoutMs = 90000, previousContent = "") {
-      return new Promise(async (resolve) => {
-        const startTime = Date.now();
-        let lastTextLength = 0;
-        let idleCount = 0;
-        let isDone = false;
+    createCompletionDetector() {
+      return new GoogleAICompletionDetector(this);
+    }
 
-        // Record initial state before sending / waiting for the new turn
-        const initialTurnCount = document.querySelectorAll(
-          'div[data-scope-id="turn"], div.CKgc1d[jsname="CS7uPe"], div.CKgc1d',
-        ).length;
-        const initialCopyBtnCount = document.querySelectorAll(
-          'button[aria-label="Copy text"].bKxaof, button[aria-label*="Copy text" i], button.bKxaof',
-        ).length;
-
-        // Listen for live network stream chunks from /async/folif
-        let hasReceivedNetChunk = false;
-        const netChunkListener = (e) => {
-          if (e.detail?.raw) {
-            hasReceivedNetChunk = true;
-            idleCount = 0;
-            tabLog(
-              "GoogleTab",
-              `📡 Network stream chunk captured from /async/folif (${e.detail.raw.length} bytes)`,
-            );
-          }
-        };
-        window.addEventListener("spectralens:network_chunk", netChunkListener);
-
-        const cleanUp = () => {
-          isDone = true;
-          clearInterval(checkInterval);
-          window.removeEventListener(
-            "spectralens:network_chunk",
-            netChunkListener,
-          );
-        };
-
-        // Activate AI Mode once on homepage if not already active
-        await this.ensureAiMode();
-
-        const checkInterval = setInterval(async () => {
-          if (isDone) return;
-          const currentCopyBtnCount = document.querySelectorAll(
-            'button[aria-label="Copy text"].bKxaof, button[aria-label*="Copy text" i], button.bKxaof',
-          ).length;
-          const currentTurnCount = document.querySelectorAll(
-            'div[data-scope-id="turn"], div.CKgc1d[jsname="CS7uPe"], div.CKgc1d',
-          ).length;
-
-          const isLoading = Boolean(
-            document.querySelector(
-              'div.wDYxhc.UDvLbd, div.Dn7Fzd[aria-busy="true"], div.animate-pulse, div.FzLjke, span.CkgRle, div[class*="shimmer"]'
-            )
-          );
-
-          if (isLoading) {
-            idleCount = 0;
-          }
-
-          const container = this.findResponseContainer();
-
-          if (container) {
-            const currentContent = (container.textContent || "").trim();
-            const currentLength = currentContent.length;
-
-            // If this is a follow-up turn in an existing multi-turn thread:
-            // Must wait until the NEW turn is created (currentTurnCount > initialTurnCount OR new copy button appeared)
-            if (previousContent) {
-              const hasNewTurnAppeared =
-                currentTurnCount > initialTurnCount ||
-                currentCopyBtnCount > initialCopyBtnCount ||
-                hasReceivedNetChunk;
-
-              if (!hasNewTurnAppeared || currentContent === previousContent) {
-                return; // Still waiting for Google to begin streaming the new turn!
-              }
-            }
-
-            if (currentLength > 25) {
-              if (currentLength === lastTextLength) {
-                if (!isLoading) {
-                  idleCount++;
-                }
-
-                const requiredIdle = (previousContent && currentTurnCount > initialTurnCount) ? 6 : 8;
-
-                if (idleCount >= requiredIdle) {
-                  cleanUp();
-                  const md = await this.getCurrentResponse();
-                  tabLog(
-                    "GoogleTab",
-                    `✅ AI Overview extracted, length: ${md?.length || 0}`,
-                  );
-                  resolve(md);
-                  return;
-                }
-              } else {
-                lastTextLength = currentLength;
-                idleCount = 0;
-              }
-            }
-          }
-
-          if (Date.now() - startTime > timeoutMs) {
-            cleanUp();
-            const response = await this.getCurrentResponse();
-            if (response && response.length > 20) {
-              resolve(response);
-            } else {
-              resolve(
-                typeof formatProviderError === "function"
-                  ? formatProviderError(this.id, "No AI response found on page")
-                  : "> ⚠️ **Unable to retrieve AI response**",
-              );
-            }
-          }
-        }, 350);
-      });
+    async observeResponse(
+      timeoutMs = 90000,
+      previousContent = "",
+      requestId = null,
+    ) {
+      await this.ensureAiMode();
+      return super.observeResponse(timeoutMs, previousContent, requestId);
     }
 
     isComplete() {
@@ -3180,6 +3373,17 @@
   }
 
   // Export to global scope (works in both window & content script environments)
+  global.RESPONSE_STATES = RESPONSE_STATES;
+  global.hashNormalizedText = hashNormalizedText;
+  global.ResponseTracker = ResponseTracker;
+  global.BaseCompletionDetector = BaseCompletionDetector;
+  global.ChatGPTCompletionDetector = ChatGPTCompletionDetector;
+  global.ClaudeCompletionDetector = ClaudeCompletionDetector;
+  global.GeminiCompletionDetector = GeminiCompletionDetector;
+  global.GrokCompletionDetector = GrokCompletionDetector;
+  global.PerplexityCompletionDetector = PerplexityCompletionDetector;
+  global.GoogleAICompletionDetector = GoogleAICompletionDetector;
+  global.ResponseObserver = ResponseObserver;
   global.formatProviderError = formatProviderError;
   global.BaseProviderAdapter = BaseProviderAdapter;
   global.ChatGPTAdapter = ChatGPTAdapter;
