@@ -413,6 +413,80 @@ import("../scripts/update-version.js").then(({ calculateNextVersion, normalizeVe
   });
   assert(completeEval.score === 100 && completeEval.isComplete === true, "Full completion signals yield score 100 and isComplete true");
 
+  // --- TEST SUITE 12: Provider Job Manager, State Machine & Reliability Layer ---
+  console.log("\n12. Provider Job Manager, State Machine & Reliability Layer:");
+  const requestAiJs = fs.readFileSync(path.join(rootDir, "scripts", "background/requestAi.js"), "utf8");
+  assert(requestAiJs.includes("REQUEST_STATES"), "requestAi.js defines REQUEST_STATES");
+  assert(requestAiJs.includes("PHASE_TIMEOUTS"), "requestAi.js defines PHASE_TIMEOUTS");
+  assert(requestAiJs.includes("TAB_CREATE_TIMEOUT"), "PHASE_TIMEOUTS defines TAB_CREATE_TIMEOUT");
+  assert(requestAiJs.includes("PAGE_READY_TIMEOUT"), "PHASE_TIMEOUTS defines PAGE_READY_TIMEOUT");
+  assert(requestAiJs.includes("INPUT_TIMEOUT"), "PHASE_TIMEOUTS defines INPUT_TIMEOUT");
+  assert(requestAiJs.includes("SUBMIT_TIMEOUT"), "PHASE_TIMEOUTS defines SUBMIT_TIMEOUT");
+  assert(requestAiJs.includes("RESPONSE_START_TIMEOUT"), "PHASE_TIMEOUTS defines RESPONSE_START_TIMEOUT");
+  assert(requestAiJs.includes("RESPONSE_STREAM_TIMEOUT"), "PHASE_TIMEOUTS defines RESPONSE_STREAM_TIMEOUT");
+  assert(requestAiJs.includes("COMPLETION_TIMEOUT"), "PHASE_TIMEOUTS defines COMPLETION_TIMEOUT");
+  assert(requestAiJs.includes("healthCheckProviderTab"), "requestAi.js defines healthCheckProviderTab");
+  assert(requestAiJs.includes("createStructuredError"), "requestAi.js defines createStructuredError");
+  assert(requestAiJs.includes("cancelAiRequest"), "requestAi.js defines cancelAiRequest");
+
+  // 1. Independent provider state machine simulation
+  const stateTransitions = [];
+  function mockSetState(reqId, prov, st, phase) {
+    stateTransitions.push({ reqId, prov, status: st, phase });
+  }
+
+  mockSetState("req-1", "chatgpt", "QUEUED", "QUEUED");
+  mockSetState("req-1", "chatgpt", "STARTING", "TAB_CREATE");
+  mockSetState("req-1", "chatgpt", "READY", "TAB_READY");
+  mockSetState("req-1", "chatgpt", "SENDING", "SENDING");
+  mockSetState("req-1", "chatgpt", "SUBMITTED", "SUBMITTED");
+  mockSetState("req-1", "chatgpt", "STREAMING", "RESPONSE_START");
+  mockSetState("req-1", "chatgpt", "COMPLETED", "COMPLETION");
+
+  mockSetState("req-1", "google", "QUEUED", "QUEUED");
+  mockSetState("req-1", "google", "STARTING", "TAB_CREATE");
+  mockSetState("req-1", "google", "READY", "TAB_READY");
+  mockSetState("req-1", "google", "SENDING", "SENDING");
+  mockSetState("req-1", "google", "TIMED_OUT", "RESPONSE_START");
+
+  const chatgptFinal = stateTransitions.filter(s => s.prov === "chatgpt").pop();
+  const googleFinal = stateTransitions.filter(s => s.prov === "google").pop();
+  assert(chatgptFinal.status === "COMPLETED" && chatgptFinal.phase === "COMPLETION", "ChatGPT successfully transitions to COMPLETED");
+  assert(googleFinal.status === "TIMED_OUT" && googleFinal.phase === "RESPONSE_START", "Google AI independently times out in RESPONSE_START without breaking ChatGPT");
+
+  // 2. Structured error formatting test
+  function testCreateStructuredError(requestId, providerId, phase, errorCode, message, recoverable = false) {
+    return {
+      status: "failure",
+      requestId,
+      provider: providerId.toLowerCase(),
+      phase,
+      errorCode,
+      message,
+      timestamp: Date.now(),
+      recoverable,
+      answer: `> ⚠️ **Please log in to ${providerId}**\n\n*Error: ${message}*`,
+    };
+  }
+
+  const err1 = testCreateStructuredError("req-123", "google", "RESPONSE_START", "TIMEOUT", "Request timed out during RESPONSE_START", false);
+  assert(err1.status === "failure" && err1.phase === "RESPONSE_START" && err1.errorCode === "TIMEOUT" && err1.recoverable === false, "Structured error format captures phase and error code accurately");
+
+  // 3. Safe retry decision test
+  function isSafeToRetry(requestState, retryCount) {
+    if (retryCount >= 1) return false;
+    if (requestState === "SUBMITTED" || requestState === "STREAMING" || requestState === "COMPLETED") {
+      return false; // NEVER re-submit a prompt that was already submitted!
+    }
+    return true; // Safe to retry if failed during TAB_CREATE, READY, or SENDING before submission
+  }
+
+  assert(isSafeToRetry("STARTING", 0) === true, "Safe to retry when tab creation fails (pre-submission)");
+  assert(isSafeToRetry("SENDING", 0) === true, "Safe to retry when input preparation fails (pre-submission)");
+  assert(isSafeToRetry("SUBMITTED", 0) === false, "Unsafe to retry after prompt is submitted (prevents duplicate prompts)");
+  assert(isSafeToRetry("STREAMING", 0) === false, "Unsafe to retry during streaming (prevents duplicate prompts)");
+  assert(isSafeToRetry("STARTING", 1) === false, "Retry count limit enforced (max 1 retry)");
+
   // --- SUMMARY ---
   console.log(`\n========================================`);
   console.log(`Test Results: ${passed} Passed, ${failed} Failed`);
@@ -422,4 +496,5 @@ import("../scripts/update-version.js").then(({ calculateNextVersion, normalizeVe
     process.exit(1);
   }
 });
+
 

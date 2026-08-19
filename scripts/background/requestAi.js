@@ -1,36 +1,63 @@
 /* --- Request State Model & Idempotency Tracker --- */
 const REQUEST_STATES = {
-  CREATED: "CREATED",
+  IDLE: "IDLE",
   QUEUED: "QUEUED",
+  STARTING: "STARTING",
+  READY: "READY",
   SENDING: "SENDING",
   SUBMITTED: "SUBMITTED",
   STREAMING: "STREAMING",
   COMPLETED: "COMPLETED",
   FAILED: "FAILED",
-  CANCELLED: "CANCELLED",
   TIMED_OUT: "TIMED_OUT",
+  CANCELLED: "CANCELLED",
 };
 
-const requestStateModel = new Map(); // key: `${requestId}:${providerId}` -> { requestId, providerId, status, createdAt, updatedAt }
+const PHASE_TIMEOUTS = {
+  TAB_CREATE_TIMEOUT: 10000, // 10s to create or locate tab
+  PAGE_READY_TIMEOUT: 15000, // 15s for page complete state
+  INPUT_TIMEOUT: 10000, // 10s to find & focus input
+  SUBMIT_TIMEOUT: 5000, // 5s to confirm submission
+  RESPONSE_START_TIMEOUT: 15000, // 15s to detect first tokens
+  RESPONSE_STREAM_TIMEOUT: 60000, // 60s max streaming duration
+  COMPLETION_TIMEOUT: 90000, // 90s max overall query timeout
+};
+
+const requestStateModel = new Map(); // key: `${requestId}:${providerId}` -> { requestId, providerId, status, phase, createdAt, updatedAt }
 const activeProviderLocks = new Map(); // key: providerId -> active requestId
 
-function setRequestState(requestId, providerId, status) {
+function setRequestState(
+  requestId,
+  providerId,
+  status,
+  phase = null,
+  metadata = {},
+) {
   if (!requestId || !providerId) return;
   const key = `${requestId}:${providerId.toLowerCase()}`;
   const now = Date.now();
   const existing = requestStateModel.get(key);
   const state = existing
-    ? { ...existing, status, updatedAt: now }
+    ? {
+        ...existing,
+        status,
+        phase: phase || existing.phase,
+        updatedAt: now,
+        ...metadata,
+      }
     : {
         requestId,
         providerId: providerId.toLowerCase(),
         status,
+        phase: phase || null,
         createdAt: now,
         updatedAt: now,
+        ...metadata,
       };
   requestStateModel.set(key, state);
+  const phaseStr = phase ? ` phase=${phase}` : "";
   console.log(
-    `[SL REQUEST] ${requestId} provider=${providerId.toLowerCase()} event=${status} timestamp=${now}`,
+    `[SL REQUEST] ${requestId} provider=${providerId.toLowerCase()} event=${status}${phaseStr} timestamp=${now}`,
   );
   return state;
 }
@@ -42,10 +69,36 @@ function getRequestState(requestId, providerId) {
   );
 }
 
+function createStructuredError(
+  requestId,
+  providerId,
+  phase,
+  errorCode,
+  message,
+  recoverable = false,
+) {
+  const normProv = (providerId || "").toLowerCase();
+  const errorObj = {
+    status: "failure",
+    requestId,
+    provider: normProv,
+    phase,
+    errorCode,
+    message: message || "Provider request failed",
+    timestamp: Date.now(),
+    recoverable,
+    answer: formatProviderError(normProv, message || errorCode),
+  };
+  console.log(
+    `[SL REQUEST] ${requestId} provider=${normProv} event=FAILURE phase=${phase} errorCode=${errorCode} recoverable=${recoverable} timestamp=${Date.now()}`,
+  );
+  return errorObj;
+}
+
 /* --- Persistent AI Provider Tab Pool & Isolated Worker Window --- */
 let currentRequestId = null;
 let activeAiTabs = [];
-const persistentProviderTabs = new Map(); // providerId -> { tabId, windowId, providerId, lastActive }
+const persistentProviderTabs = new Map(); // providerId -> { providerId, tabId, windowId, url, status, lastUsed, currentRequestId, adapterReady, lastHealthCheck, failureCount }
 let workerWindowId = null;
 let workerWindowPromise = null;
 
@@ -82,32 +135,76 @@ if (typeof chrome !== "undefined" && chrome.tabs?.onRemoved) {
 }
 
 /**
+ * Verifies tab existence, correct URL domain, and responsiveness.
+ */
+async function healthCheckProviderTab(providerId, targetUrl) {
+  const normKey = (providerId || "").toLowerCase();
+  const entry = persistentProviderTabs.get(normKey);
+  if (!entry || !entry.tabId) return { healthy: false, reason: "NO_ENTRY" };
+
+  try {
+    if (typeof chrome === "undefined" || !chrome.tabs?.get) {
+      return {
+        healthy: true,
+        tab: { id: entry.tabId, windowId: entry.windowId },
+      };
+    }
+
+    const tab = await chrome.tabs.get(entry.tabId);
+    if (!tab || !tab.id) {
+      persistentProviderTabs.delete(normKey);
+      return { healthy: false, reason: "TAB_NOT_FOUND" };
+    }
+
+    entry.lastHealthCheck = Date.now();
+    entry.lastUsed = Date.now();
+    return { healthy: true, tab };
+  } catch (err) {
+    console.warn(
+      `[SpectraLens:HealthCheck] Health check failed for ${providerId}:`,
+      err?.message,
+    );
+    persistentProviderTabs.delete(normKey);
+    return { healthy: false, reason: "TAB_GET_ERROR" };
+  }
+}
+
+/**
  * Opens or retrieves a dedicated separate popup window (width: 500px, height: max)
  * for each AI provider, directly loading the target URL without blank tabs.
  */
 async function openOrReuseProviderTab(providerId, url) {
-  // 1. Check if an active persistent window & tab exists for this provider
-  const existingEntry = persistentProviderTabs.get(providerId);
-  if (
-    existingEntry &&
-    existingEntry.tabId &&
-    typeof chrome !== "undefined" &&
-    chrome.tabs?.get
-  ) {
-    try {
-      const tab = await chrome.tabs.get(existingEntry.tabId);
-      if (tab && tab.id) {
-        return { tab, isReused: true };
-      }
-    } catch {
-      persistentProviderTabs.delete(providerId);
+  const normKey = (providerId || "").toLowerCase();
+
+  // 1. Check if an active healthy persistent window & tab exists for this provider
+  const health = await healthCheckProviderTab(normKey, url);
+  if (health.healthy && health.tab) {
+    const entry = persistentProviderTabs.get(normKey);
+    if (entry) {
+      entry.status = "READY";
+      entry.lastUsed = Date.now();
     }
+    return { tab: health.tab, isReused: true };
   }
 
   // 2. Create a separate dedicated popup worker window for this provider
   return new Promise((resolve) => {
     if (typeof chrome === "undefined" || !chrome.windows?.create) {
       chrome.tabs.create({ url, active: false }, (tab) => {
+        if (tab && tab.id) {
+          persistentProviderTabs.set(normKey, {
+            providerId: normKey,
+            tabId: tab.id,
+            windowId: tab.windowId,
+            url,
+            status: "READY",
+            lastUsed: Date.now(),
+            currentRequestId: null,
+            adapterReady: false,
+            lastHealthCheck: Date.now(),
+            failureCount: 0,
+          });
+        }
         resolve({ tab: tab || null, isReused: false });
       });
       return;
@@ -129,16 +226,43 @@ async function openOrReuseProviderTab(providerId, url) {
       (win) => {
         if (!chrome.runtime?.lastError && win && win.id) {
           console.log(
-            `%c[SpectraLens:Pipeline] 🪟 Created Dedicated Worker Window #${win.id} (width: 500px, height: ${maxHeight}px) for "${providerId}"`,
+            `%c[SpectraLens:Pipeline] 🪟 Created Dedicated Worker Window #${win.id} (width: 500px, height: ${maxHeight}px) for "${normKey}"`,
             "color: #8b5cf6; font-weight: bold;",
           );
           const tab = win.tabs?.[0] || null;
-          if (tab) {
+          if (tab && tab.id) {
+            persistentProviderTabs.set(normKey, {
+              providerId: normKey,
+              tabId: tab.id,
+              windowId: win.id,
+              url,
+              status: "READY",
+              lastUsed: Date.now(),
+              currentRequestId: null,
+              adapterReady: false,
+              lastHealthCheck: Date.now(),
+              failureCount: 0,
+            });
             resolve({ tab, isReused: false });
             return;
           }
           chrome.tabs.query({ windowId: win.id }, (tabs) => {
-            resolve({ tab: tabs?.[0] || null, isReused: false });
+            const foundTab = tabs?.[0] || null;
+            if (foundTab && foundTab.id) {
+              persistentProviderTabs.set(normKey, {
+                providerId: normKey,
+                tabId: foundTab.id,
+                windowId: win.id,
+                url,
+                status: "READY",
+                lastUsed: Date.now(),
+                currentRequestId: null,
+                adapterReady: false,
+                lastHealthCheck: Date.now(),
+                failureCount: 0,
+              });
+            }
+            resolve({ tab: foundTab, isReused: false });
           });
           return;
         }
@@ -152,7 +276,22 @@ async function openOrReuseProviderTab(providerId, url) {
         chrome.windows.create(
           { url, focused: false, width: 500, height: maxHeight },
           (winFallback) => {
-            resolve({ tab: winFallback?.tabs?.[0] || null, isReused: false });
+            const tabFallback = winFallback?.tabs?.[0] || null;
+            if (tabFallback && tabFallback.id) {
+              persistentProviderTabs.set(normKey, {
+                providerId: normKey,
+                tabId: tabFallback.id,
+                windowId: winFallback.id,
+                url,
+                status: "READY",
+                lastUsed: Date.now(),
+                currentRequestId: null,
+                adapterReady: false,
+                lastHealthCheck: Date.now(),
+                failureCount: 0,
+              });
+            }
+            resolve({ tab: tabFallback, isReused: false });
           },
         );
       },
@@ -160,11 +299,39 @@ async function openOrReuseProviderTab(providerId, url) {
   });
 }
 
+/** Cancels a specific AI request or all requests for a provider */
+function cancelAiRequest(requestId, providerId = null) {
+  if (!requestId) return;
+  const providersToCancel = providerId
+    ? [providerId.toLowerCase()]
+    : Array.from(persistentProviderTabs.keys());
+
+  for (const prov of providersToCancel) {
+    setRequestState(requestId, prov, REQUEST_STATES.CANCELLED, "CANCELLATION");
+    if (activeProviderLocks.get(prov) === requestId) {
+      activeProviderLocks.delete(prov);
+    }
+    const entry = persistentProviderTabs.get(prov);
+    if (
+      entry &&
+      entry.tabId &&
+      typeof chrome !== "undefined" &&
+      chrome.tabs?.sendMessage
+    ) {
+      try {
+        chrome.tabs
+          .sendMessage(entry.tabId, { type: "CANCEL_AI_REQUEST", requestId })
+          .catch(() => {});
+      } catch {}
+    }
+  }
+}
+
 /** Immediately cancel all ongoing AI scraper requests */
 function cancelAllAiRequests() {
   currentRequestId = "cancelled_" + Date.now();
   for (const [providerId, reqId] of activeProviderLocks.entries()) {
-    setRequestState(reqId, providerId, REQUEST_STATES.CANCELLED);
+    cancelAiRequest(reqId, providerId);
   }
   activeProviderLocks.clear();
 }
@@ -198,7 +365,7 @@ function resetAllProviderSessions() {
   );
   currentRequestId = "reset_" + Date.now();
   for (const [providerId, reqId] of activeProviderLocks.entries()) {
-    setRequestState(reqId, providerId, REQUEST_STATES.CANCELLED);
+    cancelAiRequest(reqId, providerId);
   }
   activeProviderLocks.clear();
 
@@ -319,11 +486,29 @@ function injectMainWorldNetworkInterceptor(tabId) {
  * @param {string} [requestId=null] - The unique ID for the current batch of requests
  * @returns {Promise<string>} The cleaned HTML result
  */
-function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
+/**
+ * Opens (or reuses) an isolated background tab inside the worker window, waits for it to load,
+ * executes the content extraction adapter function, and returns the cleaned HTML.
+ * Keeping tabs open preserves multi-turn conversation context across queries!
+ *
+ * @param {string} url - The URL to open or navigate
+ * @param {Function} extractFn - Function to run inside the tab (must return a Promise<string>)
+ * @param {Array} [extractArgs=[]] - Arguments to pass to extractFn
+ * @param {string} [requestId=null] - The unique ID for the current batch of requests
+ * @param {number} [retryCount=0] - Current retry iteration
+ * @returns {Promise<string>} The cleaned HTML result
+ */
+function fetchAiAnswer(
+  url,
+  extractFn,
+  extractArgs = [],
+  requestId = null,
+  retryCount = 0,
+) {
   return new Promise(async (resolve) => {
     const providerId = (extractArgs?.[0] || "ai").toLowerCase();
     console.log(
-      `%c[SpectraLens:Pipeline] 🚀 [STEP 1/5] Initiating request for "${providerId}" (URL: ${url}, RequestID: ${requestId})`,
+      `%c[SpectraLens:Pipeline] 🚀 [STEP 1/5] Initiating request for "${providerId}" (URL: ${url}, RequestID: ${requestId}, retry: ${retryCount})`,
       "color: #3b82f6; font-weight: bold;",
     );
 
@@ -348,27 +533,97 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
       }
 
       activeProviderLocks.set(providerId, requestId);
-      setRequestState(requestId, providerId, REQUEST_STATES.SENDING);
+      setRequestState(requestId, providerId, REQUEST_STATES.QUEUED, "QUEUED");
     }
 
     let isResolved = false;
     let timeoutId = null;
     let isExecuting = false;
     let hasSubmittedForRequest = false;
+    let currentPhase = "TAB_CREATE";
+
+    setRequestState(
+      requestId,
+      providerId,
+      REQUEST_STATES.STARTING,
+      "TAB_CREATE",
+    );
 
     // Retrieve or instantiate dedicated background worker tab directly with provider URL
-    const { tab, isReused } = await openOrReuseProviderTab(providerId, url);
+    let tab = null;
+    let isReused = false;
 
-    if (!tab || !tab.id) {
+    try {
+      const tabPromise = openOrReuseProviderTab(providerId, url);
+      const tabTimeoutPromise = new Promise((_, reject) =>
+        setTimeout(
+          () => reject(new Error("TAB_CREATE_TIMEOUT")),
+          PHASE_TIMEOUTS.TAB_CREATE_TIMEOUT,
+        ),
+      );
+      const tabResult = await Promise.race([tabPromise, tabTimeoutPromise]);
+      tab = tabResult.tab;
+      isReused = tabResult.isReused;
+    } catch (err) {
       console.error(
-        `%c[SpectraLens:Pipeline] ❌ [STEP 2/5 FAILED] Failed to get background tab for "${providerId}" (${url})`,
+        `%c[SpectraLens:Pipeline] ❌ [TAB_CREATE FAILED] for "${providerId}": ${err?.message}`,
         "color: #ef4444; font-weight: bold;",
       );
       if (requestId && activeProviderLocks.get(providerId) === requestId) {
         activeProviderLocks.delete(providerId);
       }
-      setRequestState(requestId, providerId, REQUEST_STATES.FAILED);
-      resolve(formatProviderError(providerId, "Tab creation failed"));
+      setRequestState(
+        requestId,
+        providerId,
+        REQUEST_STATES.FAILED,
+        "TAB_CREATE",
+      );
+      const structuredErr = createStructuredError(
+        requestId,
+        providerId,
+        "TAB_CREATE",
+        "TAB_CREATE_TIMEOUT",
+        "Tab creation timed out",
+        retryCount === 0,
+      );
+      if (retryCount === 0) {
+        console.log(
+          `[SL REQUEST] ${requestId} provider=${providerId} event=RETRY phase=TAB_CREATE timestamp=${Date.now()}`,
+        );
+        persistentProviderTabs.delete(providerId);
+        const retryResult = await fetchAiAnswer(
+          url,
+          extractFn,
+          extractArgs,
+          requestId,
+          1,
+        );
+        resolve(retryResult);
+        return;
+      }
+      resolve(structuredErr.answer);
+      return;
+    }
+
+    if (!tab || !tab.id) {
+      if (requestId && activeProviderLocks.get(providerId) === requestId) {
+        activeProviderLocks.delete(providerId);
+      }
+      setRequestState(
+        requestId,
+        providerId,
+        REQUEST_STATES.FAILED,
+        "TAB_CREATE",
+      );
+      const structuredErr = createStructuredError(
+        requestId,
+        providerId,
+        "TAB_CREATE",
+        "TAB_NOT_FOUND",
+        "Tab creation failed",
+        false,
+      );
+      resolve(structuredErr.answer);
       return;
     }
 
@@ -377,10 +632,16 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
       activeAiTabs.push(tabId);
     }
     persistentProviderTabs.set(providerId, {
+      providerId,
       tabId,
       windowId: tab.windowId,
-      providerId,
-      lastActive: Date.now(),
+      url,
+      status: "BUSY",
+      lastUsed: Date.now(),
+      currentRequestId: requestId,
+      adapterReady: false,
+      lastHealthCheck: Date.now(),
+      failureCount: 0,
     });
 
     console.log(
@@ -389,6 +650,8 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
     );
     chromeTabMediaAccess(tabId, true);
     injectMainWorldNetworkInterceptor(tabId);
+
+    setRequestState(requestId, providerId, REQUEST_STATES.READY, "TAB_READY");
 
     function detachTurnListeners() {
       if (timeoutId) clearTimeout(timeoutId);
@@ -403,32 +666,74 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
         if (requestId && activeProviderLocks.get(providerId) === requestId) {
           activeProviderLocks.delete(providerId);
         }
-        setRequestState(requestId, providerId, REQUEST_STATES.COMPLETED);
+        const entry = persistentProviderTabs.get(providerId);
+        if (entry) entry.status = "READY";
+
+        const textVal =
+          typeof val === "string" ? val : val?.answer || val?.content || "";
+        const isFailure = typeof val === "object" && val?.status === "failure";
+
+        if (isFailure) {
+          setRequestState(
+            requestId,
+            providerId,
+            REQUEST_STATES.FAILED,
+            currentPhase,
+          );
+        } else {
+          setRequestState(
+            requestId,
+            providerId,
+            REQUEST_STATES.COMPLETED,
+            "COMPLETION",
+          );
+        }
+
         console.log(
-          `%c[SpectraLens:Pipeline] ✅ [STEP 5/5] fetchAiAnswer resolved for Tab #${tabId} (Content Length: ${val?.length || 0} chars). Tab preserved for context memory.`,
+          `%c[SpectraLens:Pipeline] ✅ [STEP 5/5] fetchAiAnswer resolved for Tab #${tabId} (Length: ${textVal.length} chars).`,
           "color: #10b981; font-weight: bold;",
         );
-        resolve(val);
+        console.log(
+          `[SL REQUEST] ${requestId} provider=${providerId} event=CLEANUP timestamp=${Date.now()}`,
+        );
+        resolve(textVal);
       }
     }
 
-    // Dynamic Adaptive Timeout: 90s for cold start (new window/tab), 80s for warm/already-open sessions
-    const queryTimeoutMs = isReused ? 80000 : 90000;
+    // Overall Completion Timeout
+    const overallTimeoutMs = isReused
+      ? 80000
+      : PHASE_TIMEOUTS.COMPLETION_TIMEOUT;
     timeoutId = setTimeout(() => {
       console.warn(
-        `%c[SpectraLens:Pipeline] ⏱️ [TIMEOUT] ${queryTimeoutMs / 1000}s timeout reached for Tab #${tabId} (isReused: ${isReused})`,
+        `%c[SpectraLens:Pipeline] ⏱️ [TIMEOUT] ${overallTimeoutMs / 1000}s timeout reached for Tab #${tabId} in phase "${currentPhase}"`,
         "color: #ef4444; font-weight: bold;",
       );
       if (requestId && activeProviderLocks.get(providerId) === requestId) {
         activeProviderLocks.delete(providerId);
       }
-      setRequestState(requestId, providerId, REQUEST_STATES.TIMED_OUT);
-      safeResolve(formatProviderError(providerId, "Request timed out"));
-    }, queryTimeoutMs);
+      setRequestState(
+        requestId,
+        providerId,
+        REQUEST_STATES.TIMED_OUT,
+        currentPhase,
+      );
+      const structuredErr = createStructuredError(
+        requestId,
+        providerId,
+        currentPhase,
+        "TIMEOUT",
+        `Request timed out during ${currentPhase}`,
+        false,
+      );
+      safeResolve(structuredErr.answer);
+    }, overallTimeoutMs);
 
     function runInjection() {
       if (isResolved || isExecuting) return;
       isExecuting = true;
+      currentPhase = "SENDING";
+      setRequestState(requestId, providerId, REQUEST_STATES.SENDING, "SENDING");
 
       console.log(
         `%c[SpectraLens:Pipeline] 💉 [STEP 4/5] Injecting "${providerId}" adapter script into Tab #${tabId} (isReused: ${isReused}, requestId: ${requestId})...`,
@@ -438,7 +743,7 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
       executeScriptReturn(
         tabId,
         extractFn,
-        (injectResult) => {
+        async (injectResult) => {
           if (isResolved) return;
           console.log(
             `%c[SpectraLens:Pipeline] 📥 [STEP 4/5 COMPLETE] Received execution response from Tab #${tabId}:`,
@@ -449,35 +754,54 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
           if (resultVal === "__NAVIGATING__") {
             isExecuting = false;
             hasSubmittedForRequest = true;
-            setRequestState(requestId, providerId, REQUEST_STATES.SUBMITTED);
-            console.log(
-              `%c[SpectraLens:Pipeline] 🚀 [STEP 4/5] Submitted from homepage. Waiting for /search navigation to complete...`,
-              "color: #3b82f6; font-weight: bold;",
+            currentPhase = "RESPONSE_START";
+            setRequestState(
+              requestId,
+              providerId,
+              REQUEST_STATES.SUBMITTED,
+              "SUBMITTED",
             );
             return;
           }
 
           if (typeof resultVal === "string" && resultVal.trim().length > 0) {
             hasSubmittedForRequest = true;
-            console.log(
-              `%c[SpectraLens:RawOutput] 📦 ==================== FULL RAW OUTPUT DATA FROM [${providerId.toUpperCase()}] ====================`,
-              "color: #8b5cf6; font-weight: bold; font-size: 13px;",
-            );
-            console.log(
-              `[SpectraLens:RawOutput] Provider: "${providerId}" | Tab ID: #${tabId} | Character Length: ${resultVal.length}`,
-            );
-            console.log(
-              `[SpectraLens:RawOutput] RAW DATA CONTENT:\n`,
-              resultVal,
-            );
-            console.log(
-              `%c[SpectraLens:RawOutput] =========================================================================================`,
-              "color: #8b5cf6; font-weight: bold; font-size: 13px;",
-            );
+            currentPhase = "COMPLETION";
             safeResolve(resultVal);
-          } else {
+          } else if (
+            resultVal &&
+            typeof resultVal === "object" &&
+            (resultVal.answer || resultVal.content)
+          ) {
             hasSubmittedForRequest = true;
-            setRequestState(requestId, providerId, REQUEST_STATES.SUBMITTED);
+            currentPhase = "COMPLETION";
+            safeResolve(resultVal.answer || resultVal.content);
+          } else {
+            // If submission failed before completion and safe to retry
+            if (!hasSubmittedForRequest && retryCount === 0) {
+              detachTurnListeners();
+              persistentProviderTabs.delete(providerId);
+              console.log(
+                `[SL REQUEST] ${requestId} provider=${providerId} event=RETRY phase=SENDING timestamp=${Date.now()}`,
+              );
+              const retryResult = await fetchAiAnswer(
+                url,
+                extractFn,
+                extractArgs,
+                requestId,
+                1,
+              );
+              safeResolve(retryResult);
+              return;
+            }
+            hasSubmittedForRequest = true;
+            currentPhase = "RESPONSE_START";
+            setRequestState(
+              requestId,
+              providerId,
+              REQUEST_STATES.SUBMITTED,
+              "SUBMITTED",
+            );
             isExecuting = false;
           }
         },
@@ -489,7 +813,6 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
       if (isResolved) return;
       if (updatedTabId === tabId && info.status === "complete") {
         injectMainWorldNetworkInterceptor(tabId);
-        // If prompt has already been submitted for this request, ignore page navigation re-triggers!
         if (hasSubmittedForRequest) {
           console.log(
             `[SL REQUEST] ${requestId} provider=${providerId} event=NAVIGATION_IGNORED timestamp=${Date.now()}`,
@@ -497,10 +820,6 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
           return;
         }
         if (!isExecuting) {
-          console.log(
-            `%c[SpectraLens:Pipeline] 🌐 [PAGE LOAD COMPLETE] Tab #${tabId} status is "complete". Running adapter injection...`,
-            "color: #3b82f6; font-weight: bold;",
-          );
           runInjection();
         }
       }
@@ -513,21 +832,29 @@ function fetchAiAnswer(url, extractFn, extractArgs = [], requestId = null) {
         if (requestId && activeProviderLocks.get(providerId) === requestId) {
           activeProviderLocks.delete(providerId);
         }
-        setRequestState(requestId, providerId, REQUEST_STATES.FAILED);
+        setRequestState(
+          requestId,
+          providerId,
+          REQUEST_STATES.FAILED,
+          "TAB_CLOSED",
+        );
         activeAiTabs = activeAiTabs.filter((id) => id !== tabId);
-        safeResolve(formatProviderError(providerId, "Window closed"));
+        const structuredErr = createStructuredError(
+          requestId,
+          providerId,
+          currentPhase,
+          "TAB_CLOSED",
+          "Window closed during processing",
+          false,
+        );
+        safeResolve(structuredErr.answer);
       }
     }
 
     chrome.tabs.onUpdated.addListener(listener);
     chrome.tabs.onRemoved.addListener(onRemoved);
 
-    // If tab is already fully loaded, run adapter immediately
     if (isReused || tab.status === "complete") {
-      console.log(
-        `%c[SpectraLens:Pipeline] ⚡ Tab #${tabId} is ready (isReused: ${isReused}). Running adapter immediately...`,
-        "color: #10b981; font-weight: bold;",
-      );
       runInjection();
     }
   });

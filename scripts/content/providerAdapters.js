@@ -523,14 +523,32 @@
         let intervalTimer = null;
         let lastEvaluationTime = 0;
 
-        tabLog(
-          this.adapter.id,
-          `[SL REQUEST] ${tracker.requestId} provider=${this.adapter.id} event=RESPONSE_OBSERVE_START timestamp=${Date.now()}`,
-        );
+        // Cancellation listener
+        const cancelListener = (event) => {
+          const isMatch =
+            event.data?.type === "CANCEL_AI_REQUEST" &&
+            (!event.data.requestId ||
+              event.data.requestId === tracker.requestId);
+          if (isMatch) {
+            tabLog(
+              this.adapter.id,
+              `[SL REQUEST] ${tracker.requestId} provider=${this.adapter.id} event=CANCELLED timestamp=${Date.now()}`,
+            );
+            clearTimeout(overallTimeoutId);
+            finalize(RESPONSE_STATES.CANCELLED, "");
+          }
+        };
+        if (typeof window !== "undefined") {
+          window.addEventListener("message", cancelListener);
+        }
 
         const finalize = async (status, responseOverride = null) => {
           if (isFinalized) return;
           isFinalized = true;
+
+          if (typeof window !== "undefined") {
+            window.removeEventListener("message", cancelListener);
+          }
 
           if (mutationObserver) {
             mutationObserver.disconnect();
