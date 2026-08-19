@@ -622,27 +622,51 @@ function markdownToHtml(md) {
 
    let source = md;
 
-   // If the content is raw HTML (e.g. from legacy storage or old sessions), normalize it to clean Markdown first
-   if (/<(?:div|p|h[1-6]|ul|ol|li|table|pre|section|article)\b[^>]*>/i.test(source)) {
+   // Only convert legacy pure HTML if the entire payload is an HTML container and not markdown
+   const trimmed = source.trim();
+   if (
+      !source.includes("```") &&
+      (trimmed.startsWith("<div") ||
+         trimmed.startsWith("<section") ||
+         trimmed.startsWith("<article") ||
+         trimmed.startsWith("<p"))
+   ) {
       source = domToMarkdown(source);
    }
 
-   // Preserve code blocks before escaping HTML special chars
+   // 1. Preserve and protect fenced code blocks (```lang\n...```) FIRST
    const codeBlocks = [];
-   source = source.replace(/(?:^|\n)```([a-z0-9_-]*)\s*\n?([\s\S]*?)```(?:\n|$)/gi, (_, lang, code) => {
+   source = source.replace(/(?:^|\n)```([a-zA-Z0-9_#+.-]*)\s*\n?([\s\S]*?)```(?:\n|$)/g, (match, lang, code) => {
       const idx = codeBlocks.length;
-      const langDisplay = lang ? lang.trim().toLowerCase() : "";
-      const cleanCode = (code || "").replace(/^\n+|\n+$/g, "");
-      const escapedCode = cleanCode
+      const cleanLang = (lang || "").trim().toLowerCase();
+      const rawCode = (code !== undefined ? code : "").replace(/^\n+|\n+$/g, "");
+      const escapedCode = rawCode
          .replace(/&/g, "&amp;")
          .replace(/</g, "&lt;")
          .replace(/>/g, "&gt;");
-      const blockHtml = `\n<div class="my-2.5 rounded-xl overflow-hidden border border-slate-700/60 bg-slate-900 shadow-xs"><div class="flex items-center justify-between px-3 py-1.5 bg-slate-800/80 border-b border-slate-700/60 text-[10px] font-mono text-slate-400 font-semibold uppercase tracking-wider"><span>${langDisplay || "code"}</span></div><pre class="p-3 overflow-x-auto text-xs font-mono text-slate-100 leading-relaxed"><code class="language-${langDisplay}">${escapedCode}</code></pre></div>\n`;
+
+      const langHeader = cleanLang
+         ? `<div class="flex items-center justify-between px-3 py-1.5 bg-slate-800/90 border-b border-slate-700/60 text-[10px] font-mono text-slate-300 font-bold uppercase tracking-wider select-none"><span>${cleanLang}</span></div>`
+         : '';
+
+      const blockHtml = `\n<div class="spectralens-code-card my-2.5 rounded-xl overflow-hidden border border-slate-700/70 bg-slate-900 shadow-xs">${langHeader}<pre class="p-3 overflow-x-auto text-xs font-mono text-slate-100 leading-relaxed custom-scrollbar whitespace-pre"><code class="language-${cleanLang}">${escapedCode}</code></pre></div>\n`;
       codeBlocks.push(blockHtml);
-      return `\n%%SPECTRALENS_CODE_BLOCK_${idx}%%\n`;
+      return `\n%%SPL_CODE_${idx}%%\n`;
    });
 
-   // Preserve inline math and display math
+   // 2. Preserve and protect inline code (`code`)
+   const inlineCodes = [];
+   source = source.replace(/`([^`\n]+)`/g, (match, code) => {
+      const idx = inlineCodes.length;
+      const escaped = (code || "")
+         .replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;");
+      inlineCodes.push(`<code class="px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-white/[0.08] text-blue-600 dark:text-blue-400 font-mono text-[11px] font-medium border border-slate-200/50 dark:border-white/[0.05]">${escaped}</code>`);
+      return `%%SPL_INLINE_${idx}%%`;
+   });
+
+   // 3. Preserve inline math and display math
    const mathBlocks = [];
    source = source.replace(/\$\$([\s\S]+?)\$\$/g, (_, math) => {
       const idx = mathBlocks.length;
@@ -651,7 +675,7 @@ function markdownToHtml(md) {
          .replace(/</g, "&lt;")
          .replace(/>/g, "&gt;");
       mathBlocks.push(`<div class="my-2 p-2.5 rounded-xl bg-slate-100 dark:bg-white/[0.06] border border-slate-200/80 dark:border-white/[0.08] text-center font-mono text-xs text-blue-600 dark:text-blue-400 overflow-x-auto">${cleanMath}</div>`);
-      return `%%SPECTRALENS_MATH_BLOCK_${idx}%%`;
+      return `%%SPL_MATH_${idx}%%`;
    });
 
    source = source.replace(/\$([^\$\n]+?)\$/g, (_, math) => {
@@ -661,15 +685,16 @@ function markdownToHtml(md) {
          .replace(/</g, "&lt;")
          .replace(/>/g, "&gt;");
       mathBlocks.push(`<code class="px-1.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-mono text-[11px] font-medium border border-blue-200/50 dark:border-blue-800/40">${cleanMath}</code>`);
-      return `%%SPECTRALENS_MATH_BLOCK_${idx}%%`;
+      return `%%SPL_MATH_${idx}%%`;
    });
 
+   // 4. Escape general HTML in the surrounding markdown text
    let html = source
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;");
 
-   // Markdown Tables
+   // 5. Markdown Tables
    html = html.replace(/(?:^|\n)(\|.+?\|\n\|[\s\-:|]+\|\n(?:\|.+?\|\n?)+)/g, (match) => {
       const lines = match.trim().split("\n");
       if (lines.length < 2) return match;
@@ -704,31 +729,34 @@ function markdownToHtml(md) {
    html = html.replace(/\[x\]\s+/gi, '<span class="inline-block text-emerald-500 font-bold mr-1.5">✓</span>');
    html = html.replace(/\[\s\]\s+/gi, '<span class="inline-block text-slate-400 mr-1.5">○</span>');
 
-   // Inline styles
+   // Inline styles (bold, italic, strikethrough, highlight)
    html = html.replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-slate-900 dark:text-white">$1</strong>');
+   html = html.replace(/__([^_]+)__/g, '<strong class="font-bold text-slate-900 dark:text-white">$1</strong>');
    html = html.replace(/\*(.*?)\*/g, '<em class="italic text-slate-800 dark:text-slate-200">$1</em>');
+   html = html.replace(/_([^_]+)_/g, '<em class="italic text-slate-800 dark:text-slate-200">$1</em>');
    html = html.replace(/~~(.*?)~~/g, '<del class="line-through opacity-70">$1</del>');
    html = html.replace(/==(.*?)==/g, '<mark class="bg-yellow-200 dark:bg-yellow-900/60 text-slate-900 dark:text-yellow-200 px-1 rounded-sm">$1</mark>');
-   html = html.replace(/`([^`]+)`/g, '<code class="px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-white/[0.08] text-blue-600 dark:text-blue-400 font-mono text-[11px] font-medium border border-slate-200/50 dark:border-white/[0.05]">$1</code>');
 
    // Links
    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-blue-400 underline hover:text-blue-700 dark:hover:text-blue-300 font-medium">$1</a>');
 
    // Lists
    html = html.replace(/^\s*-\s+(.*?)$/gm, '<li class="ml-4 list-disc text-xs leading-relaxed my-0.5 text-slate-800 dark:text-slate-200">$1</li>');
+   html = html.replace(/^\s*\*\s+(.*?)$/gm, '<li class="ml-4 list-disc text-xs leading-relaxed my-0.5 text-slate-800 dark:text-slate-200">$1</li>');
    html = html.replace(/^\s*(\d+)\.\s+(.*?)$/gm, '<li class="ml-4 list-decimal text-xs leading-relaxed my-0.5 text-slate-800 dark:text-slate-200">$2</li>');
 
-   // Restore Code Blocks
+   // 6. Restore all protected blocks
    codeBlocks.forEach((block, idx) => {
-      html = html.replace(`%%SPECTRALENS_CODE_BLOCK_${idx}%%`, block);
+      html = html.replace(`%%SPL_CODE_${idx}%%`, block);
    });
-
-   // Restore Math Blocks
+   inlineCodes.forEach((block, idx) => {
+      html = html.replace(`%%SPL_INLINE_${idx}%%`, block);
+   });
    mathBlocks.forEach((block, idx) => {
-      html = html.replace(`%%SPECTRALENS_MATH_BLOCK_${idx}%%`, block);
+      html = html.replace(`%%SPL_MATH_${idx}%%`, block);
    });
 
-   // Paragraphs & newlines
+   // 7. Paragraphs & newlines
    html = html.replace(/\n\n+/g, '<div class="my-2"></div>');
    html = html.replace(/\n/g, '<br/>');
 
