@@ -1,7 +1,7 @@
 {
   "name": "spectralens-ai",
   "private": true,
-  "version": "2.9.61",
+  "version": "2.9.62",
   "type": "module",
   "scripts": {
     "dev": "vite",

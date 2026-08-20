@@ -36,7 +36,7 @@ export default function HistoryView({ onLoadQuery, isMenuOpen = true }) {
       const listener = (changes, areaName) => {
         if (
           areaName === "local" &&
-          (changes[UTILS.KEYS.HISTORY_INDEX] || changes[UTILS.KEYS.HISTORY])
+          changes[UTILS.KEYS.HISTORY_INDEX]
         ) {
           loadHistory();
         }

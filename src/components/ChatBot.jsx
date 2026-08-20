@@ -450,23 +450,17 @@ export default function ChatBot({
             ? lastTurn.selectedProvider
             : answeredProviders[0] || "google";
         setSelectedProvider(targetProv);
-      } else if (initialHistoryItem.question || initialHistoryItem.answers) {
-        // Legacy history format
-        const legacyAnswers = initialHistoryItem.answers || {};
-        const firstAnswered = Object.keys(legacyAnswers)[0] || "google";
-        const legacyTurn = {
-          id: initialHistoryItem.id || Date.now().toString(),
-          question: initialHistoryItem.question || "",
-          questionImage: initialHistoryItem.image || null,
-          questionPage: initialHistoryItem.page || null,
-          messageTime: formatDateTimeBadge(initialHistoryItem.timestamp),
-          answers: legacyAnswers,
-          isLoading: false,
-          selectedProvider: firstAnswered,
-        };
-        setTurns([legacyTurn]);
-        turnsRef.current = [legacyTurn];
-        setSelectedProvider(firstAnswered);
+      } else if (initialHistoryItem.id) {
+        UTILS.getChatSession(initialHistoryItem.id).then((fullChat) => {
+          if (fullChat?.turns && fullChat.turns.length > 0) {
+            setTurns(fullChat.turns);
+            turnsRef.current = fullChat.turns;
+            const lastTurn = fullChat.turns[fullChat.turns.length - 1];
+            if (lastTurn?.selectedProvider) {
+              setSelectedProvider(lastTurn.selectedProvider);
+            }
+          }
+        });
       }
       if (onClearLoadedHistory) {
         onClearLoadedHistory();

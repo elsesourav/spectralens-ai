@@ -669,19 +669,19 @@ import("../scripts/update-version.js").then(({ calculateNextVersion, normalizeVe
   assert(scriptsUtilsText.includes("getChatSession"), "scripts/utils.js defines getChatSession");
   assert(scriptsUtilsText.includes("clearAllHistory"), "scripts/utils.js defines clearAllHistory");
 
-  // 16. App Rebranding & Storage Key Purity Audit (Zero Ai-Display references):
-  console.log("\n16. App Rebranding & Storage Key Purity Audit (Zero Ai-Display references):");
+  // 16. App Rebranding & Storage Key Purity Audit (Zero Legacy & Zero Ai-Display references):
+  console.log("\n16. App Rebranding & Storage Key Purity Audit (Zero Legacy & Zero Ai-Display references):");
   assert(!utilsModuleText.includes("Ai-Display"), "utilsModule.js contains NO 'Ai-Display' strings");
+  assert(!utilsModuleText.includes("legacy"), "utilsModule.js contains NO legacy fallback code");
   assert(utilsModuleText.includes("SpectraLens-Settings"), "utilsModule.js uses 'SpectraLens-Settings'");
   assert(utilsModuleText.includes("SpectraLens-Controls"), "utilsModule.js uses 'SpectraLens-Controls'");
-  assert(utilsModuleText.includes("SpectraLens-History"), "utilsModule.js uses 'SpectraLens-History'");
   assert(utilsModuleText.includes("SpectraLens-History-Index"), "utilsModule.js uses 'SpectraLens-History-Index'");
   assert(utilsModuleText.includes("SpectraLens-Chat-"), "utilsModule.js uses 'SpectraLens-Chat-'");
 
   assert(!scriptsUtilsText.includes("Ai-Display"), "scripts/utils.js contains NO 'Ai-Display' strings");
+  assert(!scriptsUtilsText.includes("legacy"), "scripts/utils.js contains NO legacy fallback code");
   assert(scriptsUtilsText.includes("SpectraLens-Settings"), "scripts/utils.js uses 'SpectraLens-Settings'");
   assert(scriptsUtilsText.includes("SpectraLens-Controls"), "scripts/utils.js uses 'SpectraLens-Controls'");
-  assert(scriptsUtilsText.includes("SpectraLens-History"), "scripts/utils.js uses 'SpectraLens-History'");
   assert(scriptsUtilsText.includes("SpectraLens-History-Index"), "scripts/utils.js uses 'SpectraLens-History-Index'");
   assert(scriptsUtilsText.includes("SpectraLens-Chat-"), "scripts/utils.js uses 'SpectraLens-Chat-'");
 

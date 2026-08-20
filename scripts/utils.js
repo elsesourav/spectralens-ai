@@ -3,7 +3,6 @@
 const KEYS = {
   SETTINGS: "SpectraLens-Settings",
   CONTROLS: "SpectraLens-Controls",
-  HISTORY: "SpectraLens-History",
   HISTORY_INDEX: "SpectraLens-History-Index",
   CHAT_PREFIX: "SpectraLens-Chat-",
   ALWAYS_ACTIVE_HOSTS: "alwaysActiveHosts",
@@ -454,70 +453,13 @@ async function saveChatSession(sessionData, callback) {
 
 /**
  * Retrieve the lightweight history index list.
- * Automatically migrates legacy monolithic history if needed.
  */
 function getHistoryIndex(callback) {
   return new Promise((resolve) => {
-    chromeStorageGetLocal(KEYS.HISTORY_INDEX, async (indexData) => {
-      if (Array.isArray(indexData) && indexData.length > 0) {
-        callback && callback(indexData);
-        resolve(indexData);
-        return;
-      }
-
-      // Check legacy history for automatic migration
-      const legacyData = await chromeStorageGetLocal(KEYS.HISTORY);
-      if (Array.isArray(legacyData) && legacyData.length > 0) {
-        const migratedIndex = [];
-        for (const item of legacyData) {
-          if (item && item.id) {
-            const chatKey = KEYS.CHAT_PREFIX + item.id;
-            await chromeStorageSetLocal(chatKey, item);
-
-            const firstQ =
-              item.question?.trim() ||
-              item.turns?.[0]?.question?.trim() ||
-              (item.turns?.[0]?.questionImage || item.image
-                ? "Visual Query / Screenshot"
-                : "Conversation Session");
-
-            migratedIndex.push({
-              id: item.id,
-              question: firstQ,
-              timestamp: item.timestamp || item.date || Date.now(),
-              turnCount: Array.isArray(item.turns) ? item.turns.length : 1,
-              providers:
-                item.providers ||
-                (item.turns
-                  ? Array.from(
-                      new Set(
-                        item.turns.flatMap((t) =>
-                          Object.keys(t.answers || {}),
-                        ),
-                      ),
-                    )
-                  : Object.keys(item.answers || {})),
-              hasImage: Boolean(
-                item.turns?.some((t) => t.questionImage || t.image) ||
-                  item.image,
-              ),
-              hasPage: Boolean(
-                item.turns?.some((t) => t.questionPage || t.page) ||
-                  item.page,
-              ),
-            });
-          }
-        }
-
-        await chromeStorageSetLocal(KEYS.HISTORY_INDEX, migratedIndex);
-        callback && callback(migratedIndex);
-        resolve(migratedIndex);
-        return;
-      }
-
-      const empty = [];
-      callback && callback(empty);
-      resolve(empty);
+    chromeStorageGetLocal(KEYS.HISTORY_INDEX, (indexData) => {
+      const result = Array.isArray(indexData) ? indexData : [];
+      callback && callback(result);
+      resolve(result);
     });
   });
 }
@@ -534,39 +476,9 @@ function getChatSession(sessionId, callback) {
     }
 
     const chatKey = KEYS.CHAT_PREFIX + sessionId;
-    chromeStorageGetLocal(chatKey, async (chatData) => {
-      if (
-        chatData &&
-        (chatData.turns || chatData.question || chatData.answers)
-      ) {
-        callback && callback(chatData);
-        resolve(chatData);
-        return;
-      }
-
-      // Check legacy monolithic history if not found in isolated key
-      const legacyData = await chromeStorageGetLocal(KEYS.HISTORY);
-      if (legacyData) {
-        let found = null;
-        if (Array.isArray(legacyData)) {
-          found = legacyData.find((item) => item?.id === sessionId);
-        } else if (
-          legacyData.id === sessionId ||
-          legacyData.turns ||
-          legacyData.question
-        ) {
-          found = legacyData;
-        }
-        if (found) {
-          await chromeStorageSetLocal(chatKey, found);
-          callback && callback(found);
-          resolve(found);
-          return;
-        }
-      }
-
-      callback && callback(null);
-      resolve(null);
+    chromeStorageGetLocal(chatKey, (chatData) => {
+      callback && callback(chatData || null);
+      resolve(chatData || null);
     });
   });
 }
@@ -577,7 +489,7 @@ function getChatSession(sessionId, callback) {
 function clearAllHistory(callback) {
   return new Promise((resolve) => {
     chromeStorageGetLocal(KEYS.HISTORY_INDEX, (indexList) => {
-      const keysToRemove = [KEYS.HISTORY_INDEX, KEYS.HISTORY];
+      const keysToRemove = [KEYS.HISTORY_INDEX];
       if (Array.isArray(indexList)) {
         for (const item of indexList) {
           if (item?.id) {
@@ -1138,7 +1050,7 @@ function htmlToMarkdown(html) {
 }
 
 /**
- * Converts clean Markdown text (or legacy HTML) into secure, responsive, lightweight styled HTML for rendering.
+ * Converts clean Markdown text into secure, responsive, lightweight styled HTML for rendering.
  */
 function markdownToHtml(md) {
   if (!md || typeof md !== "string") return "";
