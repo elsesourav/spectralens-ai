@@ -456,6 +456,20 @@ function injectMainWorldNetworkInterceptor(tabId) {
 
           function notifyActivity(type, url, data = null) {
             window.__SPECTRALENS_LAST_NET_ACTIVITY__ = Date.now();
+            try {
+              if (type === "fetch_start" || type === "xhr_start") {
+                console.log(
+                  `%c[SpectraLens:Network] 📡 [STREAM STARTED] (${type.toUpperCase()}) Active requests: ${window.__SPECTRALENS_ACTIVE_NET_REQUESTS__} | URL: ${url.slice(0, 90)}`,
+                  "color: #06b6d4; font-weight: bold;",
+                );
+              } else if (type === "fetch_chunk" || type === "xhr_progress") {
+                console.log(
+                  `%c[SpectraLens:Network] 📦 [STREAM CHUNK] Read ${data ? data.length : 0} chars chunk from: ${url.slice(0, 70)}`,
+                  "color: #06b6d4;",
+                );
+              }
+            } catch {}
+
             window.dispatchEvent(
               new CustomEvent("spectralens:network_activity", {
                 detail: {
@@ -475,6 +489,13 @@ function injectMainWorldNetworkInterceptor(tabId) {
               window.__SPECTRALENS_ACTIVE_NET_REQUESTS__ - 1,
             );
             window.__SPECTRALENS_LAST_NET_COMPLETED__ = Date.now();
+            try {
+              console.log(
+                `%c[SpectraLens:Network] ✅ [STREAM COMPLETED] Stream ended (${text ? text.length : 0} chars, active remaining: ${window.__SPECTRALENS_ACTIVE_NET_REQUESTS__}) -> ${url.slice(0, 90)}`,
+                "color: #10b981; font-weight: bold;",
+              );
+            } catch {}
+
             window.dispatchEvent(
               new CustomEvent("spectralens:network_completed", {
                 detail: {

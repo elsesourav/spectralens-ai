@@ -643,6 +643,11 @@
             this.adapter.id,
             `[SL REQUEST] ${tracker.requestId} provider=${this.adapter.id} event=TAB_FINAL_RESPONSE sequence=${tracker.sequence} length=${finalMarkdown.length} timestamp=${Date.now()}`,
           );
+          tabLog(
+            this.adapter.id,
+            `%c[SpectraLens:Observer] ✅ [FINALIZED] Captured ${finalMarkdown.length} chars (status: ${status}) for "${this.adapter.id}"`,
+            "color: #10b981; font-weight: bold;",
+          );
 
           resolve({
             status:
@@ -714,12 +719,22 @@
               this.adapter.id,
               `[SL REQUEST] ${tracker.requestId} provider=${this.adapter.id} event=TAB_STREAM_RESPONSE sequence=${tracker.sequence} chars=${tracker.lastTextLength} timestamp=${now}`,
             );
+            tabLog(
+              this.adapter.id,
+              `%c[SpectraLens:Observer] 📝 Live text progress for "${this.adapter.id}": "${currentRawText.slice(-35).replace(/\n/g, " ")}" (chars: ${tracker.lastTextLength}, seq: ${tracker.sequence})`,
+              "color: #3b82f6;",
+            );
           }
 
           // Evaluate completion confidence score
           const evaluation = this.detector.evaluate(tracker, currentRawText);
 
           if (evaluation.isComplete) {
+            tabLog(
+              this.adapter.id,
+              `%c[SpectraLens:Observer] 🏆 Completion confidence verified (${evaluation.score}/100) for "${this.adapter.id}". Finalizing answer...`,
+              "color: #10b981; font-weight: bold;",
+            );
             clearTimeout(overallTimeoutId);
             finalize(RESPONSE_STATES.COMPLETED);
           } else if (evaluation.isStabilizing) {
