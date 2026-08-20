@@ -498,9 +498,17 @@ export default function ChatBot({
         }
       }
 
+      const firstTurnQuestion =
+        turnsToSave[0]?.question?.trim() ||
+        (turnsToSave[0]?.questionImage
+          ? "Visual Query / Screenshot"
+          : turnsToSave[0]?.questionPage
+            ? "Web Page Analysis"
+            : "Conversation Session");
+
       const updatedHistoryItem = {
         id: sessionId,
-        question: turnsToSave[0]?.question || "Conversation",
+        question: firstTurnQuestion,
         timestamp: Date.now(),
         turns: turnsToSave,
         answers: mergedAllAnswers,
@@ -512,7 +520,8 @@ export default function ChatBot({
         updatedHistory = [...historyList];
         updatedHistory[existingIndex] = updatedHistoryItem;
       } else {
-        updatedHistory = [updatedHistoryItem, ...historyList].slice(0, 30);
+        // Save up to 150 sessions with full multi-turn history
+        updatedHistory = [updatedHistoryItem, ...historyList].slice(0, 150);
       }
 
       UTILS.chromeStorageSetLocal(
@@ -1246,13 +1255,40 @@ export default function ChatBot({
         {/* Sequential Conversation Turns (One after one) */}
         {turns.map((turn) => {
           const turnAnswers = turn.answers || {};
-          const currentProviderId =
+
+          // Determine the provider ID to display for this turn:
+          // 1. If selectedProvider has content or is loading for this turn, use selectedProvider
+          // 2. If turn.selectedProvider has content, use turn.selectedProvider
+          // 3. Otherwise pick the first provider that has an answer in this turn
+          let currentProviderId =
             selectedProvider || turn.selectedProvider || "google";
-          const finalAns = turnAnswers[currentProviderId];
-          const activeContent =
+          let finalAns = turnAnswers[currentProviderId];
+          let activeContent =
             finalAns?.content ||
             finalAns?.answer ||
             (typeof finalAns === "string" ? finalAns : "");
+
+          if (!activeContent && !turn.isLoading) {
+            const alternateAnsweredId = Object.keys(turnAnswers).find(
+              (pId) => {
+                const a = turnAnswers[pId];
+                return (
+                  a &&
+                  (a.content ||
+                    a.answer ||
+                    (typeof a === "string" && a.trim().length > 0))
+                );
+              },
+            );
+            if (alternateAnsweredId) {
+              currentProviderId = alternateAnsweredId;
+              finalAns = turnAnswers[currentProviderId];
+              activeContent =
+                finalAns?.content ||
+                finalAns?.answer ||
+                (typeof finalAns === "string" ? finalAns : "");
+            }
+          }
 
           const isCardLoading = Boolean(
             !activeContent &&

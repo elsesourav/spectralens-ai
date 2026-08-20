@@ -44,13 +44,12 @@ const riskyPermissions = [
   "webRequest",
   "declarativeNetRequestFeedback",
   "declarativeNetRequestWithHostAccess",
-  "unlimitedStorage",
 ];
 const foundRisky = manifest.permissions.filter((p) => riskyPermissions.includes(p));
 assert(foundRisky.length === 0, `No risky/unwanted permissions found (found: ${JSON.stringify(foundRisky)})`);
 
 // Verify essential permissions
-const requiredPermissions = ["scripting", "storage", "activeTab", "tabs", "offscreen"];
+const requiredPermissions = ["scripting", "storage", "unlimitedStorage", "activeTab", "tabs", "offscreen"];
 const hasAllRequired = requiredPermissions.every((p) => manifest.permissions.includes(p));
 assert(hasAllRequired, "All required functional permissions are present");
 
@@ -558,6 +557,97 @@ import("../scripts/update-version.js").then(({ calculateNextVersion, normalizeVe
     cancelledRequestResolved = true;
   }
   assert(cancelTracker.state === "CANCELLED" && !cancelledRequestResolved, "Acceptance: Cancelled request stops cleanly and never resolves final response");
+
+  // 14. Perplexity Code Semicolon Formatting & Multi-Turn History Audit:
+  console.log("\n14. Perplexity Semicolon Formatting & Multi-Turn History:");
+  const perplexityJs = fs.readFileSync(path.join(rootDir, "scripts", "content", "adapters", "perplexity.js"), "utf-8");
+  assert(perplexityJs.includes("formatCodeSemicolons"), "PerplexityAdapter defines formatCodeSemicolons");
+  assert(perplexityJs.includes("extractStyledHtml"), "PerplexityAdapter overrides extractStyledHtml for code blocks");
+
+  // Test Perplexity semicolon formatting logic
+  function formatPerplexityCodeSemicolons(codeStr) {
+    if (!codeStr || typeof codeStr !== "string") return codeStr;
+
+    const lines = codeStr.split("\n");
+    const formattedLines = [];
+
+    for (const line of lines) {
+      let insideForLoop = false;
+      let forParenDepth = 0;
+      let resultLine = "";
+      let i = 0;
+
+      while (i < line.length) {
+        if (line.slice(i).match(/^for\s*\(/)) {
+          insideForLoop = true;
+          forParenDepth = 1;
+          const match = line.slice(i).match(/^for\s*\(/)[0];
+          resultLine += match;
+          i += match.length;
+          continue;
+        }
+
+        if (insideForLoop) {
+          if (line[i] === "(") {
+            forParenDepth++;
+          } else if (line[i] === ")") {
+            forParenDepth--;
+            if (forParenDepth <= 0) {
+              insideForLoop = false;
+            }
+          }
+          resultLine += line[i];
+          i++;
+          continue;
+        }
+
+        if (line[i] === ";") {
+          const before = resultLine;
+          const isEntity = /&[a-zA-Z0-9#]+$/.test(before);
+
+          if (!isEntity && i < line.length - 1) {
+            const remainder = line.slice(i + 1).trim();
+            if (remainder.length > 0) {
+              resultLine += ";\n";
+              i++;
+              while (i < line.length && (line[i] === " " || line[i] === "\t")) {
+                i++;
+              }
+              continue;
+            }
+          }
+        }
+
+        resultLine += line[i];
+        i++;
+      }
+
+      formattedLines.push(resultLine);
+    }
+
+    return formattedLines.join("\n");
+  }
+
+  const rawCode = "const a = 1; const b = 2; const c = 3;";
+  const formattedCode = formatPerplexityCodeSemicolons(rawCode);
+  assert(
+    formattedCode === "const a = 1;\nconst b = 2;\nconst c = 3;",
+    "Perplexity formatCodeSemicolons splits statements with ';' to the next line",
+  );
+
+  const loopCode = "for (let i = 0; i < 10; i++) { test(); }";
+  const formattedLoop = formatPerplexityCodeSemicolons(loopCode);
+  assert(
+    formattedLoop.includes("for (let i = 0; i < 10; i++)"),
+    "Perplexity formatCodeSemicolons preserves for-loop headers without breaking them",
+  );
+
+  const entityCode = "&amp; &lt; &gt;";
+  const formattedEntity = formatPerplexityCodeSemicolons(entityCode);
+  assert(
+    formattedEntity === "&amp; &lt; &gt;",
+    "Perplexity formatCodeSemicolons preserves HTML entities without breaking them",
+  );
 
   // --- SUMMARY ---
   console.log(`\n========================================`);

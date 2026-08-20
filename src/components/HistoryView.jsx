@@ -11,7 +11,7 @@ import { useTheme } from "../hooks/useThemeHook.jsx";
 import UTILS from "../utils/utilsModule.js";
 import { HistoryIcon, ProviderIcon } from "./Icons.jsx";
 
-const PAGE_SIZE = 15;
+const PAGE_SIZE = 20;
 
 export default function HistoryView({ onLoadQuery, isMenuOpen = true }) {
   const { contrastMode } = useTheme();
@@ -20,11 +20,28 @@ export default function HistoryView({ onLoadQuery, isMenuOpen = true }) {
   const [showConfirmClear, setShowConfirmClear] = useState(false);
 
   useEffect(() => {
-    UTILS.chromeStorageGetLocal(UTILS.KEYS.HISTORY, (data) => {
-      if (data && Array.isArray(data)) {
-        setHistory(data);
-      }
-    });
+    const loadHistory = () => {
+      UTILS.chromeStorageGetLocal(UTILS.KEYS.HISTORY, (data) => {
+        if (data && Array.isArray(data)) {
+          setHistory(data);
+        }
+      });
+    };
+
+    loadHistory();
+
+    // Listen for storage changes so history updates live across popup & tabs
+    if (typeof chrome !== "undefined" && chrome.storage?.onChanged) {
+      const listener = (changes, areaName) => {
+        if (areaName === "local" && changes[UTILS.KEYS.HISTORY]) {
+          loadHistory();
+        }
+      };
+      chrome.storage.onChanged.addListener(listener);
+      return () => {
+        chrome.storage.onChanged.removeListener(listener);
+      };
+    }
   }, []);
 
   // Auto-close confirmation dialog if menu window is minimized or closed
@@ -161,7 +178,12 @@ export default function HistoryView({ onLoadQuery, isMenuOpen = true }) {
                 >
                   <div className="flex flex-col gap-1.5 pr-2 overflow-hidden flex-1">
                     <span className="text-xs font-bold text-slate-900 dark:text-white line-clamp-2 leading-relaxed">
-                      {item.question}
+                      {item.question?.trim() ||
+                        (item.image || item.questionImage
+                          ? "Visual Screenshot Query"
+                          : item.page || item.questionPage
+                            ? "Web Page Analysis"
+                            : "Conversation Session")}
                     </span>
 
                     <div className="flex items-center gap-2 flex-wrap">

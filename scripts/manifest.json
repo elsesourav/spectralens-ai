@@ -1,11 +1,12 @@
 {
   "name": "SpectraLens AI",
-  "version": "2.9.58",
+  "version": "2.9.59",
   "description": "Fast multi-engine AI search aggregation, in-page text selection, and on-device Optical Character Recognition (OCR).",
   "manifest_version": 3,
   "permissions": [
     "scripting",
     "storage",
+    "unlimitedStorage",
     "activeTab",
     "tabs",
     "offscreen"
