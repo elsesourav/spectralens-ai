@@ -399,15 +399,15 @@
         score += 10;
       }
 
-      // Signal F (+35): Network stream completed & no active network requests
+      // Signal F (+40): Network stream completed & no active network requests
       const isNetComplete =
         tracker.isNetworkCompleted ||
         (typeof window !== "undefined" &&
           window.__SPECTRALENS_ACTIVE_NET_REQUESTS__ === 0 &&
           window.__SPECTRALENS_LAST_NET_COMPLETED__ > 0);
 
-      if (isNetComplete && !isStreamingNow && tracker.lastTextLength > 20) {
-        score += 35;
+      if (isNetComplete && !isStreamingNow && tracker.lastTextLength > 15) {
+        score += 40;
       }
 
       return {
@@ -595,6 +595,10 @@
             `[SL REQUEST] ${tracker.requestId} provider=${this.adapter.id} event=NETWORK_COMPLETED timestamp=${Date.now()}`,
           );
           evaluate();
+          // Schedule rapid evaluations to instantly capture final DOM updates
+          setTimeout(() => { if (!isFinalized) evaluate(); }, 80);
+          setTimeout(() => { if (!isFinalized) evaluate(); }, 250);
+          setTimeout(() => { if (!isFinalized) evaluate(); }, 500);
         };
 
         if (typeof window !== "undefined") {

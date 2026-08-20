@@ -64,6 +64,10 @@
             `[SL REQUEST] ${tracker.requestId} provider=${this.adapter.id} event=NETWORK_COMPLETED timestamp=${Date.now()}`,
           );
           evaluate();
+          // Schedule rapid evaluations to instantly capture final DOM updates
+          setTimeout(() => { if (!isFinalized) evaluate(); }, 80);
+          setTimeout(() => { if (!isFinalized) evaluate(); }, 250);
+          setTimeout(() => { if (!isFinalized) evaluate(); }, 500);
         };
 
         if (typeof window !== "undefined") {

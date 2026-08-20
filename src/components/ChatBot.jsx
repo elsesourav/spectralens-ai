@@ -240,10 +240,14 @@ export default function ChatBot({
     [],
   );
 
-  const appIconUrl =
-    typeof chrome !== "undefined" && chrome.runtime?.getURL
-      ? chrome.runtime.getURL("assets/icons/128.png")
-      : "";
+  const appIconUrl = (() => {
+    try {
+      if (typeof chrome !== "undefined" && chrome.runtime?.id && chrome.runtime?.getURL) {
+        return chrome.runtime.getURL("assets/icons/128.png");
+      }
+    } catch {}
+    return "";
+  })();
 
   const hasAnyActivity = Boolean(turns.length > 0 || isLoading);
 
