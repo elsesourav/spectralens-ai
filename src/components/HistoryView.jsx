@@ -18,22 +18,26 @@ export default function HistoryView({ onLoadQuery, isMenuOpen = true }) {
   const [history, setHistory] = useState([]);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [showConfirmClear, setShowConfirmClear] = useState(false);
+  const [loadingSessionId, setLoadingSessionId] = useState(null);
 
   useEffect(() => {
     const loadHistory = () => {
-      UTILS.chromeStorageGetLocal(UTILS.KEYS.HISTORY, (data) => {
-        if (data && Array.isArray(data)) {
-          setHistory(data);
+      UTILS.getHistoryIndex((indexData) => {
+        if (indexData && Array.isArray(indexData)) {
+          setHistory(indexData);
         }
       });
     };
 
     loadHistory();
 
-    // Listen for storage changes so history updates live across popup & tabs
+    // Listen for storage changes so history index updates live
     if (typeof chrome !== "undefined" && chrome.storage?.onChanged) {
       const listener = (changes, areaName) => {
-        if (areaName === "local" && changes[UTILS.KEYS.HISTORY]) {
+        if (
+          areaName === "local" &&
+          (changes[UTILS.KEYS.HISTORY_INDEX] || changes[UTILS.KEYS.HISTORY])
+        ) {
           loadHistory();
         }
       };
@@ -58,11 +62,31 @@ export default function HistoryView({ onLoadQuery, isMenuOpen = true }) {
     };
   }, []);
 
-  const handleClearHistory = () => {
+  const handleClearHistory = async () => {
+    await UTILS.clearAllHistory();
     setHistory([]);
     setVisibleCount(PAGE_SIZE);
-    UTILS.chromeStorageSetLocal(UTILS.KEYS.HISTORY, []);
     setShowConfirmClear(false);
+  };
+
+  const handleSelectHistoryItem = async (item) => {
+    if (!item) return;
+    if (item.turns && Array.isArray(item.turns) && item.turns.length > 0) {
+      onLoadQuery && onLoadQuery(item);
+      return;
+    }
+
+    setLoadingSessionId(item.id);
+    try {
+      const fullChat = await UTILS.getChatSession(item.id);
+      if (fullChat) {
+        onLoadQuery && onLoadQuery(fullChat);
+      } else {
+        onLoadQuery && onLoadQuery(item);
+      }
+    } finally {
+      setLoadingSessionId(null);
+    }
   };
 
   const formatDateTimeBadge = (timestamp) => {
@@ -160,21 +184,23 @@ export default function HistoryView({ onLoadQuery, isMenuOpen = true }) {
                       )
                     : Object.keys(item.answers || {});
 
-              const turnCount = Array.isArray(item.turns)
-                ? item.turns.length
-                : 1;
+              const turnCount =
+                item.turnCount ||
+                (Array.isArray(item.turns) ? item.turns.length : 1);
+
+              const isLoadingThis = loadingSessionId === item.id;
 
               return (
                 <div
                   key={item.id || idx}
-                  onClick={() => onLoadQuery && onLoadQuery(item)}
+                  onClick={() => handleSelectHistoryItem(item)}
                   className={`group relative flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer shadow-xs ${
                     contrastMode === "solid"
                       ? "bg-white dark:bg-[#191c25] hover:bg-blue-50/70 dark:hover:bg-[#202430]/90 border-slate-200/90 dark:border-white/[0.08]"
                       : contrastMode === "medium"
                         ? "bg-white/95 dark:bg-[#191c25]/95 hover:bg-blue-50/70 dark:hover:bg-white/[0.12] border-slate-200/60 dark:border-white/[0.07]"
                         : "bg-white/80 dark:bg-white/[0.08] hover:bg-white/90 dark:hover:bg-white/[0.12] border-slate-200/40 dark:border-white/[0.06]"
-                  }`}
+                  } ${isLoadingThis ? "opacity-70 pointer-events-none" : ""}`}
                 >
                   <div className="flex flex-col gap-1.5 pr-2 overflow-hidden flex-1">
                     <span className="text-xs font-bold text-slate-900 dark:text-white line-clamp-2 leading-relaxed">

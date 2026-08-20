@@ -480,56 +480,44 @@ export default function ChatBot({
     if (historySaveTimeoutRef.current) {
       clearTimeout(historySaveTimeoutRef.current);
     }
-    UTILS.chromeStorageGetLocal(UTILS.KEYS.HISTORY, (prevHistory = []) => {
-      const historyList = Array.isArray(prevHistory) ? prevHistory : [];
-      const sessionId = turnsToSave[0]?.id || Date.now().toString();
-      const existingIndex = historyList.findIndex(
-        (item) => item.id === sessionId,
-      );
+    const sessionId = turnsToSave[0]?.id || Date.now().toString();
 
-      const allSessionProviders = new Set();
-      const mergedAllAnswers = {};
-      for (const t of turnsToSave) {
-        if (t.answers) {
-          for (const [pId, pVal] of Object.entries(t.answers)) {
-            allSessionProviders.add(pId);
-            mergedAllAnswers[pId] = pVal;
-          }
+    const allSessionProviders = new Set();
+    const mergedAllAnswers = {};
+    for (const t of turnsToSave) {
+      if (t.answers) {
+        for (const [pId, pVal] of Object.entries(t.answers)) {
+          allSessionProviders.add(pId);
+          mergedAllAnswers[pId] = pVal;
         }
       }
+    }
 
-      const firstTurnQuestion =
-        turnsToSave[0]?.question?.trim() ||
-        (turnsToSave[0]?.questionImage
-          ? "Visual Query / Screenshot"
-          : turnsToSave[0]?.questionPage
-            ? "Web Page Analysis"
-            : "Conversation Session");
+    const firstTurnQuestion =
+      turnsToSave[0]?.question?.trim() ||
+      (turnsToSave[0]?.questionImage
+        ? "Visual Query / Screenshot"
+        : turnsToSave[0]?.questionPage
+          ? "Web Page Analysis"
+          : "Conversation Session");
 
-      const updatedHistoryItem = {
-        id: sessionId,
-        question: firstTurnQuestion,
-        timestamp: Date.now(),
-        turns: turnsToSave,
-        answers: mergedAllAnswers,
-        providers: Array.from(allSessionProviders),
-      };
+    const sessionData = {
+      id: sessionId,
+      question: firstTurnQuestion,
+      timestamp: Date.now(),
+      turns: turnsToSave,
+      answers: mergedAllAnswers,
+      providers: Array.from(allSessionProviders),
+    };
 
-      let updatedHistory;
-      if (existingIndex >= 0) {
-        updatedHistory = [...historyList];
-        updatedHistory[existingIndex] = updatedHistoryItem;
-      } else {
-        // Save up to 150 sessions with full multi-turn history
-        updatedHistory = [updatedHistoryItem, ...historyList].slice(0, 150);
-      }
-
+    if (typeof UTILS.saveChatSession === "function") {
+      UTILS.saveChatSession(sessionData);
+    } else {
       UTILS.chromeStorageSetLocal(
-        UTILS.KEYS.HISTORY,
-        updatedHistory,
-        () => {},
+        (UTILS.KEYS.CHAT_PREFIX || "Ai-Display-Chat-") + sessionId,
+        sessionData,
       );
-    });
+    }
   }, []);
 
   // Debounced history storage writer to prevent CPU & GC churn during high-frequency streaming

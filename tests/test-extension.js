@@ -649,6 +649,30 @@ import("../scripts/update-version.js").then(({ calculateNextVersion, normalizeVe
     "Perplexity formatCodeSemicolons preserves HTML entities without breaking them",
   );
 
+  // 15. Split History Storage Engine (Index + Detail) Audit:
+  console.log("\n15. Split History Storage Engine (Index + Detail) Audit:");
+  const utilsModuleText = fs.readFileSync(path.join(rootDir, "src", "utils", "utilsModule.js"), "utf-8");
+  const scriptsUtilsText = fs.readFileSync(path.join(rootDir, "scripts", "utils.js"), "utf-8");
+
+  assert(utilsModuleText.includes("HISTORY_INDEX"), "utilsModule.js defines KEYS.HISTORY_INDEX");
+  assert(utilsModuleText.includes("CHAT_PREFIX"), "utilsModule.js defines KEYS.CHAT_PREFIX");
+  assert(utilsModuleText.includes("saveChatSession"), "utilsModule.js defines saveChatSession");
+  assert(utilsModuleText.includes("getHistoryIndex"), "utilsModule.js defines getHistoryIndex");
+  assert(utilsModuleText.includes("getChatSession"), "utilsModule.js defines getChatSession");
+  assert(utilsModuleText.includes("clearAllHistory"), "utilsModule.js defines clearAllHistory");
+  assert(utilsModuleText.includes("deleteChatSession"), "utilsModule.js defines deleteChatSession");
+
+  assert(scriptsUtilsText.includes("HISTORY_INDEX"), "scripts/utils.js defines KEYS.HISTORY_INDEX");
+  assert(scriptsUtilsText.includes("CHAT_PREFIX"), "scripts/utils.js defines KEYS.CHAT_PREFIX");
+  assert(scriptsUtilsText.includes("saveChatSession"), "scripts/utils.js defines saveChatSession");
+  assert(scriptsUtilsText.includes("getHistoryIndex"), "scripts/utils.js defines getHistoryIndex");
+  assert(scriptsUtilsText.includes("getChatSession"), "scripts/utils.js defines getChatSession");
+  assert(scriptsUtilsText.includes("clearAllHistory"), "scripts/utils.js defines clearAllHistory");
+
+  const historyViewJs = fs.readFileSync(path.join(rootDir, "src", "components", "HistoryView.jsx"), "utf-8");
+  assert(historyViewJs.includes("getHistoryIndex"), "HistoryView uses getHistoryIndex for lightweight index loading");
+  assert(historyViewJs.includes("getChatSession"), "HistoryView uses getChatSession for on-demand detail loading");
+
   // --- SUMMARY ---
   console.log(`\n========================================`);
   console.log(`Test Results: ${passed} Passed, ${failed} Failed`);
