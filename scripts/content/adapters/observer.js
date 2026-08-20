@@ -181,7 +181,8 @@
           if (previousContent) {
             const isNewTurn =
               currentTurnCount > initialTurnCount ||
-              tracker.hasSeenStreaming;
+              tracker.hasSeenStreaming ||
+              currentRawText !== previousContent;
             if (!isNewTurn || currentRawText === previousContent) {
               return;
             }

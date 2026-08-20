@@ -310,6 +310,13 @@
 
     findSendButton() {
       const selectors = [
+        'button.vM789c',
+        'button[aria-label="Submit search"]',
+        'button[aria-label*="Search" i]',
+        'button[aria-label*="Send" i]',
+        'button.Tg7LZd',
+        'button[jsname="v8b9eb"]',
+        'button[jsname="j9hOBf"]',
         'button[jsname="B6rgad"].Sw4CSc',
         'button[jsname="B6rgad"]',
         "button.plR5qb.Sw4CSc",
@@ -324,7 +331,7 @@
       for (const sel of selectors) {
         try {
           const el = document.querySelector(sel);
-          if (el && el.offsetParent !== null) return el;
+          if (el && el.offsetParent !== null && !el.disabled) return el;
         } catch {}
       }
 
@@ -339,7 +346,7 @@
       if (isSearchPage || input?.classList?.contains("ITIRGe")) {
         const sendBtn =
           document.querySelector(
-            'button[aria-label*="Send" i], button[aria-label*="Search" i], button[type="submit"], form[role="search"] button',
+            'button.vM789c, button[aria-label="Submit search"], button[aria-label*="Send" i], button[aria-label*="Search" i], button.Tg7LZd, button[type="submit"], form[role="search"] button',
           ) || this.findSendButton();
 
         if (sendBtn && !sendBtn.disabled) {
@@ -356,30 +363,30 @@
           }
         }
 
-        // Try Enter key directly
+        // Try Enter key directly on input
         if (input) {
           tabLog("GoogleTab", "↵ Dispatching Enter key on follow-up input...");
           input.focus();
-          input.dispatchEvent(
-            new KeyboardEvent("keydown", {
-              key: "Enter",
-              code: "Enter",
-              keyCode: 13,
-              which: 13,
-              bubbles: true,
-              cancelable: true,
-            }),
-          );
-          input.dispatchEvent(
-            new KeyboardEvent("keyup", {
-              key: "Enter",
-              code: "Enter",
-              keyCode: 13,
-              which: 13,
-              bubbles: true,
-              cancelable: true,
-            }),
-          );
+          const enterEventInit = {
+            key: "Enter",
+            code: "Enter",
+            keyCode: 13,
+            which: 13,
+            bubbles: true,
+            cancelable: true,
+          };
+          input.dispatchEvent(new KeyboardEvent("keydown", enterEventInit));
+          input.dispatchEvent(new KeyboardEvent("keypress", enterEventInit));
+          input.dispatchEvent(new KeyboardEvent("keyup", enterEventInit));
+
+          const form = input.closest("form");
+          if (form) {
+            try {
+              if (typeof form.requestSubmit === "function") {
+                form.requestSubmit();
+              }
+            } catch {}
+          }
           return true;
         }
         return false;

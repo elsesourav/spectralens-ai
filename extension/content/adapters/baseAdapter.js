@@ -340,40 +340,25 @@
     ) {
       const reqId = requestId || "req_" + Date.now();
 
-      // 0. Settle delay for fresh tab
+      // 0. Settle delay / wait for any ongoing streaming to clear
       if (!isReused) {
         await new Promise((r) => setTimeout(r, 600));
-      }
-
-      // Check if response is already streaming or rendered (e.g. from URL ?q= parameter)
-      const existingContainer = this.findResponseContainer();
-      if (
-        this.isStreaming() ||
-        (existingContainer &&
-          (existingContainer.textContent || "").trim().length > 0)
-      ) {
-        tabLog(
-          this.id,
-          `[SL REQUEST] ${reqId} provider=${this.id} event=ALREADY_SUBMITTED timestamp=${Date.now()}`,
-        );
-        return { success: true, alreadySubmitted: true };
+      } else if (this.isStreaming()) {
+        const streamWaitStart = Date.now();
+        while (this.isStreaming() && Date.now() - streamWaitStart < 4000) {
+          await new Promise((r) => setTimeout(r, 200));
+        }
       }
 
       // 1. Locate Input
       const locateStart = Date.now();
       let input = this.findInput();
       while (!input && Date.now() - locateStart < this.INPUT_TIMEOUT) {
-        if (this.isStreaming() || this.findResponseContainer()) {
-          return { success: true, alreadySubmitted: true };
-        }
         await new Promise((r) => setTimeout(r, isReused ? 200 : 350));
         input = this.findInput();
       }
 
       if (!input) {
-        if (this.isStreaming() || this.findResponseContainer()) {
-          return { success: true, alreadySubmitted: true };
-        }
         return {
           success: false,
           requestId: reqId,
@@ -403,9 +388,6 @@
       // 4. Insert Prompt
       const inserted = await this.insertPrompt(prompt);
       if (!inserted) {
-        if (this.isStreaming() || this.findResponseContainer()) {
-          return { success: true, alreadySubmitted: true };
-        }
         return {
           success: false,
           requestId: reqId,
@@ -426,9 +408,6 @@
         await new Promise((r) => setTimeout(r, 200));
         await this.insertPrompt(prompt);
         if (!this.verifyInput(prompt)) {
-          if (this.isStreaming() || this.findResponseContainer()) {
-            return { success: true, alreadySubmitted: true };
-          }
           return {
             success: false,
             requestId: reqId,
