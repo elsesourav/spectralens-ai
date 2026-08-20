@@ -382,7 +382,8 @@
       // 3. Attach Image
       if (image) {
         await this.attachImage(image);
-        await new Promise((r) => setTimeout(r, isReused ? 300 : 600));
+        // Wait 1000ms for image upload processing before prompt insertion and submission
+        await new Promise((r) => setTimeout(r, 1000));
       }
 
       // 4. Insert Prompt
@@ -422,8 +423,8 @@
         `[SL REQUEST] ${reqId} provider=${this.id} event=INPUT_VERIFIED timestamp=${Date.now()}`,
       );
 
-      // Pause before clicking send
-      await new Promise((r) => setTimeout(r, isReused ? 150 : 400));
+      // Pause before clicking send (1000ms if image is attached to let thumbnail settle)
+      await new Promise((r) => setTimeout(r, image ? 1000 : (isReused ? 150 : 400)));
 
       // 6. Submit (Primary + Verified Fallback)
       const submitResult = await this.submit(reqId);

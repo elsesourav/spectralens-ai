@@ -16,9 +16,12 @@
         window.__SL_NET_INTERCEPTOR_INJECTED__ = true;
 
         const AI_ENDPOINTS = [
+          "/async/folif",
+          "/async/sge",
+          "/async/aim",
+          "/async/bg",
           "/async/",
           "/search",
-          "batchexecute",
           "BardFrontendService",
           "StreamGenerate",
           "/backend-api/conversation",
@@ -32,6 +35,16 @@
         function isAiUrl(url) {
           if (!url) return false;
           const u = String(url);
+          if (
+            u.includes("rpcids=PCck7e") ||
+            u.includes("gen_204") ||
+            u.includes("/log?") ||
+            u.includes("play.google.com/log") ||
+            u.includes("client-event") ||
+            u.includes("telemetry")
+          ) {
+            return false;
+          }
           return AI_ENDPOINTS.some((ep) => u.includes(ep));
         }
 

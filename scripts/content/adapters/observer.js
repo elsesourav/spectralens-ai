@@ -241,9 +241,22 @@
             return;
           }
 
+          // For Google provider: never finalize on the homepage (since it must navigate to /search for AI Mode)
+          if (
+            this.adapter.id === "google" &&
+            typeof window !== "undefined" &&
+            !window.location.pathname.startsWith("/search")
+          ) {
+            return;
+          }
+
           // If network has completed and DOM is no longer streaming, finalize!
           const isNetCompleted = tracker.isNetworkCompleted || isNetworkDone;
-          if (isNetCompleted && !isStreamingNow && tracker.lastTextLength > 0) {
+          if (
+            isNetCompleted &&
+            !isStreamingNow &&
+            tracker.lastTextLength >= 25
+          ) {
             tabLog(
               this.adapter.id,
               `%c[SpectraLens:Observer] 🏆 Network stream completed for "${this.adapter.id}". Finalizing answer...`,
@@ -257,11 +270,11 @@
           // Fallback evaluation
           const evaluation = this.detector.evaluate(tracker, currentRawText);
           if (
-            evaluation.isComplete ||
-            (typeof this.adapter.isComplete === "function" &&
-              this.adapter.isComplete() &&
-              tracker.lastTextLength > 0 &&
-              !hasActiveNetworkStream)
+            (evaluation.isComplete ||
+              (typeof this.adapter.isComplete === "function" &&
+                this.adapter.isComplete())) &&
+            tracker.lastTextLength >= 25 &&
+            !hasActiveNetworkStream
           ) {
             tabLog(
               this.adapter.id,

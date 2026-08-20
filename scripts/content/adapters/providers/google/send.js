@@ -182,9 +182,9 @@
             );
             tabLog(
               "GoogleTab",
-              "📁 Dispatched image file to Google's input[type='file']!",
+              "📁 Dispatched image file to Google's input[type='file']! Waiting 1s for upload to settle...",
             );
-            await new Promise((r) => setTimeout(r, 800));
+            await new Promise((r) => setTimeout(r, 1000));
             return true;
           } catch (e) {
             tabLog("GoogleTab", "File input dispatch notice:", e?.message);
@@ -224,9 +224,9 @@
             );
             tabLog(
               "GoogleTab",
-              "📦 Dispatched DragEvent 'drop' to Google dropzone!",
+              "📦 Dispatched DragEvent 'drop' to Google dropzone! Waiting 1s for upload to settle...",
             );
-            await new Promise((r) => setTimeout(r, 800));
+            await new Promise((r) => setTimeout(r, 1000));
             return true;
           } catch (e) {
             tabLog("GoogleTab", "Drop zone dispatch notice:", e?.message);
@@ -247,9 +247,9 @@
           input.dispatchEvent(pasteEv);
           tabLog(
             "GoogleTab",
-            "📋 Dispatched synthetic ClipboardEvent paste to search input",
+            "📋 Dispatched synthetic ClipboardEvent paste to search input! Waiting 1s for upload to settle...",
           );
-          await new Promise((r) => setTimeout(r, 600));
+          await new Promise((r) => setTimeout(r, 1000));
           return true;
         }
       } catch (err) {
