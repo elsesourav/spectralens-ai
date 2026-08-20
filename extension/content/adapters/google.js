@@ -346,7 +346,7 @@
       if (isSearchPage || input?.classList?.contains("ITIRGe")) {
         const sendBtn =
           document.querySelector(
-            'button[aria-label*="Send" i], button[aria-label*="Search" i], button[type="submit"]',
+            'button[aria-label*="Send" i], button[aria-label*="Search" i], button[type="submit"], form[role="search"] button',
           ) || this.findSendButton();
 
         if (sendBtn && !sendBtn.disabled) {
@@ -361,6 +361,33 @@
               err?.message,
             );
           }
+        }
+
+        // Try Enter key directly
+        if (input) {
+          tabLog("GoogleTab", "↵ Dispatching Enter key on follow-up input...");
+          input.focus();
+          input.dispatchEvent(
+            new KeyboardEvent("keydown", {
+              key: "Enter",
+              code: "Enter",
+              keyCode: 13,
+              which: 13,
+              bubbles: true,
+              cancelable: true,
+            }),
+          );
+          input.dispatchEvent(
+            new KeyboardEvent("keyup", {
+              key: "Enter",
+              code: "Enter",
+              keyCode: 13,
+              which: 13,
+              bubbles: true,
+              cancelable: true,
+            }),
+          );
+          return true;
         }
         return false;
       }
@@ -405,9 +432,18 @@
               cancelable: true,
             }),
           );
+          input.dispatchEvent(
+            new KeyboardEvent("keyup", {
+              key: "Enter",
+              code: "Enter",
+              keyCode: 13,
+              which: 13,
+              bubbles: true,
+              cancelable: true,
+            }),
+          );
           return true;
         }
-        return false;
       }
 
       const form = input

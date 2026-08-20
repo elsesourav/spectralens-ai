@@ -917,7 +917,16 @@ function fetchAiAnswer(
         `%c[SpectraLens:Pipeline] 💉 [STEP 4/5] Injecting "${providerId}" adapter script into Tab #${tabId} (isReused: ${isReused}, requestId: ${requestId})...`,
         "color: #f59e0b; font-weight: bold;",
       );
-      const argsWithContext = [...extractArgs, isReused, requestId];
+      const extractArgsClean = Array.isArray(extractArgs)
+        ? extractArgs.slice(0, 3)
+        : [providerId, "", null];
+      const argsWithContext = [
+        extractArgsClean[0] || providerId,
+        extractArgsClean[1] || "",
+        extractArgsClean[2] || null,
+        Boolean(isReused),
+        requestId,
+      ];
       executeScriptReturn(
         tabId,
         extractFn,
@@ -1126,12 +1135,13 @@ function runTabAdapter(
         const answer = await adapter.observeResponse(
           streamTimeoutMs,
           previousContent,
+          requestId,
         );
         resolve(answer || getShortError(providerId, "No response generated"));
         return;
       }
 
-      // 0b. If already on search/query page for this query or response already streaming/present, observe directly!
+      // 0b. If this is a fresh tab that loaded a direct query URL (e.g. chatgpt.com/?q=... or google.com/search?q=...)
       const urlParams = new URLSearchParams(window.location.search);
       const urlQuery = (
         urlParams.get("q") ||
@@ -1147,14 +1157,17 @@ function runTabAdapter(
         (urlQuery === promptQuery ||
           promptQuery.startsWith(urlQuery) ||
           urlQuery.startsWith(promptQuery));
-      const hasDirectAnswer = Boolean(adapter.findResponseContainer());
 
-      if (isUrlMatch || adapter.isStreaming() || hasDirectAnswer) {
+      if (
+        !isReused &&
+        isUrlMatch &&
+        (adapter.isStreaming() || Boolean(adapter.findResponseContainer()))
+      ) {
         if (requestId) {
           window.__SL_SUBMITTED_REQUESTS__.add(requestId);
         }
         console.log(
-          `%c[SpectraLens:Adapter] 🎯 Provider already executing query ("${prompt.slice(0, 25)}..."). Observing AI stream directly...`,
+          `%c[SpectraLens:Adapter] 🎯 Provider loaded direct query ("${prompt.slice(0, 25)}..."). Observing AI stream directly...`,
           "color: #10b981; font-weight: bold;",
         );
         const answer = await adapter.observeResponse(
@@ -1246,7 +1259,7 @@ async function getGoogleAiAnswer(q, requestId, image = null) {
   return fetchAiAnswer(
     url,
     runTabAdapter,
-    ["google", q, image, requestId],
+    ["google", q, image],
     requestId,
   );
 }
@@ -1257,7 +1270,7 @@ async function getGrokAnswer(q, requestId, image = null) {
   return fetchAiAnswer(
     url,
     runTabAdapter,
-    ["grok", q, image, requestId],
+    ["grok", q, image],
     requestId,
   );
 }
@@ -1268,7 +1281,7 @@ async function getPerplexityAnswer(q, requestId, image = null) {
   return fetchAiAnswer(
     url,
     runTabAdapter,
-    ["perplexity", q, image, requestId],
+    ["perplexity", q, image],
     requestId,
   );
 }
@@ -1279,7 +1292,7 @@ async function getGeminiAnswer(q, requestId, image = null) {
   return fetchAiAnswer(
     url,
     runTabAdapter,
-    ["gemini", q, image, requestId],
+    ["gemini", q, image],
     requestId,
   );
 }
@@ -1290,7 +1303,7 @@ async function getChatGptAnswer(q, requestId, image = null) {
   return fetchAiAnswer(
     url,
     runTabAdapter,
-    ["chatgpt", q, image, requestId],
+    ["chatgpt", q, image],
     requestId,
   );
 }
@@ -1301,7 +1314,7 @@ async function getClaudeAnswer(q, requestId, image = null) {
   return fetchAiAnswer(
     url,
     runTabAdapter,
-    ["claude", q, image, requestId],
+    ["claude", q, image],
     requestId,
   );
 }
