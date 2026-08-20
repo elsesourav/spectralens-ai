@@ -1,6 +1,6 @@
 {
   "name": "SpectraLens AI",
-  "version": "2.9.27",
+  "version": "2.9.28",
   "description": "Fast multi-engine AI search aggregation, in-page text selection, and on-device Optical Character Recognition (OCR).",
   "manifest_version": 3,
   "permissions": [
@@ -58,7 +58,9 @@
         "offscreen/offscreen.html",
         "utils.js",
         "content/providerAdapters.js",
-        "content/adapters/*"
+        "content/adapters/*",
+        "content/adapters/providers/*",
+        "content/adapters/providers/*/*"
       ],
       "matches": [
         "http://*/*",

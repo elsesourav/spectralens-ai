@@ -1,4 +1,13 @@
-importScripts("./../utils.js", "./bgUtils.js", "./requestAi.js");
+importScripts(
+  "./../utils.js",
+  "./bgUtils.js",
+  "./requests/constants.js",
+  "./requests/networkInterceptor.js",
+  "./requests/tabManager.js",
+  "./requests/pipeline.js",
+  "./requests/providers.js",
+  "./requestAi.js"
+);
 console.log("background script loaded");
 
 const validateAlwaysActive = async (hosts) => {
