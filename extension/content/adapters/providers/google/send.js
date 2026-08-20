@@ -8,9 +8,13 @@
   const GoogleSearchSend = {
     /** Find and click Google's in-page dynamic "AI Mode" button on google.com homepage */
     async ensureAiMode() {
-      if (window.location.pathname.startsWith("/search")) {
+      if (
+        window.location.pathname.startsWith("/search") ||
+        window.__SL_GOOGLE_AI_MODE_ACTIVATED__
+      ) {
         return false;
       }
+      window.__SL_GOOGLE_AI_MODE_ACTIVATED__ = true;
       tabLog("GoogleTab", "🔍 Finding and activating Google AI Mode button...");
       try {
         // 1. Exact Google AI Mode button from DOM
@@ -134,11 +138,17 @@
           lastModified: Date.now(),
         });
 
-        // 1. Try finding and clicking the Google Lens button on homepage
+        // 1. Try finding and clicking the Google Lens button on homepage or search page
         const lensSelectors = [
           'div[aria-label="Search by image"]',
+          'button[aria-label="Search by image"]',
+          'div[aria-label*="Add image" i]',
+          'button[aria-label*="Add image" i]',
+          'div[aria-label*="Attach" i]',
+          'button[aria-label*="Attach" i]',
           "div.nDcEnd",
           'div[role="button"][aria-label*="image" i]',
+          'button[role="button"][aria-label*="image" i]',
           'div[role="button"][aria-label*="Search by image" i]',
           'div[jscontroller="e2B3Fd"]',
           'div[jsname="R5L9he"]',
@@ -310,11 +320,11 @@
 
     findSendButton() {
       const selectors = [
-        'button.vM789c',
+        "button.vM789c",
         'button[aria-label="Submit search"]',
         'button[aria-label*="Search" i]',
         'button[aria-label*="Send" i]',
-        'button.Tg7LZd',
+        "button.Tg7LZd",
         'button[jsname="v8b9eb"]',
         'button[jsname="j9hOBf"]',
         'button[jsname="B6rgad"].Sw4CSc',
@@ -420,7 +430,10 @@
 
       if (isSearchPage || input?.classList?.contains("ITIRGe")) {
         if (input) {
-          tabLog("GoogleTab", "↵ Dispatching Enter key to follow-up chat box...");
+          tabLog(
+            "GoogleTab",
+            "↵ Dispatching Enter key to follow-up chat box...",
+          );
           input.focus();
           input.dispatchEvent(
             new KeyboardEvent("keydown", {

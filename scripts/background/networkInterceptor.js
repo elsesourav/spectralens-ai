@@ -50,20 +50,37 @@
 
         let activeStreams = 0;
 
+        function updateNetworkState(delta, url) {
+          activeStreams = Math.max(0, activeStreams + delta);
+          if (typeof document !== "undefined" && document.documentElement) {
+            document.documentElement.setAttribute("data-sl-active-streams", String(activeStreams));
+            if (activeStreams > 0) {
+              document.documentElement.setAttribute("data-sl-last-stream-at", String(Date.now()));
+              document.documentElement.removeAttribute("data-sl-stream-completed");
+            } else {
+              document.documentElement.setAttribute("data-sl-last-stream-completed-at", String(Date.now()));
+              document.documentElement.setAttribute("data-sl-stream-completed", "true");
+            }
+          }
+          if (typeof window !== "undefined") {
+            window.__SPECTRALENS_ACTIVE_NET_REQUESTS__ = activeStreams;
+          }
+        }
+
         // 1. Intercept window.fetch ReadableStreams
         const origFetch = window.fetch;
         if (origFetch) {
           window.fetch = async function (...args) {
             const url = args[0] ? (typeof args[0] === "string" ? args[0] : args[0].url) : "";
             if (isAiUrl(url)) {
-              activeStreams++;
+              updateNetworkState(1, url);
               console.log(
                 `%c[SpectraLens:Network] 📡 [STREAM STARTED] (FETCH_START) Active requests: ${activeStreams} | URL: ${url.slice(0, 100)}`,
                 "color: #3b82f6; font-weight: bold;",
               );
               window.dispatchEvent(
                 new CustomEvent("spectralens:network_activity", {
-                  detail: { url, status: "started", activeStreams, timestamp: Date.now() },
+                  detail: { url, status: "started", activeStreams, activeCount: activeStreams, timestamp: Date.now() },
                 }),
               );
 
@@ -82,26 +99,29 @@
                         if (done) break;
                         const chunkText = decoder.decode(value, { stream: true });
                         totalChars += chunkText.length;
+                        if (typeof document !== "undefined" && document.documentElement) {
+                          document.documentElement.setAttribute("data-sl-last-stream-at", String(Date.now()));
+                        }
                         console.log(
                           `%c[SpectraLens:Network] 📦 [STREAM CHUNK] Read ${chunkText.length} chars chunk from: ${url.slice(0, 70)}`,
                           "color: #8b5cf6;",
                         );
                         window.dispatchEvent(
                           new CustomEvent("spectralens:network_chunk", {
-                            detail: { url, chunkLength: chunkText.length, totalChars, timestamp: Date.now() },
+                            detail: { url, chunkLength: chunkText.length, totalChars, activeStreams, activeCount: activeStreams, timestamp: Date.now() },
                           }),
                         );
                       }
                     } catch (e) {
                     } finally {
-                      activeStreams = Math.max(0, activeStreams - 1);
+                      updateNetworkState(-1, url);
                       console.log(
                         `%c[SpectraLens:Network] ✅ [STREAM COMPLETED] Stream ended (${totalChars} chars, active remaining: ${activeStreams}) -> ${url.slice(0, 100)}`,
                         "color: #10b981; font-weight: bold;",
                       );
                       window.dispatchEvent(
                         new CustomEvent("spectralens:network_completed", {
-                          detail: { url, totalChars, activeStreams, timestamp: Date.now() },
+                          detail: { url, totalChars, activeStreams, activeCount: activeStreams, timestamp: Date.now() },
                         }),
                       );
                     }
@@ -115,7 +135,7 @@
                 }
                 return response;
               } catch (err) {
-                activeStreams = Math.max(0, activeStreams - 1);
+                updateNetworkState(-1, url);
                 throw err;
               }
             }
@@ -134,14 +154,14 @@
 
         XMLHttpRequest.prototype.send = function (...args) {
           if (this.__sl_isAi) {
-            activeStreams++;
+            updateNetworkState(1, this.__sl_url);
             console.log(
               `%c[SpectraLens:Network] 📡 [STREAM STARTED] (XHR_START) Active requests: ${activeStreams} | URL: ${String(this.__sl_url).slice(0, 100)}`,
               "color: #3b82f6; font-weight: bold;",
             );
             window.dispatchEvent(
               new CustomEvent("spectralens:network_activity", {
-                detail: { url: this.__sl_url, status: "started", activeStreams, timestamp: Date.now() },
+                detail: { url: this.__sl_url, status: "started", activeStreams, activeCount: activeStreams, timestamp: Date.now() },
               }),
             );
 
@@ -150,26 +170,32 @@
               const currentLength = this.responseText ? this.responseText.length : 0;
               const chunkLen = currentLength - lastLength;
               lastLength = currentLength;
+              if (typeof document !== "undefined" && document.documentElement) {
+                document.documentElement.setAttribute("data-sl-last-stream-at", String(Date.now()));
+              }
               console.log(
                 `%c[SpectraLens:Network] 📦 [STREAM CHUNK] Read ${chunkLen} chars chunk from: ${String(this.__sl_url).slice(0, 70)}`,
                 "color: #8b5cf6;",
               );
               window.dispatchEvent(
                 new CustomEvent("spectralens:network_chunk", {
-                  detail: { url: this.__sl_url, chunkLength: chunkLen, totalChars: currentLength, timestamp: Date.now() },
+                  detail: { url: this.__sl_url, chunkLength: chunkLen, totalChars: currentLength, activeStreams, activeCount: activeStreams, timestamp: Date.now() },
                 }),
               );
             });
 
+            let completed = false;
             const onComplete = () => {
-              activeStreams = Math.max(0, activeStreams - 1);
+              if (completed) return;
+              completed = true;
+              updateNetworkState(-1, this.__sl_url);
               console.log(
                 `%c[SpectraLens:Network] ✅ [STREAM COMPLETED] Stream ended (${this.responseText?.length || 0} chars, active remaining: ${activeStreams}) -> ${String(this.__sl_url).slice(0, 100)}`,
                 "color: #10b981; font-weight: bold;",
               );
               window.dispatchEvent(
                 new CustomEvent("spectralens:network_completed", {
-                  detail: { url: this.__sl_url, totalChars: this.responseText?.length || 0, activeStreams, timestamp: Date.now() },
+                  detail: { url: this.__sl_url, totalChars: this.responseText?.length || 0, activeStreams, activeCount: activeStreams, timestamp: Date.now() },
                 }),
               );
             };

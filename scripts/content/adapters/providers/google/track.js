@@ -116,9 +116,17 @@
 
     isStreaming() {
       // 1. If network requests are actively streaming in the window, it is DEFINITELY streaming!
+      const isDomActive =
+        typeof document !== "undefined" &&
+        document.documentElement &&
+        parseInt(
+          document.documentElement.getAttribute("data-sl-active-streams") || "0",
+          10,
+        ) > 0;
       if (
-        typeof window !== "undefined" &&
-        window.__SPECTRALENS_ACTIVE_NET_REQUESTS__ > 0
+        isDomActive ||
+        (typeof window !== "undefined" &&
+          window.__SPECTRALENS_ACTIVE_NET_REQUESTS__ > 0)
       ) {
         return true;
       }
@@ -131,9 +139,17 @@
 
     isComplete() {
       // 1. If network requests are currently streaming, response is NOT complete
+      const isDomActive =
+        typeof document !== "undefined" &&
+        document.documentElement &&
+        parseInt(
+          document.documentElement.getAttribute("data-sl-active-streams") || "0",
+          10,
+        ) > 0;
       if (
-        typeof window !== "undefined" &&
-        window.__SPECTRALENS_ACTIVE_NET_REQUESTS__ > 0
+        isDomActive ||
+        (typeof window !== "undefined" &&
+          window.__SPECTRALENS_ACTIVE_NET_REQUESTS__ > 0)
       ) {
         return false;
       }
@@ -141,7 +157,7 @@
       const container = this.findResponseContainer();
       if (!container) return false;
       const text = (container.textContent || "").trim();
-      if (text.length < 25) return false;
+      if (text.length === 0) return false;
 
       // Check for completion signals scoped to the CURRENT container or its immediate action bar
       const hasLocalCompleteSignal = Boolean(

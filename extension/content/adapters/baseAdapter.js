@@ -262,8 +262,8 @@
     /** Submit method with primary + verified fallback */
     async submit(requestId = null) {
       if (this._isSubmitting) {
-        tabLog(this.id, "Submit lock active - ignoring duplicate submit call");
-        return { success: false, error: "SUBMISSION_LOCKED" };
+        tabLog(this.id, "Submit lock active - resetting lock for new submit execution");
+        this._isSubmitting = false;
       }
       this._isSubmitting = true;
 
@@ -323,9 +323,7 @@
           error: "SUBMISSION_NOT_CONFIRMED",
         };
       } finally {
-        setTimeout(() => {
-          this._isSubmitting = false;
-        }, 500);
+        this._isSubmitting = false;
       }
     }
 
@@ -338,10 +336,14 @@
       requestId = null,
       isReused = false,
     ) {
+      this._isSubmitting = false;
       const reqId = requestId || "req_" + Date.now();
 
       // 0. Settle delay / wait for any ongoing streaming to clear
       if (!isReused) {
+        if (typeof this.ensureAiMode === "function") {
+          await this.ensureAiMode();
+        }
         await new Promise((r) => setTimeout(r, 600));
       } else if (this.isStreaming()) {
         const streamWaitStart = Date.now();

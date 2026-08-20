@@ -1,11 +1,7 @@
 importScripts(
   "./../utils.js",
   "./bgUtils.js",
-  "./requests/constants.js",
-  "./requests/networkInterceptor.js",
-  "./requests/tabManager.js",
-  "./requests/pipeline.js",
-  "./requests/providers.js",
+  "./networkInterceptor.js",
   "./requestAi.js"
 );
 console.log("background script loaded");

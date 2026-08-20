@@ -28,6 +28,18 @@
         let intervalTimer = null;
         let lastEvaluationTime = 0;
 
+        const domActiveCount =
+          typeof document !== "undefined" && document.documentElement
+            ? parseInt(
+                document.documentElement.getAttribute("data-sl-active-streams") || "0",
+                10,
+              )
+            : 0;
+        if (domActiveCount > 0) {
+          tracker.activeNetworkRequests = domActiveCount;
+          tracker.lastNetworkActivityAt = Date.now();
+        }
+
         // Cancellation listener
         const cancelListener = (event) => {
           const isMatch =
@@ -47,18 +59,30 @@
         // Network activity & completion listener
         const networkChunkListener = (event) => {
           tracker.lastNetworkActivityAt = Date.now();
-          if (event.detail?.activeStreams !== undefined) {
-            tracker.activeNetworkRequests = event.detail.activeStreams;
+          const active =
+            event.detail?.activeStreams !== undefined
+              ? event.detail.activeStreams
+              : event.detail?.activeCount;
+          if (active !== undefined) {
+            tracker.activeNetworkRequests = active;
+            if (typeof window !== "undefined") {
+              window.__SPECTRALENS_ACTIVE_NET_REQUESTS__ = active;
+            }
           }
           evaluate(false);
         };
 
         const networkActivityListener = (event) => {
           tracker.lastNetworkActivityAt = Date.now();
-          if (event.detail?.activeStreams !== undefined) {
-            tracker.activeNetworkRequests = event.detail.activeStreams;
-          } else if (event.detail?.activeCount !== undefined) {
-            tracker.activeNetworkRequests = event.detail.activeCount;
+          const active =
+            event.detail?.activeStreams !== undefined
+              ? event.detail.activeStreams
+              : event.detail?.activeCount;
+          if (active !== undefined) {
+            tracker.activeNetworkRequests = active;
+            if (typeof window !== "undefined") {
+              window.__SPECTRALENS_ACTIVE_NET_REQUESTS__ = active;
+            }
           }
           evaluate(false);
         };
@@ -66,18 +90,29 @@
         const networkCompletedListener = (event) => {
           tracker.lastNetworkCompletedAt = Date.now();
           tracker.isNetworkCompleted = true;
-          if (event.detail?.activeStreams !== undefined) {
-            tracker.activeNetworkRequests = event.detail.activeStreams;
-          } else if (event.detail?.activeCount !== undefined) {
-            tracker.activeNetworkRequests = event.detail.activeCount;
+          const active =
+            event.detail?.activeStreams !== undefined
+              ? event.detail.activeStreams
+              : event.detail?.activeCount !== undefined
+                ? event.detail.activeCount
+                : 0;
+          tracker.activeNetworkRequests = active;
+          if (typeof window !== "undefined") {
+            window.__SPECTRALENS_ACTIVE_NET_REQUESTS__ = active;
+            window.__SPECTRALENS_LAST_NET_COMPLETED__ = Date.now();
+            window.__SPECTRALENS_NETWORK_COMPLETED__ = true;
           }
           tabLog(
             this.adapter.id,
             `[SL REQUEST] ${tracker.requestId} provider=${this.adapter.id} event=NETWORK_COMPLETED timestamp=${Date.now()}`,
           );
           // Wait for DOM to finish rendering final stream chunks before evaluating
-          setTimeout(() => { if (!isFinalized) evaluate(true); }, 400);
-          setTimeout(() => { if (!isFinalized) evaluate(true); }, 800);
+          setTimeout(() => {
+            if (!isFinalized) evaluate(true);
+          }, 350);
+          setTimeout(() => {
+            if (!isFinalized) evaluate(true);
+          }, 750);
         };
 
         if (typeof window !== "undefined") {
@@ -146,8 +181,7 @@
           );
 
           resolve({
-            status:
-              status === ResponseStates.COMPLETED ? "success" : "failure",
+            status: status === ResponseStates.COMPLETED ? "success" : "failure",
             isComplete: status === ResponseStates.COMPLETED,
             content: finalMarkdown,
             answer: finalMarkdown,
@@ -176,7 +210,11 @@
         const evaluate = async (isNetworkDone = false) => {
           if (isFinalized) return;
           const now = Date.now();
-          if (!isNetworkDone && now - lastEvaluationTime < this.THROTTLE_INTERVAL_MS) return;
+          if (
+            !isNetworkDone &&
+            now - lastEvaluationTime < this.THROTTLE_INTERVAL_MS
+          )
+            return;
           lastEvaluationTime = now;
 
           const isStreamingNow = this.adapter.isStreaming();
@@ -230,11 +268,22 @@
           }
 
           // Strict Network Check: If stream is still receiving chunks, DO NOT finalize!
+          const isDomActiveStreams =
+            typeof document !== "undefined" &&
+            document.documentElement &&
+            parseInt(
+              document.documentElement.getAttribute("data-sl-active-streams") || "0",
+              10,
+            ) > 0;
+
           const hasActiveNetworkStream =
+            isDomActiveStreams ||
             (tracker && tracker.activeNetworkRequests > 0) ||
             (typeof window !== "undefined" &&
               window.__SPECTRALENS_ACTIVE_NET_REQUESTS__ > 0) ||
-            (tracker && tracker.lastNetworkActivityAt && now - tracker.lastNetworkActivityAt < 800);
+            (tracker &&
+              tracker.lastNetworkActivityAt &&
+              now - tracker.lastNetworkActivityAt < 1200);
 
           if (hasActiveNetworkStream) {
             tracker.setState(ResponseStates.STREAMING);
@@ -252,11 +301,7 @@
 
           // If network has completed and DOM is no longer streaming, finalize!
           const isNetCompleted = tracker.isNetworkCompleted || isNetworkDone;
-          if (
-            isNetCompleted &&
-            !isStreamingNow &&
-            tracker.lastTextLength >= 25
-          ) {
+          if (isNetCompleted && !isStreamingNow) {
             tabLog(
               this.adapter.id,
               `%c[SpectraLens:Observer] 🏆 Network stream completed for "${this.adapter.id}". Finalizing answer...`,
@@ -273,7 +318,6 @@
             (evaluation.isComplete ||
               (typeof this.adapter.isComplete === "function" &&
                 this.adapter.isComplete())) &&
-            tracker.lastTextLength >= 25 &&
             !hasActiveNetworkStream
           ) {
             tabLog(

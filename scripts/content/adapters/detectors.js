@@ -21,11 +21,22 @@
       const now = Date.now();
 
       // Absolute Network Guard: If active network stream is in progress or chunk arrived recently, never complete
+      const isDomActiveStreams =
+        typeof document !== "undefined" &&
+        document.documentElement &&
+        parseInt(
+          document.documentElement.getAttribute("data-sl-active-streams") || "0",
+          10,
+        ) > 0;
+
       const hasActiveNetworkStream =
+        isDomActiveStreams ||
         (tracker && tracker.activeNetworkRequests > 0) ||
         (typeof window !== "undefined" &&
           window.__SPECTRALENS_ACTIVE_NET_REQUESTS__ > 0) ||
-        (tracker && tracker.lastNetworkActivityAt && now - tracker.lastNetworkActivityAt < 600);
+        (tracker &&
+          tracker.lastNetworkActivityAt &&
+          now - tracker.lastNetworkActivityAt < 1200);
 
       if (hasActiveNetworkStream) {
         return {
@@ -175,8 +186,17 @@
 
   class GoogleAICompletionDetector extends BaseCompletionDetector {
     checkProviderSpecificSignal(tracker, currentText) {
+      const isDomActiveStreams =
+        typeof document !== "undefined" &&
+        document.documentElement &&
+        parseInt(
+          document.documentElement.getAttribute("data-sl-active-streams") || "0",
+          10,
+        ) > 0;
+
       // 1. Guard: If network is active, not completed
       if (
+        isDomActiveStreams ||
         (tracker && tracker.activeNetworkRequests > 0) ||
         (typeof window !== "undefined" &&
           window.__SPECTRALENS_ACTIVE_NET_REQUESTS__ > 0)

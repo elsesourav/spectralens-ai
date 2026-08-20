@@ -156,6 +156,7 @@ const vm = await import("vm");
 const scriptsToValidate = [
   "scripts/background/background.js",
   "scripts/background/bgUtils.js",
+  "scripts/background/networkInterceptor.js",
   "scripts/background/requestAi.js",
   "scripts/content/content.js",
   "scripts/content/enableCopy.js",

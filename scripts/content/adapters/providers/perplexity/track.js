@@ -30,9 +30,17 @@
     },
 
     isStreaming() {
+      const isDomActive =
+        typeof document !== "undefined" &&
+        document.documentElement &&
+        parseInt(
+          document.documentElement.getAttribute("data-sl-active-streams") || "0",
+          10,
+        ) > 0;
       if (
-        typeof window !== "undefined" &&
-        window.__SPECTRALENS_ACTIVE_NET_REQUESTS__ > 0
+        isDomActive ||
+        (typeof window !== "undefined" &&
+          window.__SPECTRALENS_ACTIVE_NET_REQUESTS__ > 0)
       ) {
         return true;
       }
@@ -46,9 +54,17 @@
     },
 
     isComplete() {
+      const isDomActive =
+        typeof document !== "undefined" &&
+        document.documentElement &&
+        parseInt(
+          document.documentElement.getAttribute("data-sl-active-streams") || "0",
+          10,
+        ) > 0;
       if (
-        typeof window !== "undefined" &&
-        window.__SPECTRALENS_ACTIVE_NET_REQUESTS__ > 0
+        isDomActive ||
+        (typeof window !== "undefined" &&
+          window.__SPECTRALENS_ACTIVE_NET_REQUESTS__ > 0)
       ) {
         return false;
       }
