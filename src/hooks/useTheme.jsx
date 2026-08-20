@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ThemeProviderContext } from "./ThemeContext.jsx";
 
-const CONTROLS_KEY = "Ai-Display-Controls";
+const CONTROLS_KEY = "SpectraLens-Controls";
 
 export function ThemeProvider({
   children,

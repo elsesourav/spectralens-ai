@@ -10,11 +10,11 @@ const hasChrome =
   typeof chrome !== "undefined" && typeof chrome.runtime !== "undefined";
 
 const KEYS = {
-  SETTINGS: "Ai-Display-Settings",
-  CONTROLS: "Ai-Display-Controls",
-  HISTORY: "Ai-Display-History",
-  HISTORY_INDEX: "Ai-Display-History-Index",
-  CHAT_PREFIX: "Ai-Display-Chat-",
+  SETTINGS: "SpectraLens-Settings",
+  CONTROLS: "SpectraLens-Controls",
+  HISTORY: "SpectraLens-History",
+  HISTORY_INDEX: "SpectraLens-History-Index",
+  CHAT_PREFIX: "SpectraLens-Chat-",
   ALWAYS_ACTIVE_HOSTS: "alwaysActiveHosts",
   ENABLE_COPY_HOSTS: "enableCopyHosts",
   MENU_HOSTS: "menuHosts",
@@ -306,8 +306,8 @@ function chromeStorageRemoveLocal(key) {
 /* ----------- Split History Storage Engine (Index + Per-Chat Detail) ----------- */
 
 /**
- * Save a single chat session under its own isolated key: "Ai-Display-Chat-<sessionId>"
- * and update the lightweight index array under "Ai-Display-History-Index".
+ * Save a single chat session under its own isolated key: "SpectraLens-Chat-<sessionId>"
+ * and update the lightweight index array under "SpectraLens-History-Index".
  */
 async function saveChatSession(sessionData, callback) {
   if (!sessionData || !sessionData.id) {
@@ -397,59 +397,59 @@ function getHistoryIndex(callback) {
         return;
       }
 
-      // Check legacy monolithic history for migration
-      chromeStorageGetLocal(KEYS.HISTORY, async (legacyHistory) => {
-        if (Array.isArray(legacyHistory) && legacyHistory.length > 0) {
-          const migratedIndex = [];
-          for (const item of legacyHistory) {
-            if (item && item.id) {
-              const chatKey = KEYS.CHAT_PREFIX + item.id;
-              await chromeStorageSetLocal(chatKey, item);
+      // Check legacy history for automatic migration
+      const legacyData = await chromeStorageGetLocal(KEYS.HISTORY);
+      if (Array.isArray(legacyData) && legacyData.length > 0) {
+        const migratedIndex = [];
+        for (const item of legacyData) {
+          if (item && item.id) {
+            const chatKey = KEYS.CHAT_PREFIX + item.id;
+            await chromeStorageSetLocal(chatKey, item);
 
-              const firstQ =
-                item.question?.trim() ||
-                item.turns?.[0]?.question?.trim() ||
-                (item.turns?.[0]?.questionImage || item.image
-                  ? "Visual Query / Screenshot"
-                  : "Conversation Session");
+            const firstQ =
+              item.question?.trim() ||
+              item.turns?.[0]?.question?.trim() ||
+              (item.turns?.[0]?.questionImage || item.image
+                ? "Visual Query / Screenshot"
+                : "Conversation Session");
 
-              migratedIndex.push({
-                id: item.id,
-                question: firstQ,
-                timestamp: item.timestamp || item.date || Date.now(),
-                turnCount: Array.isArray(item.turns) ? item.turns.length : 1,
-                providers:
-                  item.providers ||
-                  (item.turns
-                    ? Array.from(
-                        new Set(
-                          item.turns.flatMap((t) =>
-                            Object.keys(t.answers || {}),
-                          ),
+            migratedIndex.push({
+              id: item.id,
+              question: firstQ,
+              timestamp: item.timestamp || item.date || Date.now(),
+              turnCount: Array.isArray(item.turns) ? item.turns.length : 1,
+              providers:
+                item.providers ||
+                (item.turns
+                  ? Array.from(
+                      new Set(
+                        item.turns.flatMap((t) =>
+                          Object.keys(t.answers || {}),
                         ),
-                      )
-                    : Object.keys(item.answers || {})),
-                hasImage: Boolean(
-                  item.turns?.some((t) => t.questionImage || t.image) ||
-                    item.image,
-                ),
-                hasPage: Boolean(
-                  item.turns?.some((t) => t.questionPage || t.page) ||
-                    item.page,
-                ),
-              });
-            }
+                      ),
+                    )
+                  : Object.keys(item.answers || {})),
+              hasImage: Boolean(
+                item.turns?.some((t) => t.questionImage || t.image) ||
+                  item.image,
+              ),
+              hasPage: Boolean(
+                item.turns?.some((t) => t.questionPage || t.page) ||
+                  item.page,
+              ),
+            });
           }
-
-          await chromeStorageSetLocal(KEYS.HISTORY_INDEX, migratedIndex);
-          callback && callback(migratedIndex);
-          resolve(migratedIndex);
-        } else {
-          const empty = [];
-          callback && callback(empty);
-          resolve(empty);
         }
-      });
+
+        await chromeStorageSetLocal(KEYS.HISTORY_INDEX, migratedIndex);
+        callback && callback(migratedIndex);
+        resolve(migratedIndex);
+        return;
+      }
+
+      const empty = [];
+      callback && callback(empty);
+      resolve(empty);
     });
   });
 }
@@ -466,7 +466,7 @@ function getChatSession(sessionId, callback) {
     }
 
     const chatKey = KEYS.CHAT_PREFIX + sessionId;
-    chromeStorageGetLocal(chatKey, (chatData) => {
+    chromeStorageGetLocal(chatKey, async (chatData) => {
       if (
         chatData &&
         (chatData.turns || chatData.question || chatData.answers)
@@ -476,21 +476,29 @@ function getChatSession(sessionId, callback) {
         return;
       }
 
-      // Fallback: check legacy monolithic storage
-      chromeStorageGetLocal(KEYS.HISTORY, (legacyList) => {
-        if (Array.isArray(legacyList)) {
-          const found = legacyList.find((item) => item.id === sessionId);
-          if (found) {
-            // Save to new key for future fast access
-            chromeStorageSetLocal(chatKey, found);
-            callback && callback(found);
-            resolve(found);
-            return;
-          }
+      // Check legacy monolithic history if not found in isolated key
+      const legacyData = await chromeStorageGetLocal(KEYS.HISTORY);
+      if (legacyData) {
+        let found = null;
+        if (Array.isArray(legacyData)) {
+          found = legacyData.find((item) => item?.id === sessionId);
+        } else if (
+          legacyData.id === sessionId ||
+          legacyData.turns ||
+          legacyData.question
+        ) {
+          found = legacyData;
         }
-        callback && callback(null);
-        resolve(null);
-      });
+        if (found) {
+          await chromeStorageSetLocal(chatKey, found);
+          callback && callback(found);
+          resolve(found);
+          return;
+        }
+      }
+
+      callback && callback(null);
+      resolve(null);
     });
   });
 }

@@ -514,7 +514,7 @@ export default function ChatBot({
       UTILS.saveChatSession(sessionData);
     } else {
       UTILS.chromeStorageSetLocal(
-        (UTILS.KEYS.CHAT_PREFIX || "Ai-Display-Chat-") + sessionId,
+        (UTILS.KEYS.CHAT_PREFIX || "SpectraLens-Chat-") + sessionId,
         sessionData,
       );
     }
