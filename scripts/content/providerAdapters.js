@@ -513,6 +513,11 @@
   class GoogleAICompletionDetector extends BaseCompletionDetector {
     checkProviderSpecificSignal(tracker, currentText) {
       const isBusy = this.adapter.isStreaming();
+      const hasCompleteFlag = Boolean(
+        document.querySelector(
+          'div[data-complete="true"], div[jsaction*="aimRenderComplete"], div[data-xid="Gd7Hsc"]',
+        ),
+      );
       const hasCopy = Boolean(
         document.querySelector(
           'button[aria-label="Copy text"].bKxaof, button[aria-label*="Copy text" i], button.bKxaof, button[aria-label*="Copy" i], button[aria-label*="Share" i], button[aria-label*="Feedback" i], button[aria-label*="Helpful" i], button[aria-label*="Thumbs" i]',
@@ -528,7 +533,7 @@
           'div.KkW2ib, div[data-subtree="aimc"] a[href], div[data-container-id="main-col"] a[href], div.kno-ftr',
         ),
       );
-      return !isBusy && (hasCopy || hasFollowUp || hasSources);
+      return (!isBusy && (hasCopy || hasFollowUp || hasSources)) || hasCompleteFlag;
     }
   }
 
@@ -3429,6 +3434,17 @@
       if (turns.length > 0) {
         for (let i = turns.length - 1; i >= 0; i--) {
           const turn = turns[i];
+          const parentWrapper = turn.parentElement;
+          if (
+            parentWrapper &&
+            parentWrapper.querySelector('div[data-target-container-id], div[data-sn-op="2"]')
+          ) {
+            const text = (parentWrapper.textContent || "").trim();
+            if (text.length > 20 && !text.startsWith("You sent:")) {
+              return parentWrapper;
+            }
+          }
+
           const aiContainer = turn.querySelector(
             'div[data-subtree="aimc"] div[data-container-id="main-col"] .Dn7Fzd, div[data-subtree="aimc"] div[data-container-id="main-col"], div[data-subtree="aimc"] .Dn7Fzd, div[data-subtree="aimc"], div.mZJni.Dn7Fzd, div[data-container-id="main-col"] .Dn7Fzd, div[data-container-id="main-col"], div.mZJni',
           );
@@ -3438,11 +3454,17 @@
               return aiContainer;
             }
           }
+
+          const turnText = (turn.textContent || "").trim();
+          if (turnText.length > 20 && !turnText.startsWith("You sent:")) {
+            return turn;
+          }
         }
       }
 
       // 2. Global AI Overview content selectors on the page (matching newest / last element)
       const selectors = [
+        'div[data-target-container-id="main-col"]',
         'div[data-subtree="aimc"] div[data-container-id="main-col"] .Dn7Fzd',
         'div[data-subtree="aimc"] div[data-container-id="main-col"]',
         'div[data-subtree="aimc"] .Dn7Fzd',
@@ -3524,13 +3546,26 @@
         'div[data-xid="aim-aside-initial-corroboration-container"]',
         'div[data-xid="Gd7Hsc"]',
         'div[data-xid="YruvMc"]',
+        "div.DBd2Wb",
+        "div.zkL70c",
+        "div.XvJeCb",
+        "div.oLpkLe",
+        "aside.L9AUvd",
+        "div.NdrDyd",
+        "div.LIBz9e",
+        'div[data-msei]',
+        'button[aria-label="Related results"]',
+        "span.DHPVt.Wg1cdb.notranslate",
+        "div.alk4p.q4PqPb",
+        "div.Jd31eb",
+        "style[data-ck]",
       ];
     }
 
     isStreaming() {
       return Boolean(
         document.querySelector(
-          'div.wDYxhc.UDvLbd, div.Dn7Fzd[aria-busy="true"], div[data-subtree="aimc"][aria-busy="true"], div.animate-pulse, div.FzLjke, span.CkgRle, div[class*="shimmer"], div.loading-container, div[role="progressbar"], div[data-is-streaming="true"], button[aria-label*="Generating" i]',
+          'div.alk4p:not([style*="display: none"]), div.IWPZAd:not([style*="display: none"]), div.vlFi2e, div.oNvZFf, div.wDYxhc.UDvLbd, div.Dn7Fzd[aria-busy="true"], div[data-subtree="aimc"][aria-busy="true"], div.animate-pulse, div.FzLjke, span.CkgRle, div[class*="shimmer"], div.loading-container, div[role="progressbar"]:not([aria-label*="Copy" i]):not([aria-label*="Shar" i]), div[data-is-streaming="true"], button[aria-label*="Generating" i]',
         ),
       );
     }

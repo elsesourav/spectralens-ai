@@ -14,6 +14,18 @@
       if (turns.length > 0) {
         for (let i = turns.length - 1; i >= 0; i--) {
           const turn = turns[i];
+          // Check if the parent of the turn or turn itself holds the streaming chunks
+          const parentWrapper = turn.parentElement;
+          if (
+            parentWrapper &&
+            parentWrapper.querySelector('div[data-target-container-id], div[data-sn-op="2"]')
+          ) {
+            const text = (parentWrapper.textContent || "").trim();
+            if (text.length > 20 && !text.startsWith("You sent:")) {
+              return parentWrapper;
+            }
+          }
+
           const aiContainer = turn.querySelector(
             'div[data-subtree="aimc"] div[data-container-id="main-col"] .Dn7Fzd, div[data-subtree="aimc"] div[data-container-id="main-col"], div[data-subtree="aimc"] .Dn7Fzd, div[data-subtree="aimc"], div.mZJni.Dn7Fzd, div[data-container-id="main-col"] .Dn7Fzd, div[data-container-id="main-col"], div.mZJni',
           );
@@ -23,11 +35,17 @@
               return aiContainer;
             }
           }
+
+          const turnText = (turn.textContent || "").trim();
+          if (turnText.length > 20 && !turnText.startsWith("You sent:")) {
+            return turn;
+          }
         }
       }
 
       // 2. Global AI Overview content selectors on the page (matching newest / last element)
       const selectors = [
+        'div[data-target-container-id="main-col"]',
         'div[data-subtree="aimc"] div[data-container-id="main-col"] .Dn7Fzd',
         'div[data-subtree="aimc"] div[data-container-id="main-col"]',
         'div[data-subtree="aimc"] .Dn7Fzd',
@@ -97,9 +115,10 @@
     },
 
     isStreaming() {
+      // NOTE: Do NOT match generic div[role="progressbar"] because Google embeds a progressbar inside Copy/Share buttons
       return Boolean(
         document.querySelector(
-          'div.wDYxhc.UDvLbd, div.Dn7Fzd[aria-busy="true"], div[data-subtree="aimc"][aria-busy="true"], div.animate-pulse, div.FzLjke, span.CkgRle, div[class*="shimmer"], div.loading-container, div[role="progressbar"], div[data-is-streaming="true"], button[aria-label*="Generating" i]',
+          'div.alk4p:not([style*="display: none"]), div.IWPZAd:not([style*="display: none"]), div.vlFi2e, div.oNvZFf, div.wDYxhc.UDvLbd, div.Dn7Fzd[aria-busy="true"], div[data-subtree="aimc"][aria-busy="true"], div.animate-pulse, div.FzLjke, span.CkgRle, div[class*="shimmer"], div.loading-container, div[role="progressbar"]:not([aria-label*="Copy" i]):not([aria-label*="Shar" i]), div[data-is-streaming="true"], button[aria-label*="Generating" i]',
         ),
       );
     },
@@ -108,7 +127,12 @@
       const container = this.findResponseContainer();
       if (!container) return false;
       const text = (container.textContent || "").trim();
-      return !this.isStreaming() && text.length > 25;
+      const hasCompleteSignal = Boolean(
+        document.querySelector(
+          'div[data-complete="true"], div[jsaction*="aimRenderComplete"], div[data-xid="Gd7Hsc"], button[aria-label="Copy text"].bKxaof',
+        ),
+      );
+      return (!this.isStreaming() || hasCompleteSignal) && text.length > 25;
     },
 
     getJunkSelectors() {
@@ -123,6 +147,19 @@
         'div[data-xid="aim-aside-initial-corroboration-container"]',
         'div[data-xid="Gd7Hsc"]',
         'div[data-xid="YruvMc"]',
+        "div.DBd2Wb",
+        "div.zkL70c",
+        "div.XvJeCb",
+        "div.oLpkLe",
+        "aside.L9AUvd",
+        "div.NdrDyd",
+        "div.LIBz9e",
+        'div[data-msei]',
+        'button[aria-label="Related results"]',
+        "span.DHPVt.Wg1cdb.notranslate",
+        "div.alk4p.q4PqPb",
+        "div.Jd31eb",
+        "style[data-ck]",
       ];
     },
   };

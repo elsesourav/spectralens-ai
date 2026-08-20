@@ -184,6 +184,11 @@
   class GoogleAICompletionDetector extends BaseCompletionDetector {
     checkProviderSpecificSignal(tracker, currentText) {
       const isBusy = this.adapter.isStreaming();
+      const hasCompleteFlag = Boolean(
+        document.querySelector(
+          'div[data-complete="true"], div[jsaction*="aimRenderComplete"], div[data-xid="Gd7Hsc"]',
+        ),
+      );
       const hasCopy = Boolean(
         document.querySelector(
           'button[aria-label="Copy text"].bKxaof, button[aria-label*="Copy text" i], button.bKxaof, button[aria-label*="Copy" i], button[aria-label*="Share" i], button[aria-label*="Feedback" i], button[aria-label*="Helpful" i], button[aria-label*="Thumbs" i]',
@@ -199,7 +204,7 @@
           'div.KkW2ib, div[data-subtree="aimc"] a[href], div[data-container-id="main-col"] a[href], div.kno-ftr',
         ),
       );
-      return !isBusy && (hasCopy || hasFollowUp || hasSources);
+      return (!isBusy && (hasCopy || hasFollowUp || hasSources)) || hasCompleteFlag;
     }
   }
 
