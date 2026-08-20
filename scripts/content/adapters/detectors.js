@@ -65,9 +65,9 @@
         score += 10;
       }
 
-      // Signal E (+10): Provider-specific completion signal
+      // Signal E (+35): Provider-specific completion signal
       if (this.checkProviderSpecificSignal(tracker, currentText)) {
-        score += 10;
+        score += 35;
       }
 
       // Signal F (+40): Network stream completed & no active network requests

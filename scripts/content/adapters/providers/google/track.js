@@ -115,10 +115,17 @@
     },
 
     isStreaming() {
-      // NOTE: Do NOT match generic div[role="progressbar"] because Google embeds a progressbar inside Copy/Share buttons
+      // If explicit completion markers exist, Google is never streaming
+      if (
+        document.querySelector(
+          'div[data-complete="true"], div[jsaction*="aimRenderComplete"], div[data-xid="Gd7Hsc"]',
+        )
+      ) {
+        return false;
+      }
       return Boolean(
         document.querySelector(
-          'div.alk4p:not([style*="display: none"]), div.IWPZAd:not([style*="display: none"]), div.vlFi2e, div.oNvZFf, div.wDYxhc.UDvLbd, div.Dn7Fzd[aria-busy="true"], div[data-subtree="aimc"][aria-busy="true"], div.animate-pulse, div.FzLjke, span.CkgRle, div[class*="shimmer"], div.loading-container, div[role="progressbar"]:not([aria-label*="Copy" i]):not([aria-label*="Shar" i]), div[data-is-streaming="true"], button[aria-label*="Generating" i]',
+          'div.Dn7Fzd[aria-busy="true"], div[data-subtree="aimc"][aria-busy="true"], div.animate-pulse, div[data-is-streaming="true"], button[aria-label*="Generating" i]',
         ),
       );
     },
@@ -129,7 +136,7 @@
       const text = (container.textContent || "").trim();
       const hasCompleteSignal = Boolean(
         document.querySelector(
-          'div[data-complete="true"], div[jsaction*="aimRenderComplete"], div[data-xid="Gd7Hsc"], button[aria-label="Copy text"].bKxaof',
+          'div[data-complete="true"], div[jsaction*="aimRenderComplete"], div[data-xid="Gd7Hsc"], button[aria-label="Copy text"].bKxaof, button[aria-label*="Copy text" i], button.bKxaof',
         ),
       );
       return (!this.isStreaming() || hasCompleteSignal) && text.length > 25;

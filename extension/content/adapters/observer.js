@@ -207,7 +207,11 @@
           // Evaluate completion confidence score
           const evaluation = this.detector.evaluate(tracker, currentRawText);
 
-          if (evaluation.isComplete) {
+          if (
+            evaluation.isComplete ||
+            (typeof this.adapter.isComplete === "function" &&
+              this.adapter.isComplete())
+          ) {
             tabLog(
               this.adapter.id,
               `%c[SpectraLens:Observer] 🏆 Completion confidence verified (${evaluation.score}/100) for "${this.adapter.id}". Finalizing answer...`,

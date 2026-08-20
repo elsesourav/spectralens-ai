@@ -394,9 +394,9 @@
         score += 10;
       }
 
-      // Signal E (+10): Provider-specific completion signal
+      // Signal E (+35): Provider-specific completion signal
       if (this.checkProviderSpecificSignal(tracker, currentText)) {
-        score += 10;
+        score += 35;
       }
 
       // Signal F (+40): Network stream completed & no active network requests
@@ -738,7 +738,11 @@
           // Evaluate completion confidence score
           const evaluation = this.detector.evaluate(tracker, currentRawText);
 
-          if (evaluation.isComplete) {
+          if (
+            evaluation.isComplete ||
+            (typeof this.adapter.isComplete === "function" &&
+              this.adapter.isComplete())
+          ) {
             tabLog(
               this.adapter.id,
               `%c[SpectraLens:Observer] 🏆 Completion confidence verified (${evaluation.score}/100) for "${this.adapter.id}". Finalizing answer...`,
@@ -3567,9 +3571,17 @@
     }
 
     isStreaming() {
+      // If explicit completion markers exist, Google is never streaming
+      if (
+        document.querySelector(
+          'div[data-complete="true"], div[jsaction*="aimRenderComplete"], div[data-xid="Gd7Hsc"]',
+        )
+      ) {
+        return false;
+      }
       return Boolean(
         document.querySelector(
-          'div.alk4p:not([style*="display: none"]), div.IWPZAd:not([style*="display: none"]), div.vlFi2e, div.oNvZFf, div.wDYxhc.UDvLbd, div.Dn7Fzd[aria-busy="true"], div[data-subtree="aimc"][aria-busy="true"], div.animate-pulse, div.FzLjke, span.CkgRle, div[class*="shimmer"], div.loading-container, div[role="progressbar"]:not([aria-label*="Copy" i]):not([aria-label*="Shar" i]), div[data-is-streaming="true"], button[aria-label*="Generating" i]',
+          'div.Dn7Fzd[aria-busy="true"], div[data-subtree="aimc"][aria-busy="true"], div.animate-pulse, div[data-is-streaming="true"], button[aria-label*="Generating" i]',
         ),
       );
     }
@@ -3600,7 +3612,12 @@
       const container = this.findResponseContainer();
       if (!container) return false;
       const text = (container.textContent || "").trim();
-      return !this.isStreaming() && text.length > 25;
+      const hasCompleteSignal = Boolean(
+        document.querySelector(
+          'div[data-complete="true"], div[jsaction*="aimRenderComplete"], div[data-xid="Gd7Hsc"], button[aria-label="Copy text"].bKxaof, button[aria-label*="Copy text" i], button.bKxaof',
+        ),
+      );
+      return (!this.isStreaming() || hasCompleteSignal) && text.length > 25;
     }
   }
 

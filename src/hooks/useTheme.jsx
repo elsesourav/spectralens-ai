@@ -211,46 +211,70 @@ export function ThemeProvider({
     localStorage.setItem(storageKey, newTheme);
     setThemeState(newTheme);
 
-    if (typeof chrome !== "undefined" && chrome.storage?.local) {
-      if (contextKey === "popup") {
-        chrome.storage.local.set({ popupTheme: newTheme });
-      } else {
-        chrome.storage.local.get([CONTROLS_KEY]).then((res) => {
-          const controls = res?.[CONTROLS_KEY]
-            ? typeof res[CONTROLS_KEY] === "string"
-              ? JSON.parse(res[CONTROLS_KEY])
-              : res[CONTROLS_KEY]
-            : {};
-          if (controls.chatbotTheme !== newTheme) {
-            controls.chatbotTheme = newTheme;
-            chrome.storage.local.set({
-              [CONTROLS_KEY]: controls,
-            });
-          }
-        });
+    try {
+      if (
+        typeof chrome !== "undefined" &&
+        Boolean(chrome?.runtime?.id) &&
+        chrome.storage?.local
+      ) {
+        if (contextKey === "popup") {
+          chrome.storage.local
+            .set({ popupTheme: newTheme })
+            .catch(() => {});
+        } else {
+          chrome.storage.local
+            .get([CONTROLS_KEY])
+            .then((res) => {
+              const controls = res?.[CONTROLS_KEY]
+                ? typeof res[CONTROLS_KEY] === "string"
+                  ? JSON.parse(res[CONTROLS_KEY])
+                  : res[CONTROLS_KEY]
+                : {};
+              if (controls.chatbotTheme !== newTheme) {
+                controls.chatbotTheme = newTheme;
+                chrome.storage.local
+                  .set({
+                    [CONTROLS_KEY]: controls,
+                  })
+                  .catch(() => {});
+              }
+            })
+            .catch(() => {});
+        }
       }
-    }
+    } catch {}
   };
 
   const setContrastMode = (newContrast) => {
     localStorage.setItem("app-contrast", newContrast);
     setContrastModeState(newContrast);
 
-    if (typeof chrome !== "undefined" && chrome.storage?.local) {
-      chrome.storage.local.get([CONTROLS_KEY]).then((res) => {
-        const controls = res?.[CONTROLS_KEY]
-          ? typeof res[CONTROLS_KEY] === "string"
-            ? JSON.parse(res[CONTROLS_KEY])
-            : res[CONTROLS_KEY]
-          : {};
-        if (controls.contrastMode !== newContrast) {
-          controls.contrastMode = newContrast;
-          chrome.storage.local.set({
-            [CONTROLS_KEY]: controls,
-          });
-        }
-      });
-    }
+    try {
+      if (
+        typeof chrome !== "undefined" &&
+        Boolean(chrome?.runtime?.id) &&
+        chrome.storage?.local
+      ) {
+        chrome.storage.local
+          .get([CONTROLS_KEY])
+          .then((res) => {
+            const controls = res?.[CONTROLS_KEY]
+              ? typeof res[CONTROLS_KEY] === "string"
+                ? JSON.parse(res[CONTROLS_KEY])
+                : res[CONTROLS_KEY]
+              : {};
+            if (controls.contrastMode !== newContrast) {
+              controls.contrastMode = newContrast;
+              chrome.storage.local
+                .set({
+                  [CONTROLS_KEY]: controls,
+                })
+                .catch(() => {});
+            }
+          })
+          .catch(() => {});
+      }
+    } catch {}
   };
 
   const value = {
