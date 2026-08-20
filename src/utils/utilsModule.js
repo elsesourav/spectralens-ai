@@ -318,8 +318,38 @@ async function saveChatSession(sessionData, callback) {
     const sessionId = sessionData.id;
     const chatKey = KEYS.CHAT_PREFIX + sessionId;
 
+    // Ensure all saved turns and answers are sanitized to have isLoading: false
+    const sanitizedTurns = Array.isArray(sessionData.turns)
+      ? sessionData.turns.map((turn) => {
+          const cleanAnswers = {};
+          if (turn.answers && typeof turn.answers === "object") {
+            for (const [pId, pVal] of Object.entries(turn.answers)) {
+              if (pVal && typeof pVal === "object") {
+                cleanAnswers[pId] = {
+                  ...pVal,
+                  isLoading: false,
+                };
+              } else {
+                cleanAnswers[pId] = pVal;
+              }
+            }
+          }
+          return {
+            ...turn,
+            isLoading: false,
+            loadingProviders: [],
+            answers: cleanAnswers,
+          };
+        })
+      : sessionData.turns;
+
+    const sanitizedSessionData = {
+      ...sessionData,
+      turns: sanitizedTurns,
+    };
+
     // 1. Save full session detail under dedicated key
-    await chromeStorageSetLocal(chatKey, sessionData);
+    await chromeStorageSetLocal(chatKey, sanitizedSessionData);
 
     // 2. Read and update the lightweight index
     let indexList = await getHistoryIndex();

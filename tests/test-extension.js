@@ -689,6 +689,16 @@ import("../scripts/update-version.js").then(({ calculateNextVersion, normalizeVe
   assert(!useThemeText.includes("Ai-Display"), "useTheme.jsx contains NO 'Ai-Display' strings");
   assert(useThemeText.includes("SpectraLens-Controls"), "useTheme.jsx uses 'SpectraLens-Controls'");
 
+  // 17. Stop Button, New Chat & History Load State Sanitization Audit:
+  console.log("\n17. Stop Button, New Chat & History Load State Sanitization Audit:");
+  const chatBotJsx = fs.readFileSync(path.join(rootDir, "src", "components", "ChatBot.jsx"), "utf-8");
+
+  assert(chatBotJsx.includes("saveHistoryImmediately(next)"), "handleStopFetch immediately saves sanitized turns to history");
+  assert(chatBotJsx.includes("!isViewingHistory"), "ChatBot guarantees isCardLoading is false in history view");
+  assert(chatBotJsx.includes("sanitizedTurns"), "ChatBot sanitizes loaded history turns and turnsToSave");
+  assert(utilsModuleText.includes("sanitizedTurns"), "utilsModule.js saveChatSession sanitizes turns before chrome.storage.local.set");
+  assert(scriptsUtilsText.includes("sanitizedTurns"), "scripts/utils.js saveChatSession sanitizes turns before chrome.storage.local.set");
+
   // --- SUMMARY ---
   console.log(`\n========================================`);
   console.log(`Test Results: ${passed} Passed, ${failed} Failed`);

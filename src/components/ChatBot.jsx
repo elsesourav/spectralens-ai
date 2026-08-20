@@ -422,14 +422,21 @@ export default function ChatBot({
     if (initialHistoryItem) {
       setInput("");
       setIsViewingHistory(true);
+      setIsLoading(false);
+      isSubmittingRef.current = false;
       if (
         Array.isArray(initialHistoryItem.turns) &&
         initialHistoryItem.turns.length > 0
       ) {
-        setTurns(initialHistoryItem.turns);
-        turnsRef.current = initialHistoryItem.turns;
+        const sanitizedTurns = initialHistoryItem.turns.map((t) => ({
+          ...t,
+          isLoading: false,
+          loadingProviders: [],
+        }));
+        setTurns(sanitizedTurns);
+        turnsRef.current = sanitizedTurns;
         const answeredProviders = [];
-        for (const t of initialHistoryItem.turns) {
+        for (const t of sanitizedTurns) {
           if (t.answers) {
             for (const [k, ans] of Object.entries(t.answers)) {
               if (
@@ -443,7 +450,7 @@ export default function ChatBot({
           }
         }
         const lastTurn =
-          initialHistoryItem.turns[initialHistoryItem.turns.length - 1];
+          sanitizedTurns[sanitizedTurns.length - 1];
         const targetProv =
           lastTurn?.selectedProvider &&
           answeredProviders.includes(lastTurn.selectedProvider)
@@ -453,9 +460,14 @@ export default function ChatBot({
       } else if (initialHistoryItem.id) {
         UTILS.getChatSession(initialHistoryItem.id).then((fullChat) => {
           if (fullChat?.turns && fullChat.turns.length > 0) {
-            setTurns(fullChat.turns);
-            turnsRef.current = fullChat.turns;
-            const lastTurn = fullChat.turns[fullChat.turns.length - 1];
+            const sanitizedTurns = fullChat.turns.map((t) => ({
+              ...t,
+              isLoading: false,
+              loadingProviders: [],
+            }));
+            setTurns(sanitizedTurns);
+            turnsRef.current = sanitizedTurns;
+            const lastTurn = sanitizedTurns[sanitizedTurns.length - 1];
             if (lastTurn?.selectedProvider) {
               setSelectedProvider(lastTurn.selectedProvider);
             }
@@ -476,9 +488,32 @@ export default function ChatBot({
     }
     const sessionId = turnsToSave[0]?.id || Date.now().toString();
 
+    // Sanitize turns so NO turn is ever saved to history with active loading or pending state
+    const sanitizedTurns = turnsToSave.map((turn) => {
+      const cleanAnswers = {};
+      if (turn.answers && typeof turn.answers === "object") {
+        for (const [pId, pVal] of Object.entries(turn.answers)) {
+          if (pVal && typeof pVal === "object") {
+            cleanAnswers[pId] = {
+              ...pVal,
+              isLoading: false,
+            };
+          } else {
+            cleanAnswers[pId] = pVal;
+          }
+        }
+      }
+      return {
+        ...turn,
+        isLoading: false,
+        loadingProviders: [],
+        answers: cleanAnswers,
+      };
+    });
+
     const allSessionProviders = new Set();
     const mergedAllAnswers = {};
-    for (const t of turnsToSave) {
+    for (const t of sanitizedTurns) {
       if (t.answers) {
         for (const [pId, pVal] of Object.entries(t.answers)) {
           allSessionProviders.add(pId);
@@ -488,10 +523,10 @@ export default function ChatBot({
     }
 
     const firstTurnQuestion =
-      turnsToSave[0]?.question?.trim() ||
-      (turnsToSave[0]?.questionImage
+      sanitizedTurns[0]?.question?.trim() ||
+      (sanitizedTurns[0]?.questionImage
         ? "Visual Query / Screenshot"
-        : turnsToSave[0]?.questionPage
+        : sanitizedTurns[0]?.questionPage
           ? "Web Page Analysis"
           : "Conversation Session");
 
@@ -499,7 +534,7 @@ export default function ChatBot({
       id: sessionId,
       question: firstTurnQuestion,
       timestamp: Date.now(),
-      turns: turnsToSave,
+      turns: sanitizedTurns,
       answers: mergedAllAnswers,
       providers: Array.from(allSessionProviders),
     };
@@ -543,21 +578,25 @@ export default function ChatBot({
     activeProviderResolversRef.current.clear();
     setIsLoading(false);
     setTurns((prev) => {
-      const next = prev.map((t) => ({ ...t, isLoading: false }));
+      const next = prev.map((t) => ({
+        ...t,
+        isLoading: false,
+        loadingProviders: [],
+      }));
       turnsRef.current = next;
+      saveHistoryImmediately(next);
       return next;
     });
     UTILS.pagePostMessage("IF_B_STOP_FETCH", {}, window.parent);
-  }, []);
+  }, [saveHistoryImmediately]);
 
   // Start fresh chat session (clears the continuous chat thread and resets background sessions)
   const handleNewChat = useCallback(() => {
     isSubmittingRef.current = false;
-    // Save current active conversation to history before resetting
+    handleStopFetch();
     if (turnsRef.current && turnsRef.current.length > 0) {
       saveHistoryImmediately(turnsRef.current);
     }
-    handleStopFetch();
     if (historySaveTimeoutRef.current) {
       clearTimeout(historySaveTimeoutRef.current);
     }
@@ -1274,6 +1313,8 @@ export default function ChatBot({
 
           const isCardLoading = Boolean(
             !activeContent &&
+            !isViewingHistory &&
+            isLoading &&
             (turn.isLoading ||
               (Array.isArray(turn.loadingProviders) &&
                 turn.loadingProviders.includes(currentProviderId))),
