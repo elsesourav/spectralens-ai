@@ -417,7 +417,7 @@ function formatProviderError(providerId, shortReason) {
 
 /* --- Shared Helper --- */
 
-/** Injects an in-page fetch interceptor into world: "MAIN" for real-time /async/folif stream capture */
+/** Injects an in-page network interceptor into world: "MAIN" for real-time fetch & XHR stream capture */
 function injectMainWorldNetworkInterceptor(tabId) {
   if (!chrome.scripting?.executeScript || !tabId) return;
   try {
@@ -428,43 +428,161 @@ function injectMainWorldNetworkInterceptor(tabId) {
         func: () => {
           if (window.__SPECTRALENS_MAIN_NET_HOOKED__) return;
           window.__SPECTRALENS_MAIN_NET_HOOKED__ = true;
+          window.__SPECTRALENS_ACTIVE_NET_REQUESTS__ = 0;
+          window.__SPECTRALENS_LAST_NET_ACTIVITY__ = 0;
+          window.__SPECTRALENS_LAST_NET_COMPLETED__ = 0;
           window.__SPECTRALENS_NETWORK_CHUNKS__ = [];
 
+          function isAiUrl(url) {
+            if (typeof url !== "string") return false;
+            return (
+              url.includes("/async/") ||
+              url.includes("/search") ||
+              url.includes("/uds/") ||
+              url.includes("/StreamGenerate") ||
+              url.includes("BardFrontendService") ||
+              url.includes("batchexecute") ||
+              url.includes("/assistant.lamda.") ||
+              url.includes("/backend-api/conversation") ||
+              url.includes("/backend-anon/conversation") ||
+              url.includes("/chat_conversations") ||
+              url.includes("/completion") ||
+              url.includes("/app-chat/conversations") ||
+              url.includes("/rest/queries") ||
+              url.includes("/api/query") ||
+              url.includes("/api/chat")
+            );
+          }
+
+          function notifyActivity(type, url, data = null) {
+            window.__SPECTRALENS_LAST_NET_ACTIVITY__ = Date.now();
+            window.dispatchEvent(
+              new CustomEvent("spectralens:network_activity", {
+                detail: {
+                  type,
+                  url,
+                  activeCount: window.__SPECTRALENS_ACTIVE_NET_REQUESTS__,
+                  timestamp: Date.now(),
+                  data,
+                },
+              }),
+            );
+          }
+
+          function notifyCompleted(url, text = null) {
+            window.__SPECTRALENS_ACTIVE_NET_REQUESTS__ = Math.max(
+              0,
+              window.__SPECTRALENS_ACTIVE_NET_REQUESTS__ - 1,
+            );
+            window.__SPECTRALENS_LAST_NET_COMPLETED__ = Date.now();
+            window.dispatchEvent(
+              new CustomEvent("spectralens:network_completed", {
+                detail: {
+                  url,
+                  activeCount: window.__SPECTRALENS_ACTIVE_NET_REQUESTS__,
+                  timestamp: Date.now(),
+                  textLength: text ? text.length : 0,
+                },
+              }),
+            );
+          }
+
+          // 1. Intercept window.fetch
           const origFetch = window.fetch;
           window.fetch = async function (...args) {
-            const response = await origFetch.apply(this, args);
+            const url =
+              typeof args[0] === "string" ? args[0] : args[0]?.url || "";
+            const isRelevant = isAiUrl(url);
+
+            if (isRelevant) {
+              window.__SPECTRALENS_ACTIVE_NET_REQUESTS__++;
+              notifyActivity("fetch_start", url);
+            }
+
             try {
-              const url =
-                typeof args[0] === "string" ? args[0] : args[0]?.url || "";
-              if (
-                url.includes("/async/folif") ||
-                url.includes("/async/aim") ||
-                url.includes("/async/") ||
-                url.includes("/StreamGenerate") ||
-                url.includes("BardFrontendService") ||
-                url.includes("/assistant.lamda.")
-              ) {
-                const clone = response.clone();
-                clone
-                  .text()
-                  .then((text) => {
-                    if (text && text.length > 50) {
-                      window.__SPECTRALENS_NETWORK_CHUNKS__.push({
-                        url,
-                        timestamp: Date.now(),
-                        raw: text,
-                      });
-                      window.dispatchEvent(
-                        new CustomEvent("spectralens:network_chunk", {
-                          detail: { url, raw: text, timestamp: Date.now() },
-                        }),
-                      );
-                    }
-                  })
-                  .catch(() => {});
+              const response = await origFetch.apply(this, args);
+              if (isRelevant) {
+                if (
+                  response.body &&
+                  typeof response.body.getReader === "function"
+                ) {
+                  try {
+                    const [stream1, stream2] = response.body.tee();
+                    const reader = stream2.getReader();
+                    const decoder = new TextDecoder();
+                    (async () => {
+                      try {
+                        let fullText = "";
+                        while (true) {
+                          const { done, value } = await reader.read();
+                          if (done) break;
+                          if (value) {
+                            const chunk = decoder.decode(value, {
+                              stream: true,
+                            });
+                            fullText += chunk;
+                            notifyActivity("fetch_chunk", url, chunk);
+                          }
+                        }
+                        notifyCompleted(url, fullText);
+                      } catch {
+                        notifyCompleted(url);
+                      }
+                    })();
+                    return new Response(stream1, {
+                      status: response.status,
+                      statusText: response.statusText,
+                      headers: response.headers,
+                    });
+                  } catch {
+                    const clone = response.clone();
+                    clone
+                      .text()
+                      .then((text) => notifyCompleted(url, text))
+                      .catch(() => notifyCompleted(url));
+                  }
+                } else {
+                  notifyCompleted(url);
+                }
               }
-            } catch {}
-            return response;
+              return response;
+            } catch (err) {
+              if (isRelevant) {
+                notifyCompleted(url);
+              }
+              throw err;
+            }
+          };
+
+          // 2. Intercept XMLHttpRequest (XHR)
+          const origXHROpen = XMLHttpRequest.prototype.open;
+          const origXHRSend = XMLHttpRequest.prototype.send;
+
+          XMLHttpRequest.prototype.open = function (method, url, ...rest) {
+            this._slUrl = typeof url === "string" ? url : "";
+            this._slRelevant = isAiUrl(this._slUrl);
+            return origXHROpen.call(this, method, url, ...rest);
+          };
+
+          XMLHttpRequest.prototype.send = function (...args) {
+            if (this._slRelevant) {
+              window.__SPECTRALENS_ACTIVE_NET_REQUESTS__++;
+              notifyActivity("xhr_start", this._slUrl);
+
+              this.addEventListener("progress", () => {
+                notifyActivity("xhr_progress", this._slUrl);
+              });
+              this.addEventListener("loadend", () => {
+                notifyCompleted(this._slUrl, this.responseText);
+              });
+              this.addEventListener("error", () => {
+                notifyCompleted(this._slUrl);
+              });
+              this.addEventListener("abort", () => {
+                notifyCompleted(this._slUrl);
+              });
+            }
+            return origXHRSend.apply(this, args);
           };
         },
       },

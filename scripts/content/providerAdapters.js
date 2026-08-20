@@ -294,6 +294,10 @@
       this.sequence = 0;
       this.hasSeenStreaming = false;
       this.stabilizationStartTime = null;
+      this.activeNetworkRequests = 0;
+      this.lastNetworkActivityAt = 0;
+      this.lastNetworkCompletedAt = 0;
+      this.isNetworkCompleted = false;
     }
 
     setState(newState) {
@@ -377,7 +381,10 @@
         input.isConnected &&
         !input.disabled &&
         input.getAttribute("contenteditable") !== "false";
-      if (inputReady || (sendControl && sendControl.isConnected && !sendControl.disabled)) {
+      if (
+        inputReady ||
+        (sendControl && sendControl.isConnected && !sendControl.disabled)
+      ) {
         score += 15;
       }
 
@@ -390,6 +397,17 @@
       // Signal E (+10): Provider-specific completion signal
       if (this.checkProviderSpecificSignal(tracker, currentText)) {
         score += 10;
+      }
+
+      // Signal F (+35): Network stream completed & no active network requests
+      const isNetComplete =
+        tracker.isNetworkCompleted ||
+        (typeof window !== "undefined" &&
+          window.__SPECTRALENS_ACTIVE_NET_REQUESTS__ === 0 &&
+          window.__SPECTRALENS_LAST_NET_COMPLETED__ > 0);
+
+      if (isNetComplete && !isStreamingNow && tracker.lastTextLength > 20) {
+        score += 35;
       }
 
       return {
@@ -551,8 +569,39 @@
             finalize(RESPONSE_STATES.CANCELLED, "");
           }
         };
+
+        // Network activity & completion listener
+        const networkActivityListener = (event) => {
+          tracker.lastNetworkActivityAt = Date.now();
+          if (event.detail?.activeCount !== undefined) {
+            tracker.activeNetworkRequests = event.detail.activeCount;
+          }
+          evaluate();
+        };
+
+        const networkCompletedListener = (event) => {
+          tracker.lastNetworkCompletedAt = Date.now();
+          tracker.isNetworkCompleted = true;
+          if (event.detail?.activeCount !== undefined) {
+            tracker.activeNetworkRequests = event.detail.activeCount;
+          }
+          tabLog(
+            this.adapter.id,
+            `[SL REQUEST] ${tracker.requestId} provider=${this.adapter.id} event=NETWORK_COMPLETED timestamp=${Date.now()}`,
+          );
+          evaluate();
+        };
+
         if (typeof window !== "undefined") {
           window.addEventListener("message", cancelListener);
+          window.addEventListener(
+            "spectralens:network_activity",
+            networkActivityListener,
+          );
+          window.addEventListener(
+            "spectralens:network_completed",
+            networkCompletedListener,
+          );
         }
 
         const finalize = async (status, responseOverride = null) => {
@@ -561,6 +610,14 @@
 
           if (typeof window !== "undefined") {
             window.removeEventListener("message", cancelListener);
+            window.removeEventListener(
+              "spectralens:network_activity",
+              networkActivityListener,
+            );
+            window.removeEventListener(
+              "spectralens:network_completed",
+              networkCompletedListener,
+            );
           }
 
           if (mutationObserver) {
