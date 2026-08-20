@@ -690,8 +690,17 @@
                   "color: #f59e0b;",
                 );
                 isExecuting = false;
-                hasSubmittedForRequest = true;
                 awaitingNavigation = true;
+                // Safety retry for SPA tabs where no full page navigation event fires
+                setTimeout(() => {
+                  if (!isResolved && !hasSubmittedForRequest && awaitingNavigation) {
+                    console.log(
+                      `[SL REQUEST] ${requestId} provider=${providerId} event=SPA_RETRY timestamp=${Date.now()}`,
+                    );
+                    awaitingNavigation = false;
+                    runInjection();
+                  }
+                }, 2000);
                 return;
               }
 

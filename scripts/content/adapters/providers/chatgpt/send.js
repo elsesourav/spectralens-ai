@@ -74,7 +74,7 @@
       if (!input) return false;
 
       input.focus();
-      await new Promise((r) => setTimeout(r, 50));
+      await new Promise((r) => setTimeout(r, 80));
 
       if (input.tagName.toLowerCase() === "textarea") {
         const nativeSetter = Object.getOwnPropertyDescriptor(
@@ -86,43 +86,105 @@
         } else {
           input.value = text;
         }
-        input.dispatchEvent(new Event("input", { bubbles: true }));
+        input.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
         input.dispatchEvent(new Event("change", { bubbles: true }));
       } else {
-        // ProseMirror Rich Text Editor
-        input.textContent = "";
-        const beforeInput = new InputEvent("beforeinput", {
-          bubbles: true,
-          cancelable: true,
-          inputType: "insertText",
-          data: text,
-        });
-        const notCancelled = input.dispatchEvent(beforeInput);
-        if (notCancelled) {
-          const success = document.execCommand("insertText", false, text);
-          if (!success) {
+        // ProseMirror Rich Text Editor (contenteditable div)
+        // 1. Focus and select contents
+        input.focus();
+        try {
+          const sel = window.getSelection();
+          if (sel) {
+            const range = document.createRange();
+            range.selectNodeContents(input);
+            sel.removeAllRanges();
+            sel.addRange(range);
+          }
+        } catch {}
+
+        // 2. Primary Method: Synthetic DataTransfer paste (ProseMirror's native input handler)
+        let pasteSuccess = false;
+        try {
+          const dt = new DataTransfer();
+          dt.setData("text/plain", text);
+          const pasteEv = new ClipboardEvent("paste", {
+            bubbles: true,
+            cancelable: true,
+            clipboardData: dt,
+          });
+          input.dispatchEvent(pasteEv);
+          await new Promise((r) => setTimeout(r, 100));
+          const currentText = (input.textContent || "").trim();
+          if (currentText.includes(text.slice(0, Math.min(20, text.length)))) {
+            pasteSuccess = true;
+          }
+        } catch {}
+
+        // 3. Secondary Method: execCommand insertText
+        if (!pasteSuccess) {
+          try {
+            document.execCommand("selectAll", false, null);
+            const execOk = document.execCommand("insertText", false, text);
+            if (execOk) {
+              await new Promise((r) => setTimeout(r, 80));
+              const currentText = (input.textContent || "").trim();
+              if (currentText.includes(text.slice(0, Math.min(20, text.length)))) {
+                pasteSuccess = true;
+              }
+            }
+          } catch {}
+        }
+
+        // 4. Tertiary Method: beforeinput / input event with ProseMirror structure
+        if (!pasteSuccess) {
+          try {
+            const beforeInput = new InputEvent("beforeinput", {
+              bubbles: true,
+              cancelable: true,
+              inputType: "insertText",
+              data: text,
+            });
+            input.dispatchEvent(beforeInput);
+            input.textContent = text;
+            input.dispatchEvent(
+              new InputEvent("input", {
+                bubbles: true,
+                cancelable: true,
+                inputType: "insertText",
+                data: text,
+              }),
+            );
+          } catch {
             input.textContent = text;
           }
         }
-        input.dispatchEvent(
-          new InputEvent("input", {
-            bubbles: true,
-            cancelable: true,
-            inputType: "insertText",
-            data: text,
-          }),
-        );
-        input.dispatchEvent(new Event("input", { bubbles: true }));
+
+        input.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+        input.dispatchEvent(new Event("change", { bubbles: true }));
       }
 
-      await new Promise((r) => setTimeout(r, 100));
+      await new Promise((r) => setTimeout(r, 150));
       return true;
     },
 
     findSendButton() {
-      return document.querySelector(
-        'button[data-testid="send-button"], button[aria-label*="Send prompt" i], button[aria-label*="Send" i], button[data-testid="fruitjuice-send-button"]',
-      );
+      const selectors = [
+        'button[data-testid="send-button"]',
+        'button[aria-label*="Send prompt" i]',
+        'button[aria-label*="Send message" i]',
+        'button[aria-label*="Send" i]',
+        'button[data-testid="fruitjuice-send-button"]',
+        'button[data-testid*="send" i]',
+        'form button[type="submit"]',
+        'button.mb-1.mr-1',
+      ];
+      for (const sel of selectors) {
+        try {
+          const btn = document.querySelector(sel);
+          if (btn && btn.offsetParent !== null) return btn;
+        } catch {}
+      }
+      return null;
     },
 
     async verifySubmission(timeoutMs = 3000) {

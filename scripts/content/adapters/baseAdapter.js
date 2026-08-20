@@ -175,7 +175,19 @@
 
     /** Execute primary submission (Send button click) */
     async executePrimarySubmit() {
-      const control = this.findSubmitControl();
+      const start = Date.now();
+      let control = this.findSubmitControl();
+
+      // Wait up to 2500ms for React / SPA to enable the submit button after input
+      while (
+        control &&
+        (control.disabled || control.getAttribute("aria-disabled") === "true") &&
+        Date.now() - start < 2500
+      ) {
+        await new Promise((r) => setTimeout(r, 100));
+        control = this.findSubmitControl();
+      }
+
       if (
         control &&
         !control.disabled &&
@@ -198,16 +210,26 @@
       if (input) {
         try {
           input.focus();
-          input.dispatchEvent(
-            new KeyboardEvent("keydown", {
-              key: "Enter",
-              code: "Enter",
-              keyCode: 13,
-              which: 13,
-              bubbles: true,
-              cancelable: true,
-            }),
-          );
+          const enterInit = {
+            key: "Enter",
+            code: "Enter",
+            keyCode: 13,
+            which: 13,
+            bubbles: true,
+            cancelable: true,
+          };
+          input.dispatchEvent(new KeyboardEvent("keydown", enterInit));
+          input.dispatchEvent(new KeyboardEvent("keypress", enterInit));
+          input.dispatchEvent(new KeyboardEvent("keyup", enterInit));
+
+          const form = input.closest("form");
+          if (form) {
+            try {
+              if (typeof form.requestSubmit === "function") {
+                form.requestSubmit();
+              }
+            } catch {}
+          }
           return true;
         } catch (err) {
           tabLog(this.id, "Fallback submit threw error:", err?.message);
