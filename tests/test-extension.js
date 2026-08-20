@@ -702,11 +702,13 @@ import("../scripts/update-version.js").then(({ calculateNextVersion, normalizeVe
   // 18. Grok Response Tracking & User Message Exclusion Audit:
   console.log("\n18. Grok Response Tracking & User Message Exclusion Audit:");
   const grokTrackJs = fs.readFileSync(path.join(rootDir, "scripts", "content", "adapters", "providers", "grok", "track.js"), "utf-8");
+  const grokAdapterJs = fs.readFileSync(path.join(rootDir, "scripts", "content", "adapters", "grok.js"), "utf-8");
   const detectorsSource = fs.readFileSync(path.join(rootDir, "scripts", "content", "adapters", "detectors.js"), "utf-8");
 
-  assert(grokTrackJs.includes("isUserMessageElement"), "grok/track.js implements isUserMessageElement");
+  assert(grokTrackJs.includes("function isUserMessageElement"), "grok/track.js implements module-scoped isUserMessageElement");
   assert(grokTrackJs.includes("findResponseContainer"), "grok/track.js implements findResponseContainer");
   assert(grokTrackJs.includes("items-end"), "grok/track.js filters right-aligned user containers");
+  assert(grokAdapterJs.includes("isUserMessageElement(el)"), "grok.js delegates isUserMessageElement");
   assert(detectorsSource.includes("class GrokCompletionDetector"), "detectors.js defines GrokCompletionDetector");
 
   // --- SUMMARY ---

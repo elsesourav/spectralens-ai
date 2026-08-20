@@ -5,35 +5,37 @@
 (function (global) {
   "use strict";
 
+  function isUserMessageElement(el) {
+    if (!el) return false;
+    if (
+      el.closest('[data-testid="user-message"]') ||
+      el.closest('[data-testid*="user"]') ||
+      el.classList?.contains("user-message") ||
+      el.closest(".user-message")
+    ) {
+      return true;
+    }
+    // Grok layout: user messages are right-aligned (items-end, justify-end, self-end, ml-auto)
+    if (
+      el.closest('[class*="items-end"]') ||
+      el.closest('[class*="justify-end"]') ||
+      el.closest('[class*="self-end"]') ||
+      el.closest('[class*="ml-auto"]') ||
+      el.closest('[class*="bg-surface-elevated"]')
+    ) {
+      return true;
+    }
+    // User message blocks often have an Edit button
+    if (
+      el.closest("div")?.querySelector('button[aria-label*="Edit" i], button[aria-label*="Pencil" i]')
+    ) {
+      return true;
+    }
+    return false;
+  }
+
   const GrokTrack = {
-    isUserMessageElement(el) {
-      if (!el) return false;
-      if (
-        el.closest('[data-testid="user-message"]') ||
-        el.closest('[data-testid*="user"]') ||
-        el.classList?.contains("user-message") ||
-        el.closest(".user-message")
-      ) {
-        return true;
-      }
-      // Grok layout: user messages are right-aligned (items-end, justify-end, self-end, ml-auto)
-      if (
-        el.closest('[class*="items-end"]') ||
-        el.closest('[class*="justify-end"]') ||
-        el.closest('[class*="self-end"]') ||
-        el.closest('[class*="ml-auto"]') ||
-        el.closest('[class*="bg-surface-elevated"]')
-      ) {
-        return true;
-      }
-      // User message blocks often have an Edit button
-      if (
-        el.closest("div")?.querySelector('button[aria-label*="Edit" i], button[aria-label*="Pencil" i]')
-      ) {
-        return true;
-      }
-      return false;
-    },
+    isUserMessageElement,
 
     findResponseContainer() {
       // 1. Direct assistant-specific selectors
@@ -58,7 +60,7 @@
         if (nodes.length > 0) {
           for (let i = nodes.length - 1; i >= 0; i--) {
             const n = nodes[i];
-            if (this.isUserMessageElement(n)) continue;
+            if (isUserMessageElement(n)) continue;
             const target =
               n.querySelector(
                 "div.response-content-markdown, div.chat-md, div.markdown, [dir='auto']",
@@ -83,7 +85,7 @@
             const markdown = parentCard.querySelector(
               "div.response-content-markdown, div.chat-md, div.markdown, [dir='auto']",
             );
-            if (markdown && !this.isUserMessageElement(markdown)) {
+            if (markdown && !isUserMessageElement(markdown)) {
               return markdown;
             }
           }
@@ -97,7 +99,7 @@
       if (allMarkdown.length > 0) {
         for (let i = allMarkdown.length - 1; i >= 0; i--) {
           const md = allMarkdown[i];
-          if (this.isUserMessageElement(md)) continue;
+          if (isUserMessageElement(md)) continue;
           return md;
         }
       }
@@ -147,7 +149,10 @@
           'button[aria-label*="Stop" i], svg.animate-spin',
         ),
       );
-      const container = this.findResponseContainer();
+      const container =
+        (this && typeof this.findResponseContainer === "function")
+          ? this.findResponseContainer()
+          : GrokTrack.findResponseContainer();
       const text = (container?.textContent || "").trim();
       return !hasStop && Boolean(container) && text.length > 0;
     },

@@ -42,6 +42,12 @@
         : super.verifySubmission(timeoutMs);
     }
 
+    isUserMessageElement(el) {
+      return TrackModule.isUserMessageElement
+        ? TrackModule.isUserMessageElement(el)
+        : false;
+    }
+
     findResponseContainer() {
       return TrackModule.findResponseContainer
         ? TrackModule.findResponseContainer.call(this)
