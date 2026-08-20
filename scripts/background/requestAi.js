@@ -540,6 +540,7 @@ function fetchAiAnswer(
     let timeoutId = null;
     let isExecuting = false;
     let hasSubmittedForRequest = false;
+    let awaitingNavigation = false;
     let currentPhase = "TAB_CREATE";
 
     const timing = {
@@ -792,6 +793,7 @@ function fetchAiAnswer(
           if (resultVal === "__NAVIGATING__") {
             isExecuting = false;
             hasSubmittedForRequest = true;
+            awaitingNavigation = true;
             timing.submitAt = Date.now();
             currentPhase = "RESPONSE_START";
             timing.firstResponseAt = Date.now();
@@ -810,6 +812,8 @@ function fetchAiAnswer(
               "color: #f59e0b;",
             );
             isExecuting = false;
+            hasSubmittedForRequest = true;
+            awaitingNavigation = true;
             return;
           }
 
@@ -866,6 +870,16 @@ function fetchAiAnswer(
       if (isResolved) return;
       if (updatedTabId === tabId && info.status === "complete") {
         injectMainWorldNetworkInterceptor(tabId);
+        if (awaitingNavigation) {
+          awaitingNavigation = false;
+          console.log(
+            `[SL REQUEST] ${requestId} provider=${providerId} event=NAVIGATION_COMPLETED_OBSERVING timestamp=${Date.now()}`,
+          );
+          if (!isExecuting) {
+            runInjection();
+          }
+          return;
+        }
         if (hasSubmittedForRequest) {
           console.log(
             `[SL REQUEST] ${requestId} provider=${providerId} event=NAVIGATION_IGNORED timestamp=${Date.now()}`,
@@ -1085,7 +1099,7 @@ function runTabAdapter(
 }
 
 async function getGoogleAiAnswer(q, requestId, image = null) {
-  const url = `https://www.google.com/search?q=${encodeURIComponent(q)}&hl=en`;
+  const url = "https://www.google.com/?hl=en";
   console.log(
     `[SpectraLens:Background] 🔍 getGoogleAiAnswer for: "${q.slice(0, 30)}..."${image ? " (with image)" : ""} (requestId: ${requestId})`,
   );

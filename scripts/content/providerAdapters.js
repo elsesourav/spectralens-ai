@@ -494,17 +494,23 @@
 
   class GoogleAICompletionDetector extends BaseCompletionDetector {
     checkProviderSpecificSignal(tracker, currentText) {
-      const isBusy = Boolean(
-        document.querySelector(
-          'div.wDYxhc.UDvLbd, div.Dn7Fzd[aria-busy="true"], div.animate-pulse, div.FzLjke, span.CkgRle, div[class*="shimmer"]',
-        ),
-      );
+      const isBusy = this.adapter.isStreaming();
       const hasCopy = Boolean(
         document.querySelector(
-          'button[aria-label="Copy text"].bKxaof, button[aria-label*="Copy text" i], button.bKxaof',
+          'button[aria-label="Copy text"].bKxaof, button[aria-label*="Copy text" i], button.bKxaof, button[aria-label*="Copy" i], button[aria-label*="Share" i], button[aria-label*="Feedback" i], button[aria-label*="Helpful" i], button[aria-label*="Thumbs" i]',
         ),
       );
-      return hasCopy && !isBusy;
+      const hasFollowUp = Boolean(
+        document.querySelector(
+          'textarea.ITIRGe, textarea[placeholder*="Ask anything" i], textarea[aria-label*="Ask a follow up" i]',
+        ),
+      );
+      const hasSources = Boolean(
+        document.querySelector(
+          'div.KkW2ib, div[data-subtree="aimc"] a[href], div[data-container-id="main-col"] a[href], div.kno-ftr',
+        ),
+      );
+      return !isBusy && (hasCopy || hasFollowUp || hasSources);
     }
   }
 
@@ -3413,6 +3419,14 @@
       ];
     }
 
+    isStreaming() {
+      return Boolean(
+        document.querySelector(
+          'div.wDYxhc.UDvLbd, div.Dn7Fzd[aria-busy="true"], div[data-subtree="aimc"][aria-busy="true"], div.animate-pulse, div.FzLjke, span.CkgRle, div[class*="shimmer"], div.loading-container, div[role="progressbar"], div[data-is-streaming="true"], button[aria-label*="Generating" i]',
+        ),
+      );
+    }
+
     createCompletionDetector() {
       return new GoogleAICompletionDetector(this);
     }
@@ -3423,11 +3437,23 @@
       requestId = null,
     ) {
       await this.ensureAiMode();
+      // Auto expand collapsed AI Overview if "Show more" button is present
+      try {
+        const expandBtn = document.querySelector(
+          'div[data-subtree="aimc"] button[aria-expanded="false"], div.Dn7Fzd button[aria-expanded="false"], button.bN468b',
+        );
+        if (expandBtn) {
+          expandBtn.click();
+        }
+      } catch {}
       return super.observeResponse(timeoutMs, previousContent, requestId);
     }
 
     isComplete() {
-      return Boolean(this.findResponseContainer());
+      const container = this.findResponseContainer();
+      if (!container) return false;
+      const text = (container.textContent || "").trim();
+      return !this.isStreaming() && text.length > 25;
     }
   }
 
