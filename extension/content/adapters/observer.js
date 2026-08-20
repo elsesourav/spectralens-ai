@@ -45,33 +45,47 @@
         };
 
         // Network activity & completion listener
+        const networkChunkListener = (event) => {
+          tracker.lastNetworkActivityAt = Date.now();
+          if (event.detail?.activeStreams !== undefined) {
+            tracker.activeNetworkRequests = event.detail.activeStreams;
+          }
+          evaluate(false);
+        };
+
         const networkActivityListener = (event) => {
           tracker.lastNetworkActivityAt = Date.now();
-          if (event.detail?.activeCount !== undefined) {
+          if (event.detail?.activeStreams !== undefined) {
+            tracker.activeNetworkRequests = event.detail.activeStreams;
+          } else if (event.detail?.activeCount !== undefined) {
             tracker.activeNetworkRequests = event.detail.activeCount;
           }
-          evaluate();
+          evaluate(false);
         };
 
         const networkCompletedListener = (event) => {
           tracker.lastNetworkCompletedAt = Date.now();
           tracker.isNetworkCompleted = true;
-          if (event.detail?.activeCount !== undefined) {
+          if (event.detail?.activeStreams !== undefined) {
+            tracker.activeNetworkRequests = event.detail.activeStreams;
+          } else if (event.detail?.activeCount !== undefined) {
             tracker.activeNetworkRequests = event.detail.activeCount;
           }
           tabLog(
             this.adapter.id,
             `[SL REQUEST] ${tracker.requestId} provider=${this.adapter.id} event=NETWORK_COMPLETED timestamp=${Date.now()}`,
           );
-          evaluate();
-          // Schedule rapid evaluations to instantly capture final DOM updates
-          setTimeout(() => { if (!isFinalized) evaluate(); }, 80);
-          setTimeout(() => { if (!isFinalized) evaluate(); }, 250);
-          setTimeout(() => { if (!isFinalized) evaluate(); }, 500);
+          // Wait for DOM to finish rendering final stream chunks before evaluating
+          setTimeout(() => { if (!isFinalized) evaluate(true); }, 400);
+          setTimeout(() => { if (!isFinalized) evaluate(true); }, 800);
         };
 
         if (typeof window !== "undefined") {
           window.addEventListener("message", cancelListener);
+          window.addEventListener(
+            "spectralens:network_chunk",
+            networkChunkListener,
+          );
           window.addEventListener(
             "spectralens:network_activity",
             networkActivityListener,
@@ -88,6 +102,10 @@
 
           if (typeof window !== "undefined") {
             window.removeEventListener("message", cancelListener);
+            window.removeEventListener(
+              "spectralens:network_chunk",
+              networkChunkListener,
+            );
             window.removeEventListener(
               "spectralens:network_activity",
               networkActivityListener,
@@ -140,19 +158,25 @@
           });
         };
 
-        // Safety timeout
+        // Safety watchdog timer
         const overallTimeoutId = setTimeout(() => {
-          tabLog(
-            this.adapter.id,
-            `[SL REQUEST] ${tracker.requestId} provider=${this.adapter.id} event=RESPONSE_TIMED_OUT timestamp=${Date.now()}`,
-          );
-          finalize(ResponseStates.TIMED_OUT);
+          if (!isFinalized) {
+            tabLog(
+              this.adapter.id,
+              `[SL REQUEST] ${tracker.requestId} provider=${this.adapter.id} event=RESPONSE_TIMED_OUT timestamp=${Date.now()}`,
+            );
+            finalize(
+              tracker.lastTextLength > 0
+                ? ResponseStates.TIMED_OUT
+                : ResponseStates.FAILED,
+            );
+          }
         }, maxTimeout);
 
-        const evaluate = async () => {
+        const evaluate = async (isNetworkDone = false) => {
           if (isFinalized) return;
           const now = Date.now();
-          if (now - lastEvaluationTime < this.THROTTLE_INTERVAL_MS) return;
+          if (!isNetworkDone && now - lastEvaluationTime < this.THROTTLE_INTERVAL_MS) return;
           lastEvaluationTime = now;
 
           const isStreamingNow = this.adapter.isStreaming();
@@ -205,13 +229,39 @@
             );
           }
 
-          // Evaluate completion confidence score
-          const evaluation = this.detector.evaluate(tracker, currentRawText);
+          // Strict Network Check: If stream is still receiving chunks, DO NOT finalize!
+          const hasActiveNetworkStream =
+            (tracker && tracker.activeNetworkRequests > 0) ||
+            (typeof window !== "undefined" &&
+              window.__SPECTRALENS_ACTIVE_NET_REQUESTS__ > 0) ||
+            (tracker && tracker.lastNetworkActivityAt && now - tracker.lastNetworkActivityAt < 800);
 
+          if (hasActiveNetworkStream) {
+            tracker.setState(ResponseStates.STREAMING);
+            return;
+          }
+
+          // If network has completed and DOM is no longer streaming, finalize!
+          const isNetCompleted = tracker.isNetworkCompleted || isNetworkDone;
+          if (isNetCompleted && !isStreamingNow && tracker.lastTextLength > 0) {
+            tabLog(
+              this.adapter.id,
+              `%c[SpectraLens:Observer] 🏆 Network stream completed for "${this.adapter.id}". Finalizing answer...`,
+              "color: #10b981; font-weight: bold;",
+            );
+            clearTimeout(overallTimeoutId);
+            finalize(ResponseStates.COMPLETED);
+            return;
+          }
+
+          // Fallback evaluation
+          const evaluation = this.detector.evaluate(tracker, currentRawText);
           if (
             evaluation.isComplete ||
             (typeof this.adapter.isComplete === "function" &&
-              this.adapter.isComplete())
+              this.adapter.isComplete() &&
+              tracker.lastTextLength > 0 &&
+              !hasActiveNetworkStream)
           ) {
             tabLog(
               this.adapter.id,

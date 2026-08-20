@@ -28,6 +28,12 @@
     },
 
     isStreaming() {
+      if (
+        typeof window !== "undefined" &&
+        window.__SPECTRALENS_ACTIVE_NET_REQUESTS__ > 0
+      ) {
+        return true;
+      }
       return Boolean(
         document.querySelector(
           'button[data-testid="stop-button"], button[aria-label*="Stop streaming" i], button[aria-label*="Stop generating" i], button[aria-label*="Stop" i], .result-streaming, [data-is-streaming="true"], div[class*="streaming"]',
@@ -36,6 +42,12 @@
     },
 
     isComplete(adapter) {
+      if (
+        typeof window !== "undefined" &&
+        window.__SPECTRALENS_ACTIVE_NET_REQUESTS__ > 0
+      ) {
+        return false;
+      }
       return !this.isStreaming() && Boolean(this.findResponseContainer());
     },
 

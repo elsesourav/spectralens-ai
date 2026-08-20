@@ -45,6 +45,12 @@
     },
 
     isStreaming() {
+      if (
+        typeof window !== "undefined" &&
+        window.__SPECTRALENS_ACTIVE_NET_REQUESTS__ > 0
+      ) {
+        return true;
+      }
       return Boolean(
         document.querySelector(
           "main #last-reply-container .thinking-container, div.thinking-indicator",
@@ -53,6 +59,12 @@
     },
 
     isComplete() {
+      if (
+        typeof window !== "undefined" &&
+        window.__SPECTRALENS_ACTIVE_NET_REQUESTS__ > 0
+      ) {
+        return false;
+      }
       return !this.isStreaming() && Boolean(this.findResponseContainer());
     },
 

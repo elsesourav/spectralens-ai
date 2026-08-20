@@ -24,6 +24,12 @@
     },
 
     isStreaming(adapter) {
+      if (
+        typeof window !== "undefined" &&
+        window.__SPECTRALENS_ACTIVE_NET_REQUESTS__ > 0
+      ) {
+        return true;
+      }
       const container = this.findResponseContainer();
       return Boolean(
         container?.classList?.contains("processing-state-visible") ||
@@ -42,6 +48,12 @@
     },
 
     isComplete() {
+      if (
+        typeof window !== "undefined" &&
+        window.__SPECTRALENS_ACTIVE_NET_REQUESTS__ > 0
+      ) {
+        return false;
+      }
       const hasCompletedFooter = Boolean(
         document.querySelector(
           "div.response-footer.complete, button[aria-label*='Copy' i]",

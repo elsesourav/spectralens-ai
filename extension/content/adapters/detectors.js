@@ -18,8 +18,26 @@
      * Calculates completion confidence score (0 - 100)
      */
     evaluate(tracker, currentText) {
-      let score = 0;
       const now = Date.now();
+
+      // Absolute Network Guard: If active network stream is in progress or chunk arrived recently, never complete
+      const hasActiveNetworkStream =
+        (tracker && tracker.activeNetworkRequests > 0) ||
+        (typeof window !== "undefined" &&
+          window.__SPECTRALENS_ACTIVE_NET_REQUESTS__ > 0) ||
+        (tracker && tracker.lastNetworkActivityAt && now - tracker.lastNetworkActivityAt < 600);
+
+      if (hasActiveNetworkStream) {
+        return {
+          score: 0,
+          isComplete: false,
+          isStabilizing: false,
+          isStreaming: true,
+          stableDuration: 0,
+        };
+      }
+
+      let score = 0;
       const isStreamingNow = this.adapter.isStreaming();
 
       // Signal A (+40): Generation / stop control is absent
@@ -97,84 +115,58 @@
 
   class ChatGPTCompletionDetector extends BaseCompletionDetector {
     checkProviderSpecificSignal(tracker, currentText) {
-      const container = this.adapter.findResponseContainer();
-      if (!container) return false;
-      const turnArticle = container.closest(
-        'article, [data-message-author-role="assistant"]',
-      );
-      const hasActionBar = Boolean(
-        turnArticle?.querySelector(
-          'button[aria-label*="Copy" i], button[data-testid*="copy" i], button[aria-label*="Good response" i]',
+      const isGenerating = this.adapter.isStreaming();
+      const hasSpeechOrCopy = Boolean(
+        document.querySelector(
+          'button[aria-label*="Read aloud" i], button[data-testid="copy-turn-action-button"], button[aria-label*="Copy" i]',
         ),
       );
-      const isResultStreaming = Boolean(
-        document.querySelector(".result-streaming, [data-is-streaming='true']"),
-      );
-      return hasActionBar && !isResultStreaming;
+      return !isGenerating && hasSpeechOrCopy;
     }
   }
 
   class ClaudeCompletionDetector extends BaseCompletionDetector {
     checkProviderSpecificSignal(tracker, currentText) {
-      const container = this.adapter.findResponseContainer();
-      if (!container) return false;
-      const turnContainer = container.closest(
-        '[data-test-render-count], .font-claude-message, [role="article"]',
-      );
-      const hasCopyBtn = Boolean(
-        turnContainer?.querySelector(
-          'button[aria-label*="Copy" i], button[data-testid*="copy" i]',
-        ),
-      );
-      const isStreamingAttr = Boolean(
+      const isGenerating = this.adapter.isStreaming();
+      const hasArtifactOrCopy = Boolean(
         document.querySelector(
-          'div[data-is-streaming="true"], svg.animate-spin',
+          'button[aria-label*="Copy" i], div[data-testid="artifact-renderer"]',
         ),
       );
-      return hasCopyBtn && !isStreamingAttr;
+      return !isGenerating && hasArtifactOrCopy;
     }
   }
 
   class GeminiCompletionDetector extends BaseCompletionDetector {
     checkProviderSpecificSignal(tracker, currentText) {
-      const isProgressBarActive = Boolean(
+      const isGenerating = this.adapter.isStreaming();
+      const hasActions = Boolean(
         document.querySelector(
-          'mat-progress-bar, mat-spinner, div[role="progressbar"], .mat-mdc-progress-bar',
+          'button[aria-label*="Copy" i], button[aria-label*="Good response" i], button[aria-label*="Modify" i]',
         ),
       );
-      const hasFooter = Boolean(
-        document.querySelector(
-          "div.response-footer, button[aria-label*='Copy' i], button[aria-label*='Good response' i], div.actions-container",
-        ),
-      );
-      return hasFooter && !isProgressBarActive;
+      return !isGenerating && hasActions;
     }
   }
 
   class GrokCompletionDetector extends BaseCompletionDetector {
     checkProviderSpecificSignal(tracker, currentText) {
-      const isThinking = Boolean(
-        document.querySelector(
-          ".thinking-container, div.thinking-indicator",
-        ),
-      );
+      const isGenerating = this.adapter.isStreaming();
       const hasActions = Boolean(
         document.querySelector(
           'button[aria-label*="Copy" i], button[aria-label*="Share" i]',
         ),
       );
-      return hasActions && !isThinking;
+      return !isGenerating && hasActions;
     }
   }
 
   class PerplexityCompletionDetector extends BaseCompletionDetector {
     checkProviderSpecificSignal(tracker, currentText) {
-      const isPulsing = Boolean(
-        document.querySelector(".animate-pulse, svg.animate-spin"),
-      );
+      const isPulsing = this.adapter.isStreaming();
       const hasCopy = Boolean(
         document.querySelector(
-          'button[aria-label="Copy"], button[aria-label*="Copy" i]:not([aria-label*="query" i])',
+          'button[aria-label*="Copy" i], button[aria-label*="Share" i]',
         ),
       );
       return hasCopy && !isPulsing;
@@ -183,28 +175,32 @@
 
   class GoogleAICompletionDetector extends BaseCompletionDetector {
     checkProviderSpecificSignal(tracker, currentText) {
+      // 1. Guard: If network is active, not completed
+      if (
+        (tracker && tracker.activeNetworkRequests > 0) ||
+        (typeof window !== "undefined" &&
+          window.__SPECTRALENS_ACTIVE_NET_REQUESTS__ > 0)
+      ) {
+        return false;
+      }
+
+      const container = this.adapter.findResponseContainer();
+      if (!container) return false;
+
       const isBusy = this.adapter.isStreaming();
       const hasCompleteFlag = Boolean(
-        document.querySelector(
+        container.querySelector(
           'div[data-complete="true"], div[jsaction*="aimRenderComplete"], div[data-xid="Gd7Hsc"]',
-        ),
+        )
       );
-      const hasCopy = Boolean(
-        document.querySelector(
-          'button[aria-label="Copy text"].bKxaof, button[aria-label*="Copy text" i], button.bKxaof, button[aria-label*="Copy" i], button[aria-label*="Share" i], button[aria-label*="Feedback" i], button[aria-label*="Helpful" i], button[aria-label*="Thumbs" i]',
-        ),
+      const hasLocalCopy = Boolean(
+        container.querySelector(
+          'button[aria-label="Copy text"].bKxaof, button[aria-label*="Copy text" i], button.bKxaof, button[aria-label*="Copy" i]',
+        ) ||
+        container.parentElement?.querySelector('button[aria-label*="Copy" i], button.bKxaof')
       );
-      const hasFollowUp = Boolean(
-        document.querySelector(
-          'textarea.ITIRGe, textarea[placeholder*="Ask anything" i], textarea[aria-label*="Ask a follow up" i]',
-        ),
-      );
-      const hasSources = Boolean(
-        document.querySelector(
-          'div.KkW2ib, div[data-subtree="aimc"] a[href], div[data-container-id="main-col"] a[href], div.kno-ftr',
-        ),
-      );
-      return (!isBusy && (hasCopy || hasFollowUp || hasSources)) || hasCompleteFlag;
+
+      return !isBusy && (hasLocalCopy || hasCompleteFlag);
     }
   }
 

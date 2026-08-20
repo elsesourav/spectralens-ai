@@ -115,31 +115,43 @@
     },
 
     isStreaming() {
-      // If explicit completion markers exist, Google is never streaming
+      // 1. If network requests are actively streaming in the window, it is DEFINITELY streaming!
       if (
-        document.querySelector(
-          'div[data-complete="true"], div[jsaction*="aimRenderComplete"], div[data-xid="Gd7Hsc"]',
-        )
+        typeof window !== "undefined" &&
+        window.__SPECTRALENS_ACTIVE_NET_REQUESTS__ > 0
       ) {
-        return false;
+        return true;
       }
       return Boolean(
         document.querySelector(
-          'div.Dn7Fzd[aria-busy="true"], div[data-subtree="aimc"][aria-busy="true"], div.animate-pulse, div[data-is-streaming="true"], button[aria-label*="Generating" i]',
+          'div.Dn7Fzd[aria-busy="true"], div[data-subtree="aimc"][aria-busy="true"], div.animate-pulse, div[data-is-streaming="true"], button[aria-label*="Generating" i], div.kCrYT .sh-sh-l, div[jsaction*="aimStreaming"]',
         ),
       );
     },
 
     isComplete() {
+      // 1. If network requests are currently streaming, response is NOT complete
+      if (
+        typeof window !== "undefined" &&
+        window.__SPECTRALENS_ACTIVE_NET_REQUESTS__ > 0
+      ) {
+        return false;
+      }
+
       const container = this.findResponseContainer();
       if (!container) return false;
       const text = (container.textContent || "").trim();
-      const hasCompleteSignal = Boolean(
-        document.querySelector(
-          'div[data-complete="true"], div[jsaction*="aimRenderComplete"], div[data-xid="Gd7Hsc"], button[aria-label="Copy text"].bKxaof, button[aria-label*="Copy text" i], button.bKxaof',
-        ),
+      if (text.length < 25) return false;
+
+      // Check for completion signals scoped to the CURRENT container or its immediate action bar
+      const hasLocalCompleteSignal = Boolean(
+        container.querySelector(
+          'div[data-complete="true"], div[jsaction*="aimRenderComplete"], div[data-xid="Gd7Hsc"], button[aria-label*="Copy" i], button.bKxaof',
+        ) ||
+        container.parentElement?.querySelector('button[aria-label*="Copy" i], button.bKxaof')
       );
-      return (!this.isStreaming() || hasCompleteSignal) && text.length > 25;
+
+      return !this.isStreaming() && hasLocalCompleteSignal;
     },
 
     getJunkSelectors() {

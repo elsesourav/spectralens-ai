@@ -30,6 +30,12 @@
     },
 
     isStreaming() {
+      if (
+        typeof window !== "undefined" &&
+        window.__SPECTRALENS_ACTIVE_NET_REQUESTS__ > 0
+      ) {
+        return true;
+      }
       return Boolean(
         document.querySelector('button[aria-label*="Stop" i]') ||
         document.querySelector('button[data-testid="stop-button"]') ||
@@ -40,6 +46,12 @@
     },
 
     isComplete() {
+      if (
+        typeof window !== "undefined" &&
+        window.__SPECTRALENS_ACTIVE_NET_REQUESTS__ > 0
+      ) {
+        return false;
+      }
       return !this.isStreaming() && Boolean(this.findResponseContainer());
     },
 
