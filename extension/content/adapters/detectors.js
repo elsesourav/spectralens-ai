@@ -163,12 +163,20 @@
   class GrokCompletionDetector extends BaseCompletionDetector {
     checkProviderSpecificSignal(tracker, currentText) {
       const isGenerating = this.adapter.isStreaming();
+      const container = this.adapter.findResponseContainer();
+      if (!container) return false;
+      const text = (container.textContent || "").trim();
+      if (text.length === 0) return false;
+
       const hasActions = Boolean(
         document.querySelector(
+          'button[aria-label*="Copy" i], button[aria-label*="Share" i], button[aria-label*="Regenerate" i], button[aria-label*="Thumbs" i]',
+        ) ||
+        container.parentElement?.querySelector(
           'button[aria-label*="Copy" i], button[aria-label*="Share" i]',
-        ),
+        )
       );
-      return !isGenerating && hasActions;
+      return !isGenerating && (hasActions || tracker?.isNetworkCompleted);
     }
   }
 

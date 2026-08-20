@@ -509,6 +509,21 @@
           failureCount: 0,
         });
 
+        if (isReused) {
+          if (typeof chrome !== "undefined" && chrome.scripting?.executeScript) {
+            chrome.scripting
+              .executeScript({
+                target: { tabId },
+                func: () => {
+                  if (typeof window !== "undefined") {
+                    window.postMessage({ type: "CANCEL_AI_REQUEST" }, "*");
+                  }
+                },
+              })
+              .catch(() => {});
+          }
+        }
+
         console.log(
           `%c[SpectraLens:Pipeline] 📑 [STEP 3/5] Background Tab #${tabId} ready (Window #${tab.windowId}, reused: ${isReused}). Listening for stream completion...`,
           "color: #10b981; font-weight: bold;",
