@@ -201,7 +201,12 @@ import("../scripts/update-version.js").then(({ calculateNextVersion, normalizeVe
   console.log("\n7. Theme-Aware Isolated Response & Dynamic CSS Engine:");
   const popupCss = fs.readFileSync(path.join(rootDir, "src", "popup", "index.css"), "utf-8");
   const widgetCss = fs.readFileSync(path.join(rootDir, "src", "inject", "widgetWindow.css"), "utf-8");
-  const adaptersJs = fs.readFileSync(path.join(rootDir, "scripts", "content", "providerAdapters.js"), "utf-8");
+  const baseAdapterJs = fs.readFileSync(path.join(rootDir, "scripts", "content", "adapters", "baseAdapter.js"), "utf-8");
+  const detectorsJs = fs.readFileSync(path.join(rootDir, "scripts", "content", "adapters", "detectors.js"), "utf-8");
+  const trackerJs = fs.readFileSync(path.join(rootDir, "scripts", "content", "adapters", "tracker.js"), "utf-8");
+  const observerJs = fs.readFileSync(path.join(rootDir, "scripts", "content", "adapters", "observer.js"), "utf-8");
+  const adapterUtilsJs = fs.readFileSync(path.join(rootDir, "scripts", "content", "adapters", "utils.js"), "utf-8");
+  const adaptersJs = baseAdapterJs + "\n" + detectorsJs + "\n" + trackerJs + "\n" + observerJs + "\n" + adapterUtilsJs;
 
   assert(popupCss.includes("--sl-text-primary:"), "popup/index.css defines --sl-text-primary theme token");
   assert(popupCss.includes("--sl-bg-surface:"), "popup/index.css defines --sl-bg-surface theme token");
@@ -489,8 +494,6 @@ import("../scripts/update-version.js").then(({ calculateNextVersion, normalizeVe
 
   // --- TEST SUITE 13: Final Provider Contract & Acceptance Verification ---
   console.log("\n13. Final Provider Contract & Acceptance Verification:");
-  const providerAdaptersJs = fs.readFileSync(path.join(rootDir, "scripts", "content/providerAdapters.js"), "utf8");
-  
   // Verify universal provider contract methods on BaseProviderAdapter
   const contractMethods = [
     "detect()",
@@ -513,7 +516,7 @@ import("../scripts/update-version.js").then(({ calculateNextVersion, normalizeVe
 
   contractMethods.forEach(method => {
     const baseName = method.split("(")[0];
-    assert(providerAdaptersJs.includes(baseName), `BaseProviderAdapter satisfies contract method: ${method}`);
+    assert(baseAdapterJs.includes(baseName), `BaseProviderAdapter satisfies contract method: ${method}`);
   });
 
   // Verify Timing Telemetry logging in requestAi.js

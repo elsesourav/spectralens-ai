@@ -14,7 +14,7 @@ A powerful Chrome extension that brings multiple AI assistants together in one c
 
 ### Download & Install
 
-**[⬇️ Download Here](https://github.com/elsesourav/spectralens-ai/raw/main/spectralens-ai-extension.zip)** *(Size: 20.80 MB, Updated: 2026-08-20)*
+**[⬇️ Download Here](https://github.com/elsesourav/spectralens-ai/raw/main/spectralens-ai-extension.zip)** *(Size: 20.77 MB, Updated: 2026-08-20)*
 
 **Installation Steps:**
 
