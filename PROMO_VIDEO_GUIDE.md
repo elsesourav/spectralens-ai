@@ -104,20 +104,15 @@ timeline
 
 ---
 
-### **Scene 7: How to Install & Call To Action (0:65 – 0:75)**
+### **Scene 7: Auto Tab Cleanup & Call To Action (0:65 – 0:75)**
 - **Visual**:
-  1. **Chrome Web Store Page**: Show the official SpectraLens AI listing in the Chrome Web Store.
-  2. **1-Click Install**: Cursor smoothly moves to the bright blue **"Add to Chrome"** button and clicks it.
-  3. **Confirmation**: Chrome confirmation modal pops up → Click **"Add extension"**.
-  4. **Pin to Toolbar**: Show clicking the Chrome puzzle icon 🧩 and pinning 📌 **SpectraLens AI** to the toolbar.
-  5. **Instant Activation**: Navigate to any webpage and show the sleek floating pill widget appearing instantly, ready to use!
-  6. **End Screen Outro**:
-     - Modern animated end slate with SpectraLens AI Logo & App Icon.
-     - 5-Star ratings badge + *"100% Free • Zero API Keys Required"*.
-     - Main headline: **"SpectraLens AI — Browse Smarter. Compare Faster."**
-     - CTA Badge: **"Available Now on the Chrome Web Store"**.
+  - Show the **Chat History** tab recalling a past multi-turn session in 1 click.
+  - Fast graphic showing automatic 6-minute background tab cleanup to keep RAM ultralight.
+  - End screen with SpectraLens AI Logo, 5-Star ratings badge, and Chrome Web Store badge.
+  - Big text: **"SpectraLens AI — Browse Smarter. Compare Faster."**
+  - Subtext: **"Available Free on the Chrome Web Store"**.
 - **Voiceover**:
-  > *"Getting started takes just five seconds: Search SpectraLens AI on the Chrome Web Store, click 'Add to Chrome', and pin it to your toolbar. Upgrade your browser with the ultimate multi-AI workspace today!"*
+  > *"Upgrade your browser with the ultimate multi-AI workspace. Install SpectraLens AI free on the Chrome Web Store today!"*
 
 ---
 
@@ -134,8 +129,6 @@ timeline
 > *Have text locked inside an image? Use the instant on-screen OCR scanner to extract and query it in seconds.*
 >
 > *Customize with sleek dark modes and glassmorphism, unlock right-click copy protection globally, and access your entire conversation history anytime.*
->
-> *Getting started takes just five seconds: Search SpectraLens AI on the Chrome Web Store, click 'Add to Chrome', and pin it to your toolbar.*
 >
 > *SpectraLens AI — Browse smarter. Compare faster.*
 > *Add it free to Chrome today."*
