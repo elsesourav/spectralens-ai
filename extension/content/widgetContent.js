@@ -740,6 +740,18 @@ pageOnMessage("IF_C_SELECT_AREA", () => {
   });
 });
 
+pageOnMessage("IF_B_PING_ACTIVITY", () => {
+  runtimeSendMessage("IF_B_PING_ACTIVITY");
+});
+
+runtimeOnMessage("B_C_RESET_INACTIVITY_NEW_CHAT", async (_, __, sendResponse) => {
+  sendResponse && sendResponse({ success: true });
+  const menuFrame = document.getElementById("spectralensWidgetIframe");
+  if (menuFrame) {
+    pagePostMessage("IF_C_RESET_TO_NEW_CHAT", {}, menuFrame.contentWindow);
+  }
+});
+
 pageOnMessage("IF_C_SELECT_TEXT", () => {
   currentSelectionMode = "ocr";
   const menuFrame = document.getElementById("spectralensWidgetIframe");

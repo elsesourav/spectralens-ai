@@ -841,6 +841,18 @@ import("../scripts/update-version.js").then(({ calculateNextVersion, normalizeVe
   assert(workerCode2.includes("C_OF_PROCESS_OCR"), "worker.js handles C_OF_PROCESS_OCR message for Tesseract OCR");
   assert(workerCode2.includes("C_OF_CROP_IMAGE"), "worker.js handles C_OF_CROP_IMAGE for area screenshots");
 
+  // --- TEST SUITE 25: 6-Minute Chat Inactivity Auto Tab Close & New Chat Audit ---
+  console.log("\n25. 6-Minute Chat Inactivity Auto Tab Close & New Chat Audit:");
+  assert(chatBotCode2.includes("INACTIVITY_AUTO_NEW_CHAT_MS = 6 * 60 * 1000"), "ChatBot.jsx configures 6-minute inactivity limit (360,000ms)");
+  assert(chatBotCode2.includes("resetInactivityTimer"), "ChatBot.jsx implements resetInactivityTimer watchdog");
+  assert(chatBotCode2.includes("IF_B_PING_ACTIVITY"), "ChatBot.jsx pings background on user activity");
+  assert(bgCode2.includes("CHAT_INACTIVITY_LIMIT_MS = 6 * 60 * 1000"), "background.js configures 6-minute chat inactivity watchdog");
+  assert(bgCode2.includes("resetChatInactivityTimer"), "background.js defines resetChatInactivityTimer");
+  assert(bgCode2.includes("clearChatInactivityTimer"), "background.js defines clearChatInactivityTimer");
+  assert(bgCode2.includes("B_C_RESET_INACTIVITY_NEW_CHAT"), "background.js broadcasts B_C_RESET_INACTIVITY_NEW_CHAT on 6m timeout");
+  assert(widgetContentCode2.includes("B_C_RESET_INACTIVITY_NEW_CHAT"), "widgetContent.js handles B_C_RESET_INACTIVITY_NEW_CHAT message");
+  assert(widgetContentCode2.includes("IF_B_PING_ACTIVITY"), "widgetContent.js forwards IF_B_PING_ACTIVITY to background");
+
   // --- SUMMARY ---
   console.log(`\n========================================`);
   console.log(`Test Results: ${passed} Passed, ${failed} Failed`);

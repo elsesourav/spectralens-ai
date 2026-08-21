@@ -600,6 +600,10 @@ export default function ChatBot({
 
   // Start fresh chat session (clears the continuous chat thread and resets background sessions)
   const handleNewChat = useCallback(() => {
+    if (inactivityTimerRef.current) {
+      clearTimeout(inactivityTimerRef.current);
+      inactivityTimerRef.current = null;
+    }
     isSubmittingRef.current = false;
     handleStopFetch();
     if (turnsRef.current && turnsRef.current.length > 0) {
@@ -629,7 +633,48 @@ export default function ChatBot({
     }, 50);
   }, [handleStopFetch, saveHistoryImmediately]);
 
-  // Listen for reset trigger from controls settings change
+  // 6-Minute Chat Inactivity Auto-Reset Watchdog
+  const INACTIVITY_AUTO_NEW_CHAT_MS = 6 * 60 * 1000; // 6 minutes (360,000 ms)
+  const inactivityTimerRef = useRef(null);
+
+  const resetInactivityTimer = useCallback(() => {
+    if (inactivityTimerRef.current) {
+      clearTimeout(inactivityTimerRef.current);
+      inactivityTimerRef.current = null;
+    }
+    // Only schedule auto-close & new-chat if there is an active conversation
+    if (turnsRef.current && turnsRef.current.length > 0) {
+      inactivityTimerRef.current = setTimeout(() => {
+        console.log(
+          "[SpectraLens:ChatBot] ⏳ 6-minute chat inactivity limit reached. Auto-closing tabs and starting new chat...",
+        );
+        handleNewChat();
+      }, INACTIVITY_AUTO_NEW_CHAT_MS);
+    }
+    // Ping background to also refresh its watchdog
+    UTILS.pagePostMessage("IF_B_PING_ACTIVITY", {}, window.parent);
+  }, [handleNewChat]);
+
+  // Clean up timer on unmount
+  useEffect(() => {
+    return () => {
+      if (inactivityTimerRef.current) {
+        clearTimeout(inactivityTimerRef.current);
+      }
+    };
+  }, []);
+
+  // Update timer whenever turns change
+  useEffect(() => {
+    if (turns.length > 0) {
+      resetInactivityTimer();
+    } else if (inactivityTimerRef.current) {
+      clearTimeout(inactivityTimerRef.current);
+      inactivityTimerRef.current = null;
+    }
+  }, [turns, resetInactivityTimer]);
+
+  // Listen for reset trigger from controls settings change or background 6m timeout
   useEffect(() => {
     const unsub = UTILS.pageOnMessage("IF_C_RESET_TO_NEW_CHAT", () => {
       handleNewChat();

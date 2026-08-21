@@ -460,10 +460,50 @@ runtimeOnMessage("P_B_TOGGLE", async (_, __, sendResponse) => {
   return sendResponse("ok");
 });
 
+// 6-Minute Chat Inactivity Auto-Reset Watchdog
+const CHAT_INACTIVITY_LIMIT_MS = 6 * 60 * 1000; // 6 minutes (360,000 ms)
+let chatInactivityTimer = null;
+
+function resetChatInactivityTimer() {
+  if (chatInactivityTimer) {
+    clearTimeout(chatInactivityTimer);
+    chatInactivityTimer = null;
+  }
+  chatInactivityTimer = setTimeout(() => {
+    console.log(
+      "[SpectraLens:Background] ⏳ 6-minute chat inactivity limit reached. Auto-closing all open AI provider tabs and broadcasting new chat...",
+    );
+    if (typeof resetAllProviderSessions === "function") {
+      resetAllProviderSessions();
+    }
+    if (typeof floatingWidgetHostTabs !== "undefined") {
+      for (const hostTabId of floatingWidgetHostTabs) {
+        tabSendMessage(hostTabId, "B_C_RESET_INACTIVITY_NEW_CHAT");
+      }
+    }
+  }, CHAT_INACTIVITY_LIMIT_MS);
+}
+
+function clearChatInactivityTimer() {
+  if (chatInactivityTimer) {
+    clearTimeout(chatInactivityTimer);
+    chatInactivityTimer = null;
+  }
+}
+
+runtimeOnMessage("IF_B_PING_ACTIVITY", (_, sender, sendResponse) => {
+  if (sender?.tab?.id) {
+    registerWidgetHostTab(sender.tab.id);
+  }
+  resetChatInactivityTimer();
+  sendResponse && sendResponse({ status: "ok" });
+});
+
 runtimeOnMessage("IF_B_NEW_CHAT", (_, sender, sendResponse) => {
   if (sender?.tab?.id) {
     registerWidgetHostTab(sender.tab.id);
   }
+  clearChatInactivityTimer();
   resetAllProviderSessions();
   sendResponse && sendResponse({ status: "reset" });
 });
