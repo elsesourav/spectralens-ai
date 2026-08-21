@@ -1,7 +1,7 @@
 {
   "name": "SpectraLens AI",
-  "version": "2.9.77",
-  "description": "Fast multi-engine AI search aggregation, in-page text selection, and on-device Optical Character Recognition (OCR).",
+  "version": "2.9.78",
+  "description": "Compare ChatGPT, Claude, Gemini, Grok & Perplexity side-by-side on any page with visual element scanning, offline OCR & tab tools.",
   "manifest_version": 3,
   "permissions": [
     "scripting",
@@ -9,7 +9,8 @@
     "unlimitedStorage",
     "activeTab",
     "tabs",
-    "offscreen"
+    "offscreen",
+    "declarativeNetRequest"
   ],
   "optional_permissions": [
     "clipboardWrite"

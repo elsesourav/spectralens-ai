@@ -1,128 +1,144 @@
-# Chrome Web Store Submission
+# Chrome Web Store Submission & Developer Console Guide
 
-## Product
-- **Name:** SpectraLens AI
-- **Version:** 2.4.2
-- **Purpose:** Instant on-page multi-engine AI search aggregation, text extraction, and on-device Optical Character Recognition (OCR) directly within web browsing workflows.
+## Product Metadata
+- **Name:** SpectraLens AI — Multi-Engine AI Companion, OCR & Tab Tools
+- **Short Name:** SpectraLens AI
+- **Version:** 2.9.77
+- **Primary Purpose:** Instant on-page multi-engine AI search aggregation, visual DOM element extraction, on-device OCR, and tab productivity directly within web browsing workflows.
 
-## Developer
+## Developer Contact
 - **Developer Name:** Sourav (elsesourav)
 - **Developer Email:** elsesourav.auth@gmail.com
-- **Website:** https://elsesourav.web.app
+- **Website / Homepage:** https://elsesourav.web.app
+- **Support / Issue Tracker:** https://github.com/elsesourav/spectralens-ai/issues
+- **Privacy Policy URL:** https://elsesourav.web.app/privacy-policy.html
 
-## Store Listing
+---
 
-### Name
-SpectraLens AI — Multi-Engine AI Search, Screen OCR & Tab Tools
+## Store Listing Copy
 
-### Short Description
-Fast multi-engine AI search aggregation, in-page text selection, and on-device Optical Character Recognition (OCR).
+### Extension Name
+`SpectraLens AI — Multi-Engine AI Chat, Screen OCR & Tab Tools`
 
-### Full Description
-SpectraLens AI is an in-browser productivity and research companion that lets you query top AI search engines, extract on-screen text with offline OCR, and compare answers side-by-side without leaving your active tab.
+### Short Description (Max 132 chars)
+`Compare ChatGPT, Claude, Gemini, Grok & Perplexity side-by-side on any page with visual element scanning, offline OCR & tab tools.`
 
-KEY CAPABILITIES
+### Detailed Store Description
 
-1. Multi-Engine AI Search
-- Query multiple search engines simultaneously, including Google AI Overview, Bing Copilot, Perplexity, Gemini, and Grok.
-- View and switch between answers in a responsive, floating on-page panel.
-- Control concurrent query limits directly from settings to balance speed and network usage.
+```markdown
+SpectraLens AI is a powerful, privacy-first in-browser productivity companion that allows you to query top AI models simultaneously, scan and extract on-screen elements with offline OCR, and unblock restricted text selection without leaving your active tab.
 
-2. On-Device Area OCR
-- Select any portion of a webpage (images, diagrams, locked text) to extract text using a bundled, offline Tesseract.js engine.
-- Screen crops are processed entirely in local browser memory and never uploaded to external servers.
-- Extracted text is instantly pasted into your chat prompt for immediate querying.
+🚀 KEY CAPABILITIES & FEATURES:
 
-3. Streamlined Research Workflow
-- Draggable and resizable floating window that adapts to light and dark page backgrounds.
-- Search history saved locally on your device (up to 20 items) with instant one-click deletion.
-- Non-intrusive text selection and copy enablement on research pages with restrictive scripts.
+1. Simultaneous Multi-Engine AI Querying
+• Send your prompts simultaneously to leading AI models: ChatGPT, Claude, Gemini, Grok, Perplexity, and Google Search.
+• Compare responses side-by-side in a sleek, glassmorphic floating window.
+• Zero API Costs: Operates directly with your active web sessions without needing paid API tokens or subscription keys.
+• Stream responses smoothly with independent model cancellation and stop-fetch controls.
 
-PRIVACY & SECURITY
-- Zero telemetry and zero analytics tracking.
-- No user accounts, logins, or authentication required.
-- All search requests are made directly from your browser to the designated search provider.
-- All code and WebAssembly OCR components are packaged locally inside the extension.
+2. Visual Element Scanner & On-Device OCR
+• Point-and-click to scan any webpage element (paragraphs, tables, charts, or code blocks) directly into your prompt.
+• Built-in offline WebAssembly OCR engine extracts text from images and diagrams entirely in local browser memory.
+• Automatic structured DOM parsing formats HTML tables into clean Markdown tables and code snippets into fenced code blocks.
 
-LIMITATIONS
-- Search responses depend on provider availability and rate limits.
-- Requires an active internet connection to fetch AI search answers.
+3. Adaptive Theme Engine & Ergonomic UI
+• 3-State Theme Harmonization: 'Page Theme' dynamically detects the host website's background colors and luminance to blend seamlessly, alongside dedicated Dark Mode and Light Mode.
+• Draggable, resizable, and auto-minimizing floating launcher with persistent position memory.
+• Complete Keyboard Shortcuts support (⌥ Option + A / Alt + A to toggle, ⌘/Ctrl + Shift + S for Element Selector).
 
-## Category
+4. Tab Productivity & Research Tools
+• Universal Copy & Context Menu Unblocker: Strips anti-selection, anti-copy, and context-menu locks on documentation and study sites.
+• Always Active Tab Worker: Prevents background tabs from sleeping, pausing JavaScript timers, or freezing during long tasks.
+• Full On-Page Help & Guide Center: In-widget interactive manual, shortcuts cheat sheet, model connectivity hub, and searchable FAQ.
+
+🔒 PRIVACY, SECURITY & PERMISSIONS:
+
+• 100% On-Device Local Sandboxing: All conversation histories, domain whitelists, and preferences are stored exclusively on your machine in Chrome's sandboxed LevelDB storage.
+• Zero User Telemetry: Zero tracking pixels, zero analytics scripts (no Google Analytics, Sentry, or Mixpanel), and zero advertising trackers.
+• Direct Browser Transport: Prompts travel directly between your browser and official AI domains without passing through third-party proxy servers.
+• Complete Data Sovereignty: Export full chat histories to structured JSON or readable Markdown files, or wipe data with a single click.
+
+💡 LIMITATIONS & REQUIREMENTS:
+• Requires active internet access to communicate with AI providers.
+• Response times vary based on official AI provider server loads.
+```
+
+---
+
+## Category & Classification
 - **Primary Category:** Productivity
 - **Secondary Category:** Search Tools
+- **Maturity / Rating:** General Audience (No adult content, no gambling, no paid transactions)
 
-## Privacy
-- **Privacy Policy URL:** `https://elsesourav.web.app/privacy-policy.html` *(Hosted copy of privacy-policy.html)*
-- **Data Collected:** None. The extension does not collect, store, or transmit personally identifiable information, browsing history, or user telemetry.
-- **Data Processed Locally:** User-entered search prompts, area OCR image crops (transient in memory), and user preferences (theme, enabled AI providers, local chat history).
-- **Data Transmitted:** Search queries are transmitted directly to the selected public search provider (Google, Bing, Perplexity, Grok, Gemini) upon explicit user initiation.
-- **Third Parties:** Direct connections to search engines selected by user (Google, Microsoft Bing, Perplexity AI, xAI Grok). No analytics or ad brokers.
+---
 
-## Permissions
+## Privacy & Single Purpose Disclosures
 
-| Permission | Justification |
+### Single Purpose Justification
+> **Statement:** SpectraLens AI provides instantaneous on-page multi-engine AI search aggregation, visual DOM text extraction, and on-device OCR directly within the user's browsing workflow.
+
+### Permission Justifications Table
+
+| Permission | Source Files | Justification |
+| :--- | :--- | :--- |
+| `storage` | `utilsModule.js`, `bgUtils.js`, `ChatBot.jsx` | Required to persist user preferences (theme, model toggles, auto-hide delay, copy rules) and conversation logs locally on device. |
+| `activeTab` | `background.js`, `AlwaysActiveToggle.jsx` | Required to interact with the active tab when the user triggers the toolbar popup, in-page floating widget, or shortcut. |
+| `scripting` | `background.js`, `bgUtils.js`, `requestAi.js` | Required to inject the visual element selector overlay, copy unblocker styles, and extract answer DOM on query tabs. |
+| `offscreen` | `bgUtils.js`, `worker.js` | Required to execute local Tesseract.js WebAssembly OCR in a sandboxed background thread without blocking the browser UI. |
+| `tabs` | `background.js`, `requestAi.js` | Required to open and manage background query tabs for enabled AI providers and automatically close them upon completion. |
+| `declarativeNetRequest` | `bgUtils.js` (`chromeTabMediaAccess`) | Required to temporarily suppress image and font downloads on background worker tabs to conserve user network bandwidth. |
+
+### Host Permissions Justification
+
+| Pattern | Justification |
 | :--- | :--- |
-| `storage` | Required to save user preferences (enabled AI engines, theme, concurrency) and recent query history locally on the user's device. |
-| `activeTab` | Required to interact with the active browser tab when the user invokes the extension popup or floating tools. |
-| `scripting` | Required to inject the in-page floating menu frame, area OCR selection overlay, and extract text from search tabs. |
-| `offscreen` | Required to run the local Tesseract.js WebAssembly OCR engine in a sandboxed background document without blocking the UI. |
-| `tabs` | Required to create background query tabs to fetch search answers and clean them up automatically when queries finish. |
-| `declarativeNetRequest` | Required to temporarily block image and media loading on background scraping tabs to conserve user network bandwidth. |
+| `http://*/*` | Required to inject the floating research assistant, text selection tools, and copy unblocker across standard HTTP websites. |
+| `https://*/*` | Required to inject the floating research assistant, text selection tools, and copy unblocker across secure HTTPS websites and communicate with AI providers. |
 
-## Host Permissions
+---
 
-| Host Pattern | Justification |
-| :--- | :--- |
-| `http://*/*` | Required to inject the floating research assistant and text selection tool on HTTP web pages and query search providers. |
-| `https://*/*` | Required to inject the floating research assistant and text selection tool on secure HTTPS web pages and query search providers. |
+## Chrome Web Store Data Safety Disclosures
 
-## Distribution
-- **Visibility:** Public
-- **Regions:** All regions (Global distribution)
-- **Pricing:** Free
-- **In-app Purchases:** No
+| Store Field | Value | Explanation |
+| :--- | :---: | :--- |
+| **Authentication Info** | **NO** | No user account or registration is required to use SpectraLens AI. |
+| **Personal Communications** | **NO** | User chats are strictly local and never transmitted to extension servers. |
+| **Financial / Payment Data** | **NO** | SpectraLens AI is 100% free with no in-app purchases or payments. |
+| **Health Info** | **NO** | No health data is accessed. |
+| **Location Data** | **NO** | No GPS, IP geolocation, or location coordinates are collected. |
+| **Web Browsing History** | **NO** | Extension does not track, record, or exfiltrate URLs visited by the user. |
+| **User Activity / Analytics** | **NO** | Zero telemetry, zero analytics scripts, zero tracking cookies. |
+| **Website Content** | **YES** | Only DOM nodes explicitly selected by the user via the Visual Element Selector or Area OCR. |
 
-## Graphics
-- **Extension Icon:**
-  - 16x16: `assets/icons/16.png`
-  - 24x24: `assets/icons/24.png`
-  - 32x32: `assets/icons/32.png`
-  - 48x48: `assets/icons/48.png`
-  - 128x128: `assets/icons/128.png`
-- **Store Screenshots Required (1280x800 or 640x400 PNG/JPEG):**
-  - Screenshot 1: Floating SpectraLens AI window comparing answers from multiple AI engines.
-  - Screenshot 2: Area OCR tool selecting on-screen text and converting it into a search query.
-  - Screenshot 3: Extension popup with provider switches, concurrency slider, and copy unblocker.
-  - Screenshot 4: Local chat history panel with search entries.
-- **Promotional Tile (Optional):**
-  - Small promo tile: 440x280 PNG
-  - Marquee promo tile: 1400x560 PNG
+---
 
-## Reviewer Instructions
-1. Install and enable the extension.
-2. Open any standard webpage (e.g., https://en.wikipedia.org/wiki/Artificial_intelligence).
-3. Click the floating SpectraLens AI widget at the top-right corner to open the in-page chat window.
-4. Type any question (e.g. "What is Machine Learning?") and click Send. Answers from enabled providers will load concurrently.
-5. Click the OCR Area Selector icon on the floating menu, drag a bounding box over any text on the page, and observe the extracted text populated in the chat input.
-6. Click the extension toolbar icon to open the popup, configure active AI engines, or toggle the dark/light theme.
-7. **Authentication:** No account, registration, or authentication is required.
+## Reviewer Testing Walkthrough
 
-## Support
-- **Homepage:** https://elsesourav.web.app
-- **Support:** https://github.com/elsesourav/spectralens-ai/issues
-- **Contact Email:** elsesourav.auth@gmail.com
-- **Privacy Policy:** https://elsesourav.web.app/privacy-policy.html
+1. **In-Page Multi-Engine Chat**:
+   - Open any public webpage (e.g. `https://en.wikipedia.org/wiki/Artificial_intelligence`).
+   - Press `⌥ Option + A` (Mac) or `Alt + A` (Windows) or click the floating widget in the top right.
+   - Enter a query (e.g. `"Explain quantum computing in simple terms"`) and click Send.
+   - Observe responses streaming in parallel from all enabled AI providers.
+2. **Visual Element Scanner**:
+   - Click the crosshair icon in the widget chat input or header.
+   - Hover over any table, paragraph, or code snippet on the webpage and click to attach it.
+   - Observe the parsed Markdown content populated directly into the chat prompt.
+3. **In-Widget Guide & Help Center**:
+   - Click the `?` Question Mark icon in the sidebar (positioned right after Settings).
+   - Test the real-time search filter across shortcuts, AI model cards, and FAQs.
+4. **Options & Privacy Control Hub**:
+   - Right-click the extension icon in Chrome toolbar and select **Options**.
+   - Navigate through `#welcome`, `#guide`, `#providers`, `#settings`, `#shortcuts`, `#privacy`, and `#uninstall`.
+   - In **Privacy & Data**, verify the live storage quota meter and test **Export History (.JSON / .MD)**.
+5. **Universal Copy Unblocker**:
+   - Toggle "Enable Copy Globally" in Options or popup on any restricted webpage.
+   - Verify right-click and text selection are instantly unblocked.
 
-## Final Technical Checks
-- **Manifest V3:** Verified compliant.
-- **Build:** Verified deterministic Vite production build (`extension/`).
-- **Tests:** 58 / 58 automated tests passing (`npm test`).
-- **Security:** Strict `DOMParser` HTML sanitization, 0 inline script execution, 0 `eval()`.
-- **Remote Code:** Zero remote JavaScript or dynamic script loading.
-- **Secrets:** Zero hard-coded API keys, tokens, or credentials.
-- **Permissions:** All 6 permissions are strictly necessary and justified.
+---
 
-## BLOCKERS
-- **None (Code & Package Ready):** The production zip package `spectralens-ai-extension.zip` is complete and passes all automated checks.
-- **Pre-Submission Manual Action:** Ensure `privacy-policy.html` is uploaded to `https://elsesourav.web.app/privacy-policy.html` (or your chosen hosting) before submitting the URL in the Developer Console.
+## Technical Audit & Verification Summary
+- **Manifest Version:** Manifest V3 Compliant (`scripts/manifest.json`)
+- **Automated Tests:** **276 / 276 Tests Passing** (`npm test`)
+- **Build Status:** Deterministic Vite build (`npm run build`)
+- **Package Archive:** `./spectralens-ai-extension.zip`
+- **Security Check:** Zero `eval()`, zero inline scripts, strict DOM sanitization, zero hardcoded API secrets.

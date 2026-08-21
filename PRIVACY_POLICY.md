@@ -1,54 +1,57 @@
 # Privacy Policy for SpectraLens AI
 
-**Effective Date:** August 15, 2026  
-**Last Updated:** August 15, 2026
+**Effective Date:** August 21, 2026  
+**Last Updated:** August 21, 2026
 
-SpectraLens AI ("we", "our", or "the Extension") is committed to protecting your privacy. This Privacy Policy explains our data practices regarding the SpectraLens AI Chrome Extension.
-
----
-
-### 1. Single Purpose and Overview
-SpectraLens AI provides in-browser AI-assisted search, multi-model answer aggregation (Google AI Overview, Bing/Copilot, Perplexity, Gemini, Grok), and local Optical Character Recognition (OCR) directly on web pages.
+SpectraLens AI ("we", "our", or "the Extension") is dedicated to uncompromising user privacy and data sovereignty. This Privacy Policy outlines our strict data handling practices for the SpectraLens AI Chrome Extension.
 
 ---
 
-### 2. Zero Data Collection & Zero Telemetry
-- **No External Data Transmission:** SpectraLens AI does **NOT** collect, store, track, sell, or transmit any personally identifiable information, browsing history, keystrokes, clipboard content, or user search queries to any third-party analytics or developer servers.
-- **Direct-to-Provider Communication:** When you initiate a search query, search requests are made directly from your browser to the designated search provider (e.g. Google, Bing, Perplexity, Gemini, Grok) as if you visited the search page directly.
-- **No User Accounts:** You do not need to register an account or provide an email address to use the extension.
+### 1. Single Purpose & Architecture Overview
+SpectraLens AI provides on-page multi-engine AI search aggregation (ChatGPT, Claude, Gemini, Grok, Perplexity, Google Search), visual DOM element extraction, and on-device Optical Character Recognition (OCR) directly within your web browsing workflow.
 
 ---
 
-### 3. Local Data Storage
-- **Search History & Settings:** User preferences (active AI providers, theme, concurrency options) and recent question history (up to 20 items) are stored **strictly on your local device** using Chrome's `chrome.storage.local` API.
-- **Data Deletion:** You can delete your entire search history at any time with a single click in the extension UI.
+### 2. Zero Data Collection & Zero Telemetry Guarantee
+- **No Remote Telemetry or Tracking:** SpectraLens AI does **NOT** collect, track, record, profile, sell, or transmit any personally identifiable information, browsing history, keystrokes, or query prompts to any third-party analytics, telemetry, or developer servers.
+- **No External Analytics SDKs:** The extension includes zero tracking pixels, zero analytics scripts (no Google Analytics, Sentry, Mixpanel, or PostHog), and zero advertising trackers.
+- **Direct Browser Transport:** All prompt queries travel directly from your browser to the official AI provider (OpenAI, Anthropic, Google, xAI, Perplexity) via your active web session. There are zero intermediate or proxy servers intercepting or logging your queries.
+- **No Accounts Required:** No registration, email collection, or account creation is required to use SpectraLens AI.
 
 ---
 
-### 4. Screen Capture and Local OCR
-- **On-Device Processing:** When you use the Area OCR feature, screen captures are captured via Chrome's secure tabs API and processed in memory on your local machine using an offline, bundled Tesseract.js engine.
-- **Zero Image Retention:** Screen capture bitmaps are transient, processed strictly in browser memory, and immediately discarded upon text recognition. Images are never uploaded to any remote server.
+### 3. 100% On-Device Local Data Storage
+- **Isolated Storage Sandbox:** All user preferences (active AI providers, 3-state theme modes, delays, copy rules) and conversation session logs are stored strictly on your local device using Chrome's private sandboxed `chrome.storage.local` API (LevelDB partition).
+- **Data Export & Portability:** You have full ownership of your data. You can export your entire conversation history at any time as structured **JSON (`.json`)** or formatted **Markdown (`.md`)** for Obsidian, Notion, or personal archives.
+- **One-Click Total Data Erasure:** You can clear individual chat sessions, wipe all conversation logs, or perform a full factory reset at any time with a single click.
 
 ---
 
-### 5. Permissions Justification
-SpectraLens AI requests only the minimum permissions required for its functionality:
-- `storage`: Saves your chosen settings and search history locally.
-- `activeTab` & `scripting`: Injects the lightweight floating menu and text selector on active pages when requested.
-- `offscreen`: Executes local OCR text extraction in a background sandboxed worker.
-- `tabs`: Opens and manages background query tabs to fetch answers from enabled AI providers.
-- `declarativeNetRequest`: Optimizes background scraping by blocking heavy media/images on scraper tabs to conserve your bandwidth.
+### 4. Visual Element Scanner & On-Device OCR
+- **Targeted DOM Parsing:** The Visual Element Scanner only reads HTML elements you explicitly hover over and click. It never scrapes or exfiltrates full page contents in the background.
+- **Local WebAssembly OCR:** When selecting image regions or diagrams, screen capture bitmaps are processed in memory using a bundled, offline Tesseract.js WebAssembly engine in a sandboxed offscreen document. Images are transient in local memory and are never uploaded to any remote server.
+
+---
+
+### 5. Manifest V3 Permissions Justification
+SpectraLens AI requests only the minimum permissions necessary for its single purpose:
+- `storage`: Persists your chosen theme, widget preferences, domain rules, and chat history locally on your device.
+- `activeTab`: Interacts with the active tab when you click the extension popup, in-page widget, or keyboard shortcut (`⌥ Option + A` / `Alt + A`).
+- `scripting`: Injects the visual element selector overlay, copy unblocker styles, and extracts response DOM on query tabs.
+- `offscreen`: Executes local WebAssembly OCR in a sandboxed background thread without blocking the browser UI.
+- `tabs`: Creates and manages background query tabs to stream responses from enabled AI providers, auto-closing them when finished.
+- `declarativeNetRequest`: Temporarily blocks heavy images/fonts on background query tabs to conserve user bandwidth.
 
 ---
 
 ### 6. Chrome Web Store Limited Use Compliance
-SpectraLens AI adheres strictly to the **Chrome Web Store User Data Policy**, including the **Limited Use** requirements. We do not use or transfer user data for serving personalized advertising, credit assessment, or data brokering.
+SpectraLens AI adheres strictly to the **Chrome Web Store User Data Policy**, including all **Limited Use** requirements. We do not use or transfer user data for serving personalized advertising, credit evaluation, or data brokering.
 
 ---
 
-### 7. Contact
-For any privacy questions or feedback, please contact:
-- **Developer:** elsesourav
+### 7. Contact & Support
+For questions regarding this Privacy Policy or extension security:
+- **Developer:** Sourav (elsesourav)
 - **Website:** https://elsesourav.web.app
 - **Email:** elsesourav.auth@gmail.com
-- **GitHub:** https://github.com/elsesourav/spectralens-ai
+- **Issue Tracker:** https://github.com/elsesourav/spectralens-ai/issues

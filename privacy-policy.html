@@ -6,71 +6,96 @@
   <title>Privacy Policy - SpectraLens AI</title>
   <style>
     :root {
-      --bg: #0f172a;
-      --card-bg: #1e293b;
+      --bg: #090a0f;
+      --card-bg: #12141d;
       --text: #f8fafc;
       --text-muted: #94a3b8;
       --accent: #3b82f6;
-      --border: #334155;
+      --border: rgba(255, 255, 255, 0.08);
+      --emerald: #10b981;
     }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       background-color: var(--bg);
       color: var(--text);
-      line-height: 1.6;
+      line-height: 1.65;
       margin: 0;
       padding: 40px 20px;
       display: flex;
       justify-content: center;
     }
     .container {
-      max-width: 800px;
+      max-width: 820px;
       background: var(--card-bg);
       padding: 40px;
-      border-radius: 16px;
+      border-radius: 20px;
       border: 1px solid var(--border);
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+      box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.5);
     }
     h1 {
       font-size: 28px;
       margin-top: 0;
-      background: linear-gradient(to right, #60a5fa, #a855f7);
+      background: linear-gradient(135deg, #60a5fa 0%, #818cf8 50%, #c084fc 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
+      font-weight: 900;
     }
     h2 {
-      font-size: 20px;
-      margin-top: 30px;
+      font-size: 19px;
+      margin-top: 32px;
       border-bottom: 1px solid var(--border);
       padding-bottom: 8px;
       color: #93c5fd;
+      font-weight: 700;
     }
     p, li {
       color: var(--text-muted);
-      font-size: 15px;
+      font-size: 14.5px;
     }
     ul {
-      padding-left: 20px;
+      padding-left: 22px;
     }
     li {
-      margin-bottom: 8px;
+      margin-bottom: 9px;
     }
     strong {
       color: var(--text);
     }
     .badge {
-      display: inline-block;
-      padding: 4px 10px;
-      background: rgba(59, 130, 246, 0.2);
-      color: #60a5fa;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
       border-radius: 20px;
       font-size: 12px;
-      font-weight: 600;
+      font-weight: 700;
       margin-bottom: 16px;
     }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 14px;
+    }
+    @media (max-width: 600px) {
+      .grid { grid-template-columns: 1fr; }
+      .container { padding: 24px; }
+    }
+    .card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border);
+      padding: 14px;
+      border-radius: 12px;
+    }
+    .card strong { display: block; font-size: 13.5px; margin-bottom: 4px; color: #e2e8f0; }
+    .card p { margin: 0; font-size: 12.5px; }
     a {
       color: var(--accent);
       text-decoration: none;
+      font-weight: 600;
     }
     a:hover {
       text-decoration: underline;
@@ -87,56 +112,77 @@
 </head>
 <body>
   <div class="container">
-    <div class="badge">Chrome Web Store Compliance</div>
+    <div class="badge">🛡️ 100% On-Device Privacy Guaranteed</div>
     <h1>Privacy Policy for SpectraLens AI</h1>
-    <p><strong>Effective Date:</strong> August 15, 2026<br>
-    <strong>Last Updated:</strong> August 15, 2026</p>
+    <p><strong>Effective Date:</strong> August 21, 2026<br>
+    <strong>Last Updated:</strong> August 21, 2026</p>
 
     <h2>1. Single Purpose & Overview</h2>
-    <p><strong>SpectraLens AI</strong> is an in-browser productivity companion designed to assist users with research, Optical Character Recognition (OCR), and multi-engine AI answer aggregation (Google AI Overview, Bing/Copilot, Perplexity, Gemini, Grok) directly within web browsing workflows.</p>
+    <p><strong>SpectraLens AI</strong> is an in-browser productivity and research companion designed to assist users with simultaneous multi-engine AI querying (ChatGPT, Claude, Gemini, Grok, Perplexity, Google Search), visual DOM element extraction, and on-device Optical Character Recognition (OCR) directly within active web pages.</p>
 
     <h2>2. Zero Data Collection & No External Telemetry</h2>
     <ul>
-      <li><strong>No Data Collection:</strong> SpectraLens AI does NOT collect, store, track, sell, or transmit any personally identifiable information, browsing history, keystrokes, or clipboard data to any developer servers or analytics networks.</li>
-      <li><strong>Direct-to-Engine Processing:</strong> Search queries initiated by the user are communicated directly from the user's browser to the designated search provider (Google, Bing, Perplexity, Gemini, Grok) without intermediary proxies.</li>
-      <li><strong>No Accounts Required:</strong> The extension operates anonymously without account registration or sign-in.</li>
+      <li><strong>No Remote Data Logging:</strong> SpectraLens AI does NOT collect, track, store, sell, or transmit any personally identifiable information, browsing history, keystrokes, or clipboard contents to any external developer servers or analytics networks.</li>
+      <li><strong>Zero Analytics SDKs:</strong> The extension contains zero tracking pixels, zero analytics scripts (no Google Analytics, Sentry, Mixpanel, or PostHog), and zero advertising trackers.</li>
+      <li><strong>Direct Browser Transport:</strong> All queries travel directly between your browser and the official AI provider (OpenAI, Anthropic, Google, xAI, Perplexity). Zero intermediary or proxy servers intercept or store your requests.</li>
+      <li><strong>No Accounts Required:</strong> You do not need to register or provide personal credentials to use SpectraLens AI.</li>
     </ul>
 
-    <h2>3. Local Device Storage</h2>
+    <h2>3. 100% On-Device Local Data Storage</h2>
     <ul>
-      <li><strong>Local Storage Only:</strong> User preferences (enabled AI engines, theme, concurrency) and recent query history (up to 20 entries) are stored strictly within the user's local browser using Chrome's <code>chrome.storage.local</code> API.</li>
-      <li><strong>Instant History Clearing:</strong> Users can purge all local search history at any time with a single click.</li>
+      <li><strong>Isolated Sandbox:</strong> User preferences (theme mode, model priority, copy rules) and conversation logs are stored strictly inside your browser's private LevelDB storage partition via Chrome's sandboxed <code>chrome.storage.local</code> API.</li>
+      <li><strong>Data Portability:</strong> You can export your entire conversation history at any time as structured <strong>JSON (`.json`)</strong> or formatted <strong>Markdown (`.md`)</strong> for Obsidian or Notion.</li>
+      <li><strong>One-Click Total Data Erasure:</strong> You can clear individual sessions, wipe all chat logs, or perform a full factory reset at any time with a single click.</li>
     </ul>
 
-    <h2>4. Screen Capture & On-Device OCR</h2>
+    <h2>4. Visual Element Scanner & On-Device OCR</h2>
     <ul>
-      <li><strong>Local Processing:</strong> Screen captures for Area OCR are processed in memory on your local device using an offline, locally-bundled WebAssembly Tesseract.js engine.</li>
-      <li><strong>Zero Image Retention:</strong> Bitmaps are held transiently in local browser memory and immediately discarded upon text extraction. Images are never uploaded or retained.</li>
+      <li><strong>Targeted DOM Extraction:</strong> The Visual Element Scanner only reads HTML elements you explicitly click on. It never monitors keystrokes or background page contents.</li>
+      <li><strong>Offline WebAssembly OCR:</strong> Screen capture regions are processed in-memory using a bundled, offline Tesseract.js WebAssembly engine in a sandboxed offscreen document. Images are transient in memory and are never uploaded to remote servers.</li>
     </ul>
 
-    <h2>5. Minimum Necessary Permissions</h2>
-    <ul>
-      <li><strong>storage:</strong> Retains your preferences and chat history locally.</li>
-      <li><strong>activeTab & scripting:</strong> Injects the floating menu and area crop tool on the active page upon user request.</li>
-      <li><strong>offscreen:</strong> Runs sandboxed offline OCR in the background.</li>
-      <li><strong>tabs:</strong> Manages background query tabs to fetch answers from enabled providers.</li>
-      <li><strong>declarativeNetRequest:</strong> Blocks media/fonts on scraping tabs to conserve bandwidth.</li>
-    </ul>
+    <h2>5. Manifest V3 Permissions Justification</h2>
+    <div class="grid">
+      <div class="card">
+        <strong>storage</strong>
+        <p>Persists user preferences, domain rules, and chat history locally on your device.</p>
+      </div>
+      <div class="card">
+        <strong>activeTab</strong>
+        <p>Interacts with active tab on user invocation (popup, floating widget, shortcuts).</p>
+      </div>
+      <div class="card">
+        <strong>scripting</strong>
+        <p>Injects visual element selector overlay, copy unblocker styles, and extracts answers.</p>
+      </div>
+      <div class="card">
+        <strong>offscreen</strong>
+        <p>Runs offline Tesseract OCR in a sandboxed background document without blocking UI.</p>
+      </div>
+      <div class="card">
+        <strong>tabs</strong>
+        <p>Creates and cleans up background query tabs to stream responses from AI providers.</p>
+      </div>
+      <div class="card">
+        <strong>declarativeNetRequest</strong>
+        <p>Blocks heavy images/media on background query tabs to save user bandwidth.</p>
+      </div>
+    </div>
 
     <h2>6. Chrome Web Store Limited Use Compliance</h2>
-    <p>SpectraLens AI strictly complies with the <strong>Chrome Web Store User Data Policy</strong>, including the <strong>Limited Use</strong> requirements. We do not transfer or use user data for personalized advertising, credit assessment, or data brokering.</p>
+    <p>SpectraLens AI complies fully with the <strong>Chrome Web Store User Data Policy</strong>, including all <strong>Limited Use</strong> requirements. User data is never transferred to third parties for advertising, credit scoring, or data brokering.</p>
 
-    <h2>7. Contact Information</h2>
-    <p>For any inquiries regarding this Privacy Policy:</p>
+    <h2>7. Contact & Support</h2>
+    <p>For any privacy or technical inquiries, contact our engineering team:</p>
     <ul>
-      <li><strong>Developer:</strong> elsesourav</li>
+      <li><strong>Developer:</strong> Sourav (elsesourav)</li>
       <li><strong>Website:</strong> <a href="https://elsesourav.web.app" target="_blank" rel="noopener">https://elsesourav.web.app</a></li>
       <li><strong>Email:</strong> <a href="mailto:elsesourav.auth@gmail.com">elsesourav.auth@gmail.com</a></li>
-      <li><strong>GitHub:</strong> <a href="https://github.com/elsesourav/spectralens-ai" target="_blank" rel="noopener">https://github.com/elsesourav/spectralens-ai</a></li>
+      <li><strong>Issue Tracker:</strong> <a href="https://github.com/elsesourav/spectralens-ai/issues" target="_blank" rel="noopener">GitHub Issues</a></li>
     </ul>
 
     <footer>
-      © 2026 SpectraLens AI. All rights reserved.
+      © 2026 SpectraLens AI. All rights reserved. 100% On-Device Privacy Architecture.
     </footer>
   </div>
 </body>

@@ -1,43 +1,46 @@
 # SpectraLens AI — Chrome Web Store Compliance, Privacy & Security Audit Report
-**Single Source of Truth for Chrome Web Store Publication and Extension Hardening**
+**Single Source of Truth for Chrome Web Store Publication, Privacy Disclosures, and Extension Hardening**
 
 ---
 
 ## 1. Single Purpose Audit
 
 ### 1.1 Purpose Statement
-> **Single Primary Purpose:** To provide instantaneous, on-page multi-engine AI search aggregation, text extraction, and on-device Optical Character Recognition (OCR) directly within the user's browsing workflow.
+> **Single Primary Purpose:** To provide instantaneous, on-page multi-engine AI search aggregation, visual element extraction, and on-device Optical Character Recognition (OCR) directly within the user's browsing workflow.
 
 ### 1.2 Feature Audit Table
 
 | Feature | Related to Single Purpose? | Decision | Reason / Architecture |
 | :--- | :---: | :---: | :--- |
-| **Multi-Engine AI Search** | **YES** | **KEEP** | Core feature: Queries Google AI Overview, Bing Copilot, Perplexity, Gemini, and Grok in parallel. |
-| **On-Device Screen OCR** | **YES** | **KEEP** | Core feature: Allows users to crop any screen region and convert image text to prompts via local Tesseract.js. |
-| **Draggable Floating UI** | **YES** | **KEEP** | Core UX: Provides instant on-page access without losing browsing context or switching tabs. |
-| **Chat History Persistence** | **YES** | **KEEP** | User productivity: Stores recent query results locally in `chrome.storage.local` (capped at 20 items). |
-| **Enable Copy Utility** | **YES** | **KEEP** | Research support: Unblocks text selection on research pages so users can extract text to feed into AI search. |
-| **Theme Switcher (Dark/Light)**| **YES** | **KEEP** | UI Accessibility: Matches page / user preference with zero external dependencies. |
+| **Multi-Engine AI Search** | **YES** | **KEEP** | Core feature: Queries ChatGPT, Claude, Gemini, Grok, Perplexity, and Google Search concurrently. |
+| **Visual Element Scanner & DOM Parser** | **YES** | **KEEP** | Core feature: Allows users to click any paragraph, table, or code block to attach formatted context. |
+| **On-Device Screen OCR** | **YES** | **KEEP** | Core feature: Extracts on-screen text from images using bundled, offline Tesseract.js WebAssembly. |
+| **Draggable Floating UI** | **YES** | **KEEP** | Core UX: In-page assistant widget provides instant access without losing page context. |
+| **3-State Theme Engine** | **YES** | **KEEP** | Accessibility: Harmonizes widget theme with host webpage background colors alongside Dark & Light modes. |
+| **In-Widget Guide & Help Center (`?`)** | **YES** | **KEEP** | Documentation: In-page user manual, model connectivity status, shortcuts cheat sheet, and FAQ. |
+| **Options & Privacy Hub** | **YES** | **KEEP** | Transparency: 100% on-device local storage meter, full JSON/Markdown backup tools, and domain rules. |
+| **Always Active Tab Worker** | **YES** | **KEEP** | Research support: Keeps background research and streaming tabs active without browser sleep throttling. |
+| **Universal Copy Unblocker** | **YES** | **KEEP** | Research support: Bypasses anti-copy and right-click locks on research sites to extract prompt context. |
 
 ---
 
 ## 2. Permission Audit (Manifest V3)
 
-| Permission | Exact Code Location | Data / Functionality Accessed | Why Necessary | Can It Be Narrower? | Can It Be Removed? |
+| Permission | Exact Code Locations | Data / Functionality Accessed | Why Necessary | Can It Be Narrower? | Can It Be Removed? |
 | :--- | :--- | :--- | :--- | :---: | :---: |
-| `storage` | `utilsModule.js:295-300`, `bgUtils.js:34`, `ChatBot.jsx:64` | `chrome.storage.local` key-value pairs | Saves user UI preferences and recent query history on device. | No (Standard storage API) | **NO** (Required for persistence) |
-| `activeTab` | `background.js:126`, `AlwaysActiveToggle.jsx:10` | Temporary access to the focused tab | Interacts with active tab when user clicks the extension popup or invokes toolbar actions. | No (Already least-privilege) | **NO** (Required for user action) |
-| `scripting` | `background.js:135`, `bgUtils.js:31,71`, `requestAi.js:43` | `chrome.scripting.executeScript` | Injects selection overlays, floating window frames, and extracts clean answer HTML from search tabs. | No (MV3 standard for dynamic frames) | **NO** (Required for in-page UI) |
-| `offscreen` | `bgUtils.js:2-9`, `worker.js:1-119` | Sandboxed offscreen DOM / Canvas | Runs local Tesseract OCR in a separate background thread without blocking browser UI. | No (Standard MV3 API for canvas/worker) | **NO** (Required for offline OCR) |
-| `tabs` | `background.js:96,169,179`, `requestAi.js:28,35` | `chrome.tabs.create`, `chrome.tabs.remove` | Spawns background tabs to fetch search queries, checks active URL hostnames, and manages tab lifecycles. | No (Need tab lifecycle management) | **NO** (Required for query tabs) |
-| `declarativeNetRequest` | `bgUtils.js:237-257` (`chromeTabMediaAccess`) | `chrome.declarativeNetRequest.updateSessionRules` | Temporarily blocks images/fonts/media on background scraping tabs to conserve user network bandwidth. | No (Session rules are already least-privilege) | **NO** (Required for bandwidth savings) |
+| `storage` | `utilsModule.js`, `bgUtils.js`, `ChatBot.jsx` | `chrome.storage.local` key-value pairs | Saves user UI preferences, domain rules, and chat history locally on device. | No | **NO** (Required for persistence) |
+| `activeTab` | `background.js`, `AlwaysActiveToggle.jsx` | Temporary focused tab access | Interacts with active tab when user clicks the extension popup or invokes toolbar actions. | No | **NO** (Required for user action) |
+| `scripting` | `background.js`, `bgUtils.js`, `requestAi.js` | `chrome.scripting.executeScript` | Injects element selector overlay, copy unblocker styles, and extracts answers from query tabs. | No | **NO** (Required for in-page UI) |
+| `offscreen` | `bgUtils.js`, `worker.js` | Sandboxed offscreen DOM / Canvas | Runs local Tesseract OCR in a background thread without blocking the browser UI. | No | **NO** (Required for offline OCR) |
+| `tabs` | `background.js`, `requestAi.js` | `chrome.tabs.create`, `chrome.tabs.remove` | Spawns background tabs to fetch AI queries and cleans them up automatically. | No | **NO** (Required for query tabs) |
+| `declarativeNetRequest` | `bgUtils.js` (`chromeTabMediaAccess`) | `chrome.declarativeNetRequest.updateSessionRules` | Temporarily blocks images/fonts/media on background scraping tabs to conserve bandwidth. | No | **NO** (Required for bandwidth savings) |
 
 ### 2.1 Removed Unnecessary Permissions
-- ❌ `management` — Removed (Unused).
-- ❌ `webRequest` — Removed (Redundant with declarativeNetRequest in MV3).
-- ❌ `declarativeNetRequestFeedback` — Removed (Unused).
-- ❌ `declarativeNetRequestWithHostAccess` — Removed (Unused).
-- ❌ `unlimitedStorage` — Removed (Total storage usage is <100 KB).
+- ❌ `management` — Removed.
+- ❌ `webRequest` — Removed (Replaced with declarativeNetRequest in MV3).
+- ❌ `declarativeNetRequestFeedback` — Removed.
+- ❌ `declarativeNetRequestWithHostAccess` — Removed.
+- ❌ `unlimitedStorage` — Removed.
 - ❌ `<all_urls>` — Replaced with explicit `http://*/*` and `https://*/*` host permissions.
 
 ---
@@ -45,114 +48,52 @@
 ## 3. Host Permissions Audit
 
 - **Declared Patterns**: `http://*/*` and `https://*/*`.
-- **Justification**: SpectraLens AI injects content scripts (`widgetContent.js`, `enableCopy.js`) to provide the floating AI assistant, text selection tools, and copy unblocker across general research websites, and opens background tabs against selected search engines (Google, Bing, Perplexity, Gemini, Grok).
-- **Narrowing Applied**: Replaced `<all_urls>` with standard web schemes (`http` / `https`), explicitly avoiding privileged browser schemes (`chrome://`, `edge://`, `file://`, `devtools://`).
+- **Justification**: SpectraLens AI injects content scripts (`widgetContent.js`, `enableCopy.js`) to provide the floating AI assistant, text selection tools, and copy unblocker across general research websites, and communicates directly with enabled AI providers (OpenAI, Anthropic, Google, xAI, Perplexity).
+- **Narrowing Applied**: Restricted strictly to standard web schemes (`http` / `https`), avoiding privileged browser schemes (`chrome://`, `edge://`, `file://`, `devtools://`).
 
 ---
 
-## 4. User Data Audit & Data Flow Tracing
+## 4. User Data Flow & Privacy Architecture
 
 ```
-[User Action] (Prompt / OCR selection)
+[User Action] (Prompt / Element Inspection / Area OCR)
       │
       ▼
-[Content Script / React UI] (ChatBot.jsx / Select.jsx)
+[Content Script / React UI] (ChatBot.jsx / Select.jsx / GuideView.jsx)
       │
-      ▼ (window.postMessage / chrome.runtime.sendMessage)
+      ▼ (chrome.runtime.sendMessage)
 [Background Service Worker] (background.js / requestAi.js)
       ├───────────► [Offscreen Tesseract OCR] (worker.js) ──► (Local memory only, ephemeral)
       │
-      ├───────────► [Direct AI Provider Tab] (Google/Bing/Perplexity/Grok/Gemini) ──► (HTML Response)
+      ├───────────► [Direct AI Provider Tab] (ChatGPT / Claude / Gemini / Grok / Perplexity / Google)
       │
       ▼ (chrome.storage.local)
-[Local Storage] (Max 20 search history items, never transmitted externally)
+[Local Device Storage] (Split Engine: SpectraLens-History-Index + SpectraLens-Chat-[id])
 ```
 
-- **Collected Data**: Only the specific prompt entered by the user or text extracted via Area OCR.
-- **External Transmission**: Query text is sent directly to the official search engine chosen by the user (Google, Bing, Perplexity, Grok, Gemini).
-- **Telemetry / Analytics**: **ZERO**. No analytics SDKs, tracking pixels, or developer logging servers are connected.
-- **Retention**: Local search history is stored up to 20 items in `chrome.storage.local` and can be purged immediately by the user.
+- **Collected Data**: Only prompts entered by the user or DOM text extracted via Element Selector.
+- **External Transmission**: Prompts stream directly from your browser to the designated AI provider (ChatGPT, Claude, Gemini, Grok, Perplexity, Google).
+- **Zero Telemetry**: No Google Analytics, Sentry, Mixpanel, tracking pixels, or remote logging servers.
+- **Data Sovereignty**: 100% on-device storage. Users can export full chat history to JSON or Markdown, or wipe all records in one click.
 
 ---
 
-## 5. AI Data Flow & Endpoint Audit
+## 5. Security Scan & Defenses
 
-| Engine | Query Endpoint | Authentication | Payload Sent | Data Returned |
-| :--- | :--- | :---: | :--- | :--- |
-| **Google AI Overview** | `https://www.google.com/search?q={query}&sa=X&udm=50&hl=en` | Public / Web session | Encoded query string | Sanitized summary HTML |
-| **Bing Copilot** | `https://www.bing.com/copilotsearch?q={query}&FORM=CSSCOP` | Public / Web session | Encoded query string | Sanitized summary HTML |
-| **Perplexity** | `https://www.perplexity.ai/search?q={query}` | Public / Web session | Encoded query string | Sanitized summary HTML |
-| **Grok** | `https://grok.com/?q={query}` | Public / Web session | Encoded query string | Sanitized summary HTML |
-| **Gemini** | `https://gemini.google.com/app?hl=en` | Web session | Input prompt | Sanitized summary HTML |
-
-- **No API Keys in Code**: The extension does not hard-code or ship private API secrets or credentials. All interactions use standard direct web search endpoints.
-
----
-
-## 6. Privacy Policy & Hosting
-
-- **Markdown Source**: [`PRIVACY_POLICY.md`](file:///Users/sourav/Developer/WEB/EXTENSIONS/for-ever/spectralens-ai/PRIVACY_POLICY.md)
-- **Web-Ready HTML Document**: [`privacy-policy.html`](file:///Users/sourav/Developer/WEB/EXTENSIONS/for-ever/spectralens-ai/privacy-policy.html) (Ready for hosting at `https://elsesourav.web.app/privacy-policy.html` or GitHub Pages).
-
----
-
-## 7. Chrome Web Store Developer Console Disclosures
-
-| Store Field | Value |
-| :--- | :--- |
-| **Single Purpose Description** | Instant multi-engine AI search aggregation, text extraction, and on-device OCR companion. |
-| **Remote Code** | **NO** — All JavaScript, CSS, and WASM packages are bundled locally inside the extension. |
-| **Authentication** | **NO** — No account or login required. |
-| **Personal Communications** | **NO** |
-| **Financial / Payment Info** | **NO** |
-| **Health Info** | **NO** |
-| **Location Data** | **NO** |
-| **Web Browsing Activity** | **NO** (Not tracked or collected) |
-| **Website Content** | **YES** (Only temporary DOM text from active user selections for OCR and search scraping) |
-| **User Activity** | **NO** (No telemetry or analytics) |
-
----
-
-## 8. Security Scan & Defenses
-
-- **Zero `eval()` / `new Function()`**: Checked and verified.
-- **XSS & HTML Injection Defense**:
-  - `content.js` strips all `<script>`, `<iframe>`, `<img>`, `<svg>`, buttons, and attributes before returning extracted answers.
-  - `utilsModule.js` (`sanitizeHtml`) uses `DOMParser` to strip forbidden tags and inline event handlers (`onclick`, `onerror`, `javascript:`) before rendering in React.
-- **Timeout & Tab Leak Prevention**:
-  - `requestAi.js` enforces a 25-second timeout and guarantees tab destruction on completion, error, or cancellation.
+- **Zero `eval()` / `new Function()`**: Verified across entire codebase.
+- **XSS & HTML Sanitization**:
+  - `utilsModule.js` (`sanitizeHtml`) parses all incoming response HTML using `DOMParser` and strips dangerous elements (`<script>`, `<iframe>`, `<embed>`, `<object>`, inline event handlers `on*`, and `javascript:` URIs).
+- **Tab Leak Prevention**:
+  - `requestAi.js` enforces strict timeouts and guarantees tab destruction on completion, error, or cancellation.
 - **Dependency Vulnerabilities**:
-  - `npm audit` report: **0 vulnerabilities** (Cleaned up 291 unused transitive packages by replacing `react-toggle-dark-mode` with native theme toggle).
+  - `npm audit` report: **0 vulnerabilities**.
 
 ---
 
-## 9. Chrome Web Store Reviewer Testing Guide
-
-1. **AI Chat & Search**:
-   - Open any webpage, click the floating SpectraLens AI widget (or open extension popup).
-   - Type a query (e.g. "What is Machine Learning?") and click Send.
-   - Observe concurrent answers loading from enabled AI engines (Google, Bing, Perplexity, Grok, Gemini).
-2. **OCR Screen Selection**:
-   - Click the OCR Area Selector icon on the floating menu.
-   - Click and drag to select any region of the webpage containing text or images.
-   - The selected text is extracted via local offline Tesseract OCR and populated directly into the chat prompt.
-3. **Enable Copy Utility**:
-   - Toggle "Enable Copy" in the popup on any website with disabled text selection or right-click context menu.
-   - Verify selection and copying work seamlessly.
-
----
-
-## 10. Store Compliance Status
+## 6. Store Compliance Status
 
 ```
 =====================================================
-STORE COMPLIANCE STATUS: PASS
-=====================================================
-✓ Manifest V3 Compliant
-✓ Minimum Necessary Permissions (0 unused permissions)
-✓ Zero Remote Code Execution
-✓ Zero Dependency Vulnerabilities (0 npm audit alerts)
-✓ 30 / 30 Automated Compliance Tests Passing
-✓ Privacy Policy Documented & Web-Ready (privacy-policy.html)
+STORE COMPLIANCE STATUS: FULL PASS
 =====================================================
 ```

@@ -1,155 +1,95 @@
-# SpectraLens AI Chrome Extension
+# SpectraLens AI — Multi-Engine AI Companion, Visual Scanner & Tab Tools
 
-<img src="src/assets/icons/icon.png" width="128" height="128" alt="SpectraLens AI Icon">
+<div align="center">
+  <img src="src/assets/icons/128.png" width="110" height="110" alt="SpectraLens AI Logo" />
+  <h3>Supercharge your browsing with simultaneous Multi-Engine AI, visual element scanning, offline OCR, and research productivity tools.</h3>
 
-A powerful Chrome extension that brings multiple AI assistants together in one convenient interface. Get answers from Google Gemini, ChatGPT, Claude, Perplexity, Grok, and more - all at once!
-
-**No API keys required** - Works directly with AI provider websites.
-
-## 🎥 How to Use (Video Tutorial)
-
-[![SpectraLens AI Extension Tutorial](https://img.youtube.com/vi/KsRN0qGqnlY/maxresdefault.jpg)](https://youtu.be/KsRN0qGqnlY)
-
-## Quick Start
-
-### Download & Install
-
-**[⬇️ Download Here](https://github.com/elsesourav/spectralens-ai/raw/main/spectralens-ai-extension.zip)** *(Size: 20.81 MB, Updated: 2026-08-21)*
-
-**Installation Steps:**
-
-1. **Download** the extension zip file using the button above
-2. **Extract** the zip file to any folder on your computer
-3. **Open your browser** and navigate to the extensions page:
-   - **Chrome**: `chrome://extensions/`
-   - **Edge**: `edge://extensions/`
-   - **Opera**: `opera://extensions/`
-4. **Enable Developer Mode** - Toggle the switch in the top-right corner
-5. **Click "Load unpacked"** button (or "Load extension" in some browsers)
-6. **Select the extracted folder** containing the extension files
-7. **Done!** The extension icon will appear in your browser toolbar
-
-**Need help?** See the detailed installation guide below.
-
-## Features
-
-### Multi-AI Support
-
-- **Google Gemini** - Google's advanced AI model
-- **ChatGPT & Claude** - OpenAI & Anthropic conversational intelligence
-- **Perplexity** - AI-powered research assistant
-- **Grok** - Real-time AI responses
-- **More providers** - Additional AI services coming soon
-
-### Concurrent Requests
-
-- Ask all AI providers simultaneously
-- Compare responses side-by-side
-- Switch between answers instantly
-- Smart loading states for each provider
-
-### Flexible Interface
-
-- **Popup Mode** - Quick access from browser toolbar
-- **Floating Menu** - Draggable overlay on any webpage
-- **Screen Selection** - OCR text from images and screenshots
-- **Theme Support** - Automatic dark/light mode detection
-
-### Advanced UI
-
-- **Custom Icon System** - Beautiful SVG icon library with 50+ icons
-- **Smooth Animations** - Polished transitions and effects
-- **Responsive Design** - Works on all screen sizes
-- **Tailwind CSS** - Modern styling framework
-
-### Smart Features
-
-- **Top Active Window** - Keep websites actively running even when you switch tabs or windows by spoofing visibility events
-- **OCR Integration** - Extract text from images using Tesseract.js
-- **Drag & Drop** - Reorder AI providers by preference
-- **Persistent Settings** - Remember your configurations
-- **Keyboard Shortcuts** - Quick access with hotkeys
-
-## Highlights
-
-<table>
-  <tr>
-    <td>
-      <h4>Extension Popup</h4>
-      <img height="400" src="./src/assets/gif/popup-overview.gif">
-    </td>
-    <td>
-      <h4>Multi-AI Chat</h4>
-      <img height="400" src="./src/assets/gif/chat-interface.gif">
-    </td>
-  </tr>
-  <tr>
-    <td>
-      <h4>Floating Menu</h4>
-      <img height="400" src="./src/assets/gif/floating-menu.gif">
-    </td>
-    <td>
-      <h4>Screen Selection OCR</h4>
-      <img height="400" src="./src/assets/gif/screen-selection.gif">
-    </td>
-  </tr>
-</table>
-
-### Basic Usage
-
-1. **Click the extension icon** in your browser toolbar
-2. **Type your question** in the input field
-3. **Press Enter** or click send to query all AI providers
-4. **Switch between providers** using the tabs to compare answers
-5. **Use the floating menu** by right-clicking on any webpage
-
-### Advanced Features
-
-- **Screen Selection**: Right-click → SpectraLens AI → Select area to OCR text
-- **Menu Positioning**: Drag the floating menu anywhere on the page
-- **Provider Settings**: Configure which AI services to use
-- **Keyboard Shortcuts**: Press Escape to close, Enter to send
-
-## Important Note
-
-**This is NOT a data collection app.** The extension:
-
-- Does not store your conversations
-- Does not track your browsing
-- Does not send data to third parties
-- Only communicates with AI providers you choose
-- Keeps all settings locally in your browser
-
-Your privacy and data security are our top priorities.
-
-## License
-
-This project is licensed under the [MIT License](MIT-LICENSE.txt).
-
-## Sharing and Highlights
-
-Feel free to share this project! Here are some key highlights to mention:
-
-- **No API Keys Required** - Works directly with AI provider websites
-- **Multiple AI Providers** - Google Gemini, ChatGPT, Claude, Perplexity, Grok and more
-- **Privacy Focused** - No data collection, everything stays local
-- **OCR Integration** - Extract text from images and screenshots
-- **React + Vite** - Modern development stack with Tailwind CSS
-
-## Contact
-
-For questions, feedback, or contributions, please contact me:
-
-- [Email](mailto:elsesourav@gmail.com)
-- [Twitter](https://twitter.com/elsesourav)
-- [LinkedIn](https://linkedin.com/in/elsesourav)
-- [Facebook](https://fb.com/elsesourav)
-- [Instagram](https://instagram.com/elsesourav)
-
-## Copyright
-
-Copyright (c) 2026 Sourav Barui. All rights reserved.
+  [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](MIT-LICENSE.txt)
+  [![Manifest V3](https://img.shields.io/badge/Chrome_Extension-Manifest_V3-green.svg)](https://developer.chrome.com/docs/extensions/mv3/intro/)
+  [![Zero Telemetry](https://img.shields.io/badge/Privacy-100%25_On--Device-emerald.svg)](PRIVACY_POLICY.md)
+  [![Tests Passing](https://img.shields.io/badge/Tests-276%20Passing-brightgreen.svg)](tests/test-extension.js)
+</div>
 
 ---
 
-**Made with love for AI enthusiasts who want the best of all worlds!**
+## ⚡ Key Capabilities
+
+- **🚀 Simultaneous Multi-Engine AI Querying**: Query **ChatGPT, Claude, Gemini, Grok, Perplexity, and Google Search** at once. Compare models side-by-side without opening multiple tabs.
+- **💰 Zero API Token Costs**: Communicates directly through your active signed-in web sessions (`chatgpt.com`, `claude.ai`, `gemini.google.com`, `grok.com`, `perplexity.ai`, `google.com`). No paid API keys required.
+- **🎯 Visual Element Scanner & Structured DOM Parser**: Point-and-click to scan any chart, table, paragraph, or code snippet into your prompt formatted as Markdown.
+- **🔍 On-Device Screen Area OCR**: Crop any diagram or image on your screen and extract text using bundled, offline Tesseract.js WebAssembly.
+- **🎨 3-State Theme Engine**:
+  - **Page Theme**: Harmonizes widget background with host website colors and luminance.
+  - **Dark Mode**: High-contrast glassmorphic dark palette.
+  - **Light Mode**: Clean and crisp daylight appearance.
+- **🛡️ Universal Copy & Context Menu Unblocker**: Strips anti-selection and anti-copy locks on restricted research and study websites.
+- **⚡ Always Active Tab Worker**: Keeps background research tabs from sleeping or throttling JavaScript timers.
+- **📖 In-Widget Guide & Help Center (`?` Icon)**: In-page user manual, model connectivity status, shortcuts cheat sheet, and searchable FAQ.
+- **🔒 100% On-Device Privacy Hub**: Local storage footprint meter, full **JSON (`.json`)** & **Markdown (`.md`)** export, backup restore, and zero telemetry.
+
+---
+
+## ⌨️ Keyboard Shortcuts
+
+| Shortcut | Action | Description |
+| :--- | :--- | :--- |
+| <kbd>⌥ Option + A</kbd> / <kbd>Alt + A</kbd> | **Toggle Floating Widget** | Opens or minimizes the in-page AI assistant. |
+| <kbd>⌘ / Ctrl + Shift + S</kbd> | **Visual Element Scanner** | Activates point-and-click element inspection. |
+| <kbd>Enter</kbd> | **Send Query** | Dispatches prompt to all enabled AI models. |
+| <kbd>Shift + Enter</kbd> | **Line Break** | Adds a newline inside multi-line prompt mode. |
+| <kbd>Esc</kbd> | **Dismiss Overlay** | Closes selector or active modal overlays. |
+
+---
+
+## 📦 Quick Installation (Load Unpacked)
+
+1. **Download Archive**: Download [`spectralens-ai-extension.zip`](spectralens-ai-extension.zip) or clone this repository.
+2. **Extract**: Unzip the archive to a local folder on your computer.
+3. **Open Extensions Page**:
+   - Chrome: Navigate to `chrome://extensions/`
+   - Edge: Navigate to `edge://extensions/`
+   - Brave / Opera: Navigate to `brave://extensions/` or `opera://extensions/`
+4. **Enable Developer Mode**: Toggle the **Developer Mode** switch in the top-right corner.
+5. **Load Extension**: Click **"Load unpacked"** and select the extracted `extension/` directory.
+6. **Pin to Toolbar**: Click the puzzle icon in Chrome and pin **SpectraLens AI**.
+
+---
+
+## 🛠️ Development & Building
+
+```bash
+# Clone the repository
+git clone https://github.com/elsesourav/spectralens-ai.git
+cd spectralens-ai
+
+# Install dependencies
+npm install
+
+# Run Vite development server
+npm run dev
+
+# Run comprehensive automated test suite (276 unit & acceptance tests)
+npm test
+
+# Build production bundle and generate release zip
+npm run build
+```
+
+---
+
+## 🛡️ Privacy & Security Principles
+
+SpectraLens AI is engineered from the ground up for strict privacy:
+1. **Zero External Telemetry**: No Google Analytics, Sentry, Mixpanel, tracking pixels, or remote logging servers.
+2. **Local Storage Sandbox**: All chats and configurations live strictly in your local Chrome LevelDB storage partition.
+3. **Direct AI Transport**: Prompts stream directly between your browser and official AI domains without passing through intermediary proxy servers.
+4. **Zero API Key Leak Risk**: Leverages your existing browser sessions directly.
+
+Read our full [Privacy Policy](PRIVACY_POLICY.md).
+
+---
+
+## 📄 License & Credits
+
+- Licensed under the [MIT License](MIT-LICENSE.txt).
+- Developed with ❤️ by [Sourav (elsesourav)](https://elsesourav.web.app).
