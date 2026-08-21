@@ -7,13 +7,14 @@ export default function ElementSelectorOverlay() {
    const selectorRef = useRef(null);
    const containerRef = useRef(null);
    const [isSelecting, setIsSelecting] = useState(false);
+   const [isCapturing, setIsCapturing] = useState(false);
 
    const handleCancel = useCallback(() => {
       window.parent.postMessage({ type: "IF_C_SELECT_CANCEL" }, "*");
    }, []);
 
    const handleCapture = useCallback(() => {
-      if (!selectorRef.current) {
+      if (!selectorRef.current || isCapturing) {
          handleCancel();
          return;
       }
@@ -24,20 +25,28 @@ export default function ElementSelectorOverlay() {
          return;
       }
 
-      window.parent.postMessage(
-         { type: "IF_C_SELECT_COORDS", data: { coordinates } },
-         "*"
-      );
-   }, [handleCancel]);
+      // Hide all overlay boxes, crosshairs, handles, and buttons before capturing
+      setIsCapturing(true);
+
+      // Wait two animation frames to ensure GPU compositor repaints without overlay artifacts
+      requestAnimationFrame(() => {
+         requestAnimationFrame(() => {
+            window.parent.postMessage(
+               { type: "IF_C_SELECT_COORDS", data: { coordinates } },
+               "*"
+            );
+         });
+      });
+   }, [handleCancel, isCapturing]);
 
    const handleSelectionComplete = useCallback(() => {
       setTimeout(() => {
-         if (selectorRef.current) {
+         if (selectorRef.current && !isCapturing) {
             const is = selectorRef.current.hasActiveSelection();
             setIsSelecting(is);
          }
       }, 0);
-   }, []);
+   }, [isCapturing]);
 
    useEffect(() => {
       const handleKeyUp = (e) => {
@@ -55,6 +64,10 @@ export default function ElementSelectorOverlay() {
          document.removeEventListener("keyup", handleKeyUp);
       };
    }, [handleCancel, handleCapture]);
+
+   if (isCapturing) {
+      return null;
+   }
 
    return (
       <>

@@ -1,6 +1,6 @@
 {
   "name": "SpectraLens AI",
-  "version": "2.9.81",
+  "version": "2.9.84",
   "description": "Compare ChatGPT, Claude, Gemini, Grok & Perplexity side-by-side on any page with visual element scanning, offline OCR & tab tools.",
   "manifest_version": 3,
   "permissions": [

@@ -610,22 +610,30 @@ let currentSelectionMode = "area";
 pageOnMessage("IF_C_SELECT_COORDS", async (data) => {
   const coordinates = data?.coordinates || data;
   const mode = data?.mode || currentSelectionMode || "area";
-  document.getElementById("screenSelectorIframe")?.remove();
+  const selectorFrame = document.getElementById("screenSelectorIframe");
+  if (selectorFrame) {
+    selectorFrame.style.display = "none";
+    selectorFrame.remove();
+  }
+
+  // Ensure widget frames remain hidden while tab screenshot is taken
   const menuFrame = document.getElementById("spectralensWidgetIframe");
   const menuBack = document.getElementById("spectralensWidgetBack");
-  if (menuFrame) {
-    menuFrame.style.display = "block";
-    pagePostMessage("C_IF_VISIBLE", {}, menuFrame.contentWindow);
-    pagePostMessage("C_IF_SHOW", {}, menuFrame.contentWindow);
-  }
-  if (menuBack) {
-    menuBack.style.display = "block";
-  }
+  if (menuFrame) menuFrame.style.display = "none";
+  if (menuBack) menuBack.style.display = "none";
+
   if (coordinates && (coordinates.width || coordinates.height)) {
-    runtimeSendMessage("C_B_CAPTURE_DOM", {
-      coordinates,
-      mode,
-      devicePixelRatio: window.devicePixelRatio,
+    // Wait for the browser to render the clean screen before capturing
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          runtimeSendMessage("C_B_CAPTURE_DOM", {
+            coordinates,
+            mode,
+            devicePixelRatio: window.devicePixelRatio,
+          });
+        }, 50);
+      });
     });
   }
 });
@@ -644,13 +652,6 @@ runtimeOnMessage("B_C_AREA_RESULT", async (data, _, sendResponse) => {
       { image },
       menuFrame.contentWindow,
     );
-    setTimeout(() => {
-      pagePostMessage(
-        "C_IF_SET_AREA_IMAGE",
-        { image },
-        menuFrame.contentWindow,
-      );
-    }, 80);
     pagePostMessage("C_IF_VISIBLE", {}, menuFrame.contentWindow);
     pagePostMessage("C_IF_SHOW", {}, menuFrame.contentWindow);
   }
@@ -668,10 +669,11 @@ runtimeOnMessage("B_C_OCR_RESULT", async (data, _, sendResponse) => {
   if (menuFrame) {
     menuFrame.style.display = "block";
     pagePostMessage("C_IF_OPEN_CHAT", {}, menuFrame.contentWindow);
-    if (text) {
+    const cleanText = typeof text === "string" ? text.trim() : "";
+    if (cleanText) {
       pagePostMessage(
         "C_IF_SET_INPUTS",
-        { input: text, image },
+        { input: cleanText, image },
         menuFrame.contentWindow,
       );
     } else if (image) {

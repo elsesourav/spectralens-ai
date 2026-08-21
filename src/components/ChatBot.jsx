@@ -1219,22 +1219,6 @@ export default function ChatBot({
         return next;
       });
     });
-
-    UTILS.pageOnMessage("C_IF_SET_INPUTS", (data) => {
-      if (data && data.input !== undefined) {
-        setInput(data.input);
-        setTimeout(() => {
-          if (textareaRef.current) {
-            textareaRef.current.style.height = "auto";
-            textareaRef.current.style.height = `${Math.min(
-              Math.max(24, textareaRef.current.scrollHeight),
-              120,
-            )}px`;
-            textareaRef.current.focus();
-          }
-        }, 50);
-      }
-    });
   }, [
     handleSendMessage,
     handleCopyUserQuestion,
