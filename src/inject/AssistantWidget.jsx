@@ -480,11 +480,21 @@ export default function AssistantWidget() {
     setIsChatOpen((prev) => !prev);
   }, []);
 
-  const handleSelectElement = useCallback(() => {
+  const handleTriggerOcr = useCallback(() => {
     setActiveTab("chat");
-    ES.pagePostMessage("IF_C_SELECT_TEXT", {}, window.parent);
+    ES.pagePostMessage("IF_C_SELECT_OCR", {}, window.parent);
     setMenuOpacity("0");
   }, []);
+
+  const handleTriggerAreaCrop = useCallback(() => {
+    setActiveTab("chat");
+    ES.pagePostMessage("IF_C_SELECT_AREA", {}, window.parent);
+    setMenuOpacity("0");
+  }, []);
+
+  const handleSelectElement = useCallback(() => {
+    handleTriggerOcr();
+  }, [handleTriggerOcr]);
 
   const handleLoadQuery = useCallback((historyItem) => {
     setLoadedHistoryItem(historyItem);
@@ -576,7 +586,9 @@ export default function AssistantWidget() {
                   onConsumePendingInput={() => setPendingScanInput(null)}
                   newChatTrigger={newChatKey}
                   onClearLoadedHistory={() => setLoadedHistoryItem(null)}
-                  onOpenSelector={() => handleSelectElement()}
+                  onOpenSelector={handleTriggerOcr}
+                  onTriggerOcr={handleTriggerOcr}
+                  onTriggerArea={handleTriggerAreaCrop}
                 />
               </div>
 

@@ -605,8 +605,11 @@ runtimeSendMessage("C_B_ON_LOAD", async (r) => {
   //  console.log(`Widget loaded: ${JSON.stringify(r)}`);
 });
 
+let currentSelectionMode = "area";
+
 pageOnMessage("IF_C_SELECT_COORDS", async (data) => {
   const coordinates = data?.coordinates || data;
+  const mode = data?.mode || currentSelectionMode || "area";
   document.getElementById("screenSelectorIframe")?.remove();
   const menuFrame = document.getElementById("spectralensWidgetIframe");
   const menuBack = document.getElementById("spectralensWidgetBack");
@@ -621,6 +624,7 @@ pageOnMessage("IF_C_SELECT_COORDS", async (data) => {
   if (coordinates && (coordinates.width || coordinates.height)) {
     runtimeSendMessage("C_B_CAPTURE_DOM", {
       coordinates,
+      mode,
       devicePixelRatio: window.devicePixelRatio,
     });
   }
@@ -664,17 +668,16 @@ runtimeOnMessage("B_C_OCR_RESULT", async (data, _, sendResponse) => {
   if (menuFrame) {
     menuFrame.style.display = "block";
     pagePostMessage("C_IF_OPEN_CHAT", {}, menuFrame.contentWindow);
-    if (image) {
-      pagePostMessage(
-        "C_IF_SET_AREA_IMAGE",
-        { image },
-        menuFrame.contentWindow,
-      );
-    }
     if (text) {
       pagePostMessage(
         "C_IF_SET_INPUTS",
         { input: text, image },
+        menuFrame.contentWindow,
+      );
+    } else if (image) {
+      pagePostMessage(
+        "C_IF_SET_AREA_IMAGE",
+        { image },
         menuFrame.contentWindow,
       );
     }
@@ -701,7 +704,42 @@ pageOnMessage("IF_C_SELECT_CANCEL", async () => {
   }
 });
 
+pageOnMessage("IF_C_SELECT_OCR", () => {
+  currentSelectionMode = "ocr";
+  const menuFrame = document.getElementById("spectralensWidgetIframe");
+  const menuBack = document.getElementById("spectralensWidgetBack");
+  if (menuFrame) {
+    menuFrame.style.display = "none";
+  }
+  if (menuBack) {
+    menuBack.style.display = "none";
+  }
+  runtimeSendMessage("C_B_SELECT_TEXT", () => {
+    setTimeout(() => {
+      document.getElementById("screenSelectorIframe")?.focus();
+    }, 100);
+  });
+});
+
+pageOnMessage("IF_C_SELECT_AREA", () => {
+  currentSelectionMode = "area";
+  const menuFrame = document.getElementById("spectralensWidgetIframe");
+  const menuBack = document.getElementById("spectralensWidgetBack");
+  if (menuFrame) {
+    menuFrame.style.display = "none";
+  }
+  if (menuBack) {
+    menuBack.style.display = "none";
+  }
+  runtimeSendMessage("C_B_SELECT_TEXT", () => {
+    setTimeout(() => {
+      document.getElementById("screenSelectorIframe")?.focus();
+    }, 100);
+  });
+});
+
 pageOnMessage("IF_C_SELECT_TEXT", () => {
+  currentSelectionMode = "ocr";
   const menuFrame = document.getElementById("spectralensWidgetIframe");
   const menuBack = document.getElementById("spectralensWidgetBack");
   if (menuFrame) {

@@ -742,3 +742,72 @@ export const FloatingSystemThemeIcon = SystemThemeIcon;
 export const FloatingDarkThemeIcon = DarkThemeIcon;
 export const FloatingLightThemeIcon = LightThemeIcon;
 export const PopupSystemThemeIcon = DeviceThemeIcon;
+
+// ==========================================
+// Scan / OCR Icon (For on-screen OCR text recognition)
+// ==========================================
+export function ScanOcrIcon({ className = "w-4 h-4", size = 16 }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+    >
+      <path
+        d="M4 8V6C4 4.89543 4.89543 4 6 4H8"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+      />
+      <path
+        d="M16 4H18C19.1046 4 20 4.89543 20 6V8"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+      />
+      <path
+        d="M20 16V18C20 19.1046 19.1046 20 18 20H16"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+      />
+      <path
+        d="M8 20H6C4.89543 20 4 19.1046 4 18V16"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+      />
+      <path
+        d="M7 12H17"
+        stroke="currentColor"
+        strokeWidth={1.8}
+        strokeLinecap="round"
+      />
+      <path
+        d="M9 9.5L12 7L15 9.5"
+        stroke="currentColor"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M9 14.5L12 17L15 14.5"
+        stroke="currentColor"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+ScanOcrIcon.propTypes = {
+  className: PropTypes.string,
+  size: PropTypes.number,
+};
+
+export const OcrIcon = ScanOcrIcon;
+

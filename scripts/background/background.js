@@ -534,7 +534,7 @@ runtimeOnMessage("C_B_SELECT_TEXT", (_, { tab }, sendResponse) => {
 
 runtimeOnMessage(
   "C_B_CAPTURE_DOM",
-  async ({ coordinates, devicePixelRatio }, sender, sendResponse) => {
+  async ({ coordinates, devicePixelRatio, mode }, sender, sendResponse) => {
     sendResponse("ok");
     if (!coordinates) return;
 
@@ -575,18 +575,24 @@ runtimeOnMessage(
     const onImageCaptured = async (img) => {
       if (!img) return;
       try {
-        const data = await performCropExtraction(img, rect);
-        if (data?.success && data?.image) {
-          tabSendMessage(tabId, "B_C_AREA_RESULT", {
-            image: data.image,
-          });
-          tabSendMessage(tabId, "B_C_OCR_RESULT", {
-            image: data.image,
-            text: "",
-          });
+        if (mode === "ocr") {
+          const data = await performOcrExtraction(img, rect);
+          if (data?.success) {
+            tabSendMessage(tabId, "B_C_OCR_RESULT", {
+              image: data.image,
+              text: data.text || "",
+            });
+          }
+        } else {
+          const data = await performCropExtraction(img, rect);
+          if (data?.success && data?.image) {
+            tabSendMessage(tabId, "B_C_AREA_RESULT", {
+              image: data.image,
+            });
+          }
         }
       } catch (e) {
-        console.error("Area crop error:", e);
+        console.error("Area/OCR capture error:", e);
       }
     };
 

@@ -817,6 +817,26 @@ import("../scripts/update-version.js").then(({ calculateNextVersion, normalizeVe
   assert(bgCode2.includes("chrome.runtime.setUninstallURL"), "background.js sets uninstall feedback URL");
   assert(bgCode2.includes("options/options.html#welcome"), "background.js opens welcome onboarding tour on first install");
 
+  // --- TEST SUITE 24: OCR Scanner vs Area Screenshot Separation Audit ---
+  console.log("\n24. OCR Scanner vs Area Screenshot Separation Audit:");
+  const chatInputCode = fs.readFileSync(path.join(rootDir, "src", "features", "chat", "ChatPromptInput.jsx"), "utf-8");
+  const chatBotCode2 = fs.readFileSync(path.join(rootDir, "src", "components", "ChatBot.jsx"), "utf-8");
+  const workerCode2 = fs.readFileSync(path.join(rootDir, "scripts", "offscreen", "worker.js"), "utf-8");
+  const widgetContentCode2 = fs.readFileSync(path.join(rootDir, "scripts", "content", "widgetContent.js"), "utf-8");
+
+  assert(iconsCode2.includes("export function ScanOcrIcon"), "Icons.jsx exports ScanOcrIcon");
+  assert(chatInputCode.includes("ScanOcrIcon"), "ChatPromptInput.jsx renders ScanOcrIcon on left of submit button");
+  assert(chatInputCode.includes("onTriggerOcr"), "ChatPromptInput.jsx accepts onTriggerOcr callback");
+  assert(chatBotCode2.includes("onTriggerOcr"), "ChatBot.jsx wires onTriggerOcr for OCR text recognition");
+  assert(chatBotCode2.includes("onTriggerArea"), "ChatBot.jsx wires onTriggerArea for @area visual crop");
+  assert(widgetCode2.includes("handleTriggerOcr"), "AssistantWidget.jsx implements handleTriggerOcr");
+  assert(widgetCode2.includes("handleTriggerAreaCrop"), "AssistantWidget.jsx implements handleTriggerAreaCrop");
+  assert(widgetContentCode2.includes("IF_C_SELECT_OCR"), "widgetContent.js handles IF_C_SELECT_OCR message");
+  assert(widgetContentCode2.includes("IF_C_SELECT_AREA"), "widgetContent.js handles IF_C_SELECT_AREA message");
+  assert(bgCode2.includes("mode === \"ocr\""), "background.js branches to performOcrExtraction when mode is ocr");
+  assert(workerCode2.includes("C_OF_PROCESS_OCR"), "worker.js handles C_OF_PROCESS_OCR message for Tesseract OCR");
+  assert(workerCode2.includes("C_OF_CROP_IMAGE"), "worker.js handles C_OF_CROP_IMAGE for area screenshots");
+
   // --- SUMMARY ---
   console.log(`\n========================================`);
   console.log(`Test Results: ${passed} Passed, ${failed} Failed`);

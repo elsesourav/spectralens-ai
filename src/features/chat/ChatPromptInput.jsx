@@ -1,6 +1,9 @@
 import PropTypes from "prop-types";
 import { IoClose, IoSquare } from "react-icons/io5";
-import { ElementSelectorIcon, SendPlaneIcon } from "../../components/Icons.jsx";
+import {
+  ScanOcrIcon,
+  SendPlaneIcon,
+} from "../../components/Icons.jsx";
 import ChatContextMentions from "./ChatContextMentions.jsx";
 
 export default function ChatPromptInput({
@@ -24,6 +27,7 @@ export default function ChatPromptInput({
   onChangeInput,
   onSelectMention,
   onOpenSelector,
+  onTriggerOcr,
   onStopFetching,
   onSendMessage,
 }) {
@@ -156,11 +160,11 @@ export default function ChatPromptInput({
           } shrink-0 transition-all duration-200`}
         >
           <button
-            onClick={onOpenSelector}
-            title="Inspect & Select Page Element"
+            onClick={onTriggerOcr || onOpenSelector}
+            title="Scan & Extract Text (OCR)"
             className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-all focus:outline-none cursor-pointer"
           >
-            <ElementSelectorIcon className="w-4 h-4" size={16} />
+            <ScanOcrIcon className="w-4 h-4" size={16} />
           </button>
 
           {isLoading ? (

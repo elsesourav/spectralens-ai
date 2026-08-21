@@ -83,6 +83,8 @@ export default function ChatBot({
   newChatTrigger = 0,
   onClearLoadedHistory,
   onOpenSelector,
+  onTriggerOcr,
+  onTriggerArea,
 }) {
   const { contrastMode } = useTheme();
   const [input, setInput] = useState(pendingInput || "");
@@ -274,7 +276,10 @@ export default function ChatBot({
   // Sync pending input from OCR scan
   useEffect(() => {
     if (pendingInput !== null && pendingInput !== undefined) {
-      setInput(pendingInput);
+      setInput((prev) => {
+        if (!prev || prev.trim() === "") return pendingInput;
+        return prev + (prev.endsWith("\n") ? "" : "\n") + pendingInput;
+      });
       onConsumePendingInput?.();
       setTimeout(() => {
         if (textareaRef.current) {
@@ -359,7 +364,10 @@ export default function ChatBot({
         setAttachedContextType("page");
         UTILS.pagePostMessage("IF_B_CAPTURE_PAGE", {}, window.parent);
       } else if (option.id === "area") {
-        if (onOpenSelector) {
+        setAttachedContextType("area");
+        if (onTriggerArea) {
+          onTriggerArea();
+        } else if (onOpenSelector) {
           onOpenSelector();
         }
       }
@@ -368,7 +376,7 @@ export default function ChatBot({
         textareaRef.current?.focus();
       }, 50);
     },
-    [input, onOpenSelector],
+    [input, onTriggerArea, onOpenSelector],
   );
 
   // Close more menu when clicking outside
@@ -1464,6 +1472,7 @@ export default function ChatBot({
           onChangeInput={handleInputChange}
           onSelectMention={handleSelectMention}
           onOpenSelector={onOpenSelector}
+          onTriggerOcr={onTriggerOcr || onOpenSelector}
           onStopFetching={handleStopFetch}
           onSendMessage={handleSendMessage}
         />
@@ -1475,7 +1484,11 @@ export default function ChatBot({
 ChatBot.propTypes = {
   isOpen: PropTypes.bool,
   initialHistoryItem: PropTypes.object,
+  pendingInput: PropTypes.string,
+  onConsumePendingInput: PropTypes.func,
   newChatTrigger: PropTypes.number,
   onClearLoadedHistory: PropTypes.func,
   onOpenSelector: PropTypes.func,
+  onTriggerOcr: PropTypes.func,
+  onTriggerArea: PropTypes.func,
 };

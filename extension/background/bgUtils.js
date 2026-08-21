@@ -35,20 +35,20 @@ async function performCropExtraction(imageData, rectInfo) {
 async function performOcrExtraction(imageData, rectInfo) {
    console.log("[Background] performOcrExtraction initializing offscreen document...");
    await ensureOffscreen();
-   await wait(120);
+   await wait(60);
 
    return new Promise((resolve) => {
-      console.log("[Background] Posting C_OF_CROP_IMAGE / OCR to offscreen worker...");
-      runtimeSendMessage("C_OF_CROP_IMAGE", { imageData, rectInfo }, (res) => {
+      console.log("[Background] Posting C_OF_PROCESS_OCR to offscreen worker...");
+      runtimeSendMessage("C_OF_PROCESS_OCR", { imageData, rectInfo }, (res) => {
          if (res && res.success) {
             resolve(res);
          } else {
-            resolve(res || { success: false });
+            resolve(res || { success: false, text: "", image: imageData });
          }
       });
    });
 }
-const __OCR__ = performCropExtraction;
+const __OCR__ = performOcrExtraction;
 
 /* ---------------- injects screen selector ---------------- */
 function injectScreenSelector(tabId) {

@@ -135,3 +135,20 @@ runtimeOnMessage("C_OF_CROP_IMAGE", (data, _, sendResponse) => {
    return true;
 });
 
+runtimeOnMessage("C_OF_PROCESS_OCR", (data, _, sendResponse) => {
+   const { imageData, rectInfo } = data || {};
+   processOCR(imageData, rectInfo)
+      .then((res) => {
+         if (res && res.text) {
+            sendResponse({ success: true, text: res.text, image: res.image });
+         } else {
+            sendResponse({ success: true, text: res?.text || "", image: res?.image || imageData });
+         }
+      })
+      .catch((err) => {
+         console.error("OCR process failed with error:", err);
+         sendResponse({ success: false, text: "", image: imageData, error: String(err) });
+      });
+   return true;
+});
+
