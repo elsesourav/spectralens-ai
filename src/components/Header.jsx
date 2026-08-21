@@ -1,17 +1,21 @@
 import { IoSunny, IoMoon } from "react-icons/io5";
+import { SystemThemeIcon } from "./Icons.jsx";
 import { useTheme } from "../hooks/useThemeHook.jsx";
 import appIconUrl from "../assets/icons/128.png";
 
 export default function Header() {
    const { theme, setTheme } = useTheme();
 
-   const isDarkMode =
-      theme === "dark" ||
-      (theme === "system" &&
-         window.matchMedia("(prefers-color-scheme: dark)").matches);
-
    const toggleTheme = () => {
-      setTheme(isDarkMode ? "light" : "dark");
+      let next = "dark";
+      if (theme === "system") {
+         next = "dark";
+      } else if (theme === "dark") {
+         next = "light";
+      } else {
+         next = "system";
+      }
+      setTheme(next);
    };
 
    return (
@@ -32,9 +36,17 @@ export default function Header() {
                   <button
                      onClick={toggleTheme}
                      className="size-9 rounded-xl grid place-items-center transition-all duration-300 dark:bg-black/40 dark:hover:bg-black/50 bg-black/20 hover:bg-black/30 cursor-pointer focus:outline-none"
-                     title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+                     title={
+                        theme === "system"
+                           ? "Theme: System (Click for Dark Mode)"
+                           : theme === "dark"
+                              ? "Theme: Dark (Click for Light Mode)"
+                              : "Theme: Light (Click for System Mode)"
+                     }
                   >
-                     {isDarkMode ? (
+                     {theme === "system" ? (
+                        <SystemThemeIcon className="size-5 text-slate-200 hover:scale-110 transition-transform duration-300" />
+                     ) : theme === "dark" ? (
                         <IoSunny className="size-5 text-amber-400 hover:rotate-45 transition-transform duration-300" />
                      ) : (
                         <IoMoon className="size-5 text-blue-400 hover:rotate-12 transition-transform duration-300" />

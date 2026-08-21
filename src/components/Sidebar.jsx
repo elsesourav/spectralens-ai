@@ -3,12 +3,13 @@ import {
   ChatIcon,
   HistoryIcon,
   SettingsIcon,
+  SystemThemeIcon,
 } from "./Icons.jsx";
 import { IoSunny, IoMoon, IoAdd } from "react-icons/io5";
 import { useTheme } from "../hooks/useThemeHook.jsx";
 
 export default function Sidebar({ activeTab, onSelectTab, onNewChat }) {
-  const { isDarkMode, setTheme, contrastMode } = useTheme();
+  const { theme, setTheme, contrastMode } = useTheme();
 
   const navItems = [
     {
@@ -29,7 +30,15 @@ export default function Sidebar({ activeTab, onSelectTab, onNewChat }) {
   ];
 
   const handleToggleTheme = () => {
-    const next = isDarkMode ? "light" : "dark";
+    // 3 states: system -> dark -> light -> system
+    let next = "dark";
+    if (theme === "system") {
+      next = "dark";
+    } else if (theme === "dark") {
+      next = "light";
+    } else {
+      next = "system";
+    }
     console.log("[Sidebar] handleToggleTheme clicked -> switching to:", next);
     setTheme(next);
   };
@@ -93,9 +102,17 @@ export default function Sidebar({ activeTab, onSelectTab, onNewChat }) {
         <button
           onClick={handleToggleTheme}
           className="size-9 rounded-xl grid place-items-center transition-all duration-300 bg-slate-200/80 dark:bg-white/10 hover:bg-slate-300/90 dark:hover:bg-white/15 cursor-pointer focus:outline-none"
-          title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+          title={
+            theme === "system"
+              ? "Theme: System (Click for Dark Mode)"
+              : theme === "dark"
+                ? "Theme: Dark (Click for Light Mode)"
+                : "Theme: Light (Click for System Mode)"
+          }
         >
-          {isDarkMode ? (
+          {theme === "system" ? (
+            <SystemThemeIcon className="size-5 text-slate-700 dark:text-slate-200 hover:scale-110 transition-transform duration-300" />
+          ) : theme === "dark" ? (
             <IoSunny className="size-5 text-amber-400 hover:rotate-45 transition-transform duration-300" />
           ) : (
             <IoMoon className="size-5 text-blue-600 hover:rotate-12 transition-transform duration-300" />

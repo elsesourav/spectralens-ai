@@ -1,10 +1,10 @@
 import PropTypes from "prop-types";
 import {
-  IoDesktopOutline,
   IoMoonOutline,
   IoSunnyOutline,
   IoColorPaletteOutline,
 } from "react-icons/io5";
+import { SystemThemeIcon } from "../../components/Icons.jsx";
 
 export default function ThemeAppearanceSection({
   theme,
@@ -16,7 +16,7 @@ export default function ThemeAppearanceSection({
   const themeOptions = [
     { id: "dark", label: "Dark", icon: IoMoonOutline },
     { id: "light", label: "Light", icon: IoSunnyOutline },
-    { id: "system", label: "System", icon: IoDesktopOutline },
+    { id: "system", label: "System", icon: SystemThemeIcon },
   ];
 
   const contrastOptions = [

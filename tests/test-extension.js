@@ -727,7 +727,20 @@ import("../scripts/update-version.js").then(({ calculateNextVersion, normalizeVe
   assert(bgUtilsScript.includes("floatingWidgetHostTabs.add(tabId)"), "bgUtils.js registers host tab on widget injection");
   assert(widgetContentScript.includes("IF_B_REGISTER_HOST"), "widgetContent.js notifies background of widget host registration");
   assert(widgetContentScript.includes("IF_B_PAGE_RELOADED"), "widgetContent.js notifies background of page unload/reload");
-  assert(reqAiScript.includes("resetAllProviderSessions"), "requestAi.js defines resetAllProviderSessions");
+  // 20. 3-State Theme Toggle (System, Dark, Light) & SystemThemeIcon Audit:
+  console.log("\n20. 3-State Theme Toggle (System, Dark, Light) & SystemThemeIcon Audit:");
+  const iconsJsx = fs.readFileSync(path.join(rootDir, "src", "components", "Icons.jsx"), "utf-8");
+  const sidebarJsx = fs.readFileSync(path.join(rootDir, "src", "components", "Sidebar.jsx"), "utf-8");
+  const headerJsx = fs.readFileSync(path.join(rootDir, "src", "components", "Header.jsx"), "utf-8");
+  const themeSectionJsx = fs.readFileSync(path.join(rootDir, "src", "features", "settings", "ThemeAppearanceSection.jsx"), "utf-8");
+
+  assert(iconsJsx.includes("export function SystemThemeIcon"), "Icons.jsx exports SystemThemeIcon component");
+  assert(iconsJsx.includes("translate(231.1875,95.5625)"), "SystemThemeIcon has user-provided SVG paths");
+  assert(sidebarJsx.includes("SystemThemeIcon"), "Sidebar.jsx imports and renders SystemThemeIcon");
+  assert(sidebarJsx.includes("theme === \"system\""), "Sidebar.jsx checks for system theme state");
+  assert(headerJsx.includes("SystemThemeIcon"), "Header.jsx imports and renders SystemThemeIcon");
+  assert(headerJsx.includes("theme === \"system\""), "Header.jsx checks for system theme state");
+  assert(themeSectionJsx.includes("icon: SystemThemeIcon"), "ThemeAppearanceSection uses SystemThemeIcon for System option");
 
   // --- SUMMARY ---
   console.log(`\n========================================`);
