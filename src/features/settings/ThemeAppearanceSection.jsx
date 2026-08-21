@@ -75,7 +75,7 @@ export default function ThemeAppearanceSection({
                     : "bg-slate-100/90 dark:bg-white/[0.05] border-slate-200/80 dark:border-white/[0.07] text-slate-800 dark:text-slate-200 hover:bg-slate-200/90 dark:hover:bg-white/10"
                 }`}
               >
-                <Icon className="w-4 h-4" />
+                <Icon className={isPopup ? "w-4 h-4" : "size-5.5 scale-[1.4] my-0.5"} />
                 <span>{opt.label}</span>
               </button>
             );

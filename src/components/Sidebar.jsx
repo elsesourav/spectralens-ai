@@ -115,11 +115,11 @@ export default function Sidebar({ activeTab, onSelectTab, onNewChat }) {
           }
         >
           {theme === "system" ? (
-            <SystemThemeIcon className="size-5 text-slate-700 dark:text-slate-200 hover:scale-110 transition-transform duration-300" />
+            <SystemThemeIcon className="size-7 text-slate-700 dark:text-slate-200 hover:scale-110 transition-transform duration-300" />
           ) : theme === "dark" ? (
-            <DarkThemeIcon className="size-5 text-slate-700 dark:text-slate-200 hover:scale-110 transition-transform duration-300" />
+            <DarkThemeIcon className="size-7 text-slate-700 dark:text-slate-200 hover:scale-110 transition-transform duration-300" />
           ) : (
-            <LightThemeIcon className="size-5 text-slate-700 dark:text-slate-200 hover:scale-110 transition-transform duration-300" />
+            <LightThemeIcon className="size-7 text-slate-700 dark:text-slate-200 hover:scale-110 transition-transform duration-300" />
           )}
         </button>
       </div>

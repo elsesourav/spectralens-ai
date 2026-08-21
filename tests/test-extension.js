@@ -748,6 +748,9 @@ import("../scripts/update-version.js").then(({ calculateNextVersion, normalizeVe
   assert(headerJsx.includes("DeviceThemeIcon"), "Header.jsx imports and renders DeviceThemeIcon for popup");
   assert(headerJsx.includes("IoSunny"), "Header.jsx uses IoSunny for popup dark/light toggle");
   assert(headerJsx.includes("IoMoon"), "Header.jsx uses IoMoon for popup light toggle");
+  assert(iconsJsx.includes("translate(480,311.5)"), "DeviceThemeIcon contains all paths from user SVG");
+  assert(sidebarJsx.includes("size-7"), "Sidebar.jsx renders theme icons 1.4x larger (size-7)");
+  assert(themeSectionJsx.includes("scale-[1.4]"), "ThemeAppearanceSection.jsx renders floating icons 1.4x larger (scale-[1.4])");
   assert(themeSectionJsx.includes("DeviceThemeIcon"), "ThemeAppearanceSection.jsx renders DeviceThemeIcon in popup context");
   assert(themeSectionJsx.includes("FloatingSystemThemeIcon"), "ThemeAppearanceSection.jsx renders FloatingSystemThemeIcon in floating context");
   // 21. Per-URL alreadyShowIntro & Daily Intro Limit Audit:
