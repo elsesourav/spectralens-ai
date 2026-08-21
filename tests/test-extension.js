@@ -727,19 +727,28 @@ import("../scripts/update-version.js").then(({ calculateNextVersion, normalizeVe
   assert(bgUtilsScript.includes("floatingWidgetHostTabs.add(tabId)"), "bgUtils.js registers host tab on widget injection");
   assert(widgetContentScript.includes("IF_B_REGISTER_HOST"), "widgetContent.js notifies background of widget host registration");
   assert(widgetContentScript.includes("IF_B_PAGE_RELOADED"), "widgetContent.js notifies background of page unload/reload");
-  // 20. 3-State Theme Toggle (System, Dark, Light) & SystemThemeIcon Audit:
-  console.log("\n20. 3-State Theme Toggle (System, Dark, Light) & SystemThemeIcon Audit:");
+  // 20. 3-State Theme Toggle (System, Dark, Light) & Custom Theme Icons Audit:
+  console.log("\n20. 3-State Theme Toggle (System, Dark, Light) & Custom Theme Icons Audit:");
   const iconsJsx = fs.readFileSync(path.join(rootDir, "src", "components", "Icons.jsx"), "utf-8");
   const sidebarJsx = fs.readFileSync(path.join(rootDir, "src", "components", "Sidebar.jsx"), "utf-8");
   const headerJsx = fs.readFileSync(path.join(rootDir, "src", "components", "Header.jsx"), "utf-8");
   const themeSectionJsx = fs.readFileSync(path.join(rootDir, "src", "features", "settings", "ThemeAppearanceSection.jsx"), "utf-8");
 
   assert(iconsJsx.includes("export function SystemThemeIcon"), "Icons.jsx exports SystemThemeIcon component");
-  assert(iconsJsx.includes("translate(231.1875,95.5625)"), "SystemThemeIcon has user-provided SVG paths");
+  assert(iconsJsx.includes("export function DarkThemeIcon"), "Icons.jsx exports DarkThemeIcon component");
+  assert(iconsJsx.includes("export function LightThemeIcon"), "Icons.jsx exports LightThemeIcon component");
+  assert(iconsJsx.includes("viewBox=\"0 0 718 718\""), "SystemThemeIcon has user-provided SVG viewBox");
+  assert(iconsJsx.includes("viewBox=\"0 0 810 810\""), "DarkThemeIcon has user-provided SVG viewBox");
+  assert(iconsJsx.includes("viewBox=\"0 0 792 792\""), "LightThemeIcon has user-provided SVG viewBox");
   assert(sidebarJsx.includes("SystemThemeIcon"), "Sidebar.jsx imports and renders SystemThemeIcon");
-  assert(sidebarJsx.includes("theme === \"system\""), "Sidebar.jsx checks for system theme state");
+  assert(sidebarJsx.includes("DarkThemeIcon"), "Sidebar.jsx imports and renders DarkThemeIcon");
+  assert(sidebarJsx.includes("LightThemeIcon"), "Sidebar.jsx imports and renders LightThemeIcon");
   assert(headerJsx.includes("SystemThemeIcon"), "Header.jsx imports and renders SystemThemeIcon");
-  assert(headerJsx.includes("theme === \"system\""), "Header.jsx checks for system theme state");
+  assert(headerJsx.includes("DarkThemeIcon"), "Header.jsx imports and renders DarkThemeIcon");
+  assert(headerJsx.includes("LightThemeIcon"), "Header.jsx imports and renders LightThemeIcon");
+  assert(themeSectionJsx.includes("DarkThemeIcon"), "ThemeAppearanceSection.jsx renders DarkThemeIcon");
+  assert(themeSectionJsx.includes("LightThemeIcon"), "ThemeAppearanceSection.jsx renders LightThemeIcon");
+  assert(themeSectionJsx.includes("SystemThemeIcon"), "ThemeAppearanceSection.jsx renders SystemThemeIcon");
   // 21. Per-URL alreadyShowIntro & Daily Intro Limit Audit:
   console.log("\n21. Per-URL alreadyShowIntro & Daily Intro Limit Audit:");
   const wcScript = fs.readFileSync(path.join(rootDir, "scripts", "content", "widgetContent.js"), "utf-8");

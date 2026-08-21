@@ -1,11 +1,13 @@
 import PropTypes from "prop-types";
-import { IoAdd, IoMoon, IoSunny } from "react-icons/io5";
+import { IoAdd } from "react-icons/io5";
 import { useTheme } from "../hooks/useThemeHook.jsx";
 import {
   ChatIcon,
   HistoryIcon,
   SettingsIcon,
   SystemThemeIcon,
+  DarkThemeIcon,
+  LightThemeIcon,
 } from "./Icons.jsx";
 
 export default function Sidebar({ activeTab, onSelectTab, onNewChat }) {
@@ -115,9 +117,9 @@ export default function Sidebar({ activeTab, onSelectTab, onNewChat }) {
           {theme === "system" ? (
             <SystemThemeIcon className="size-5 text-slate-700 dark:text-slate-200 hover:scale-110 transition-transform duration-300" />
           ) : theme === "dark" ? (
-            <IoSunny className="size-5 text-amber-400 hover:rotate-45 transition-transform duration-300" />
+            <DarkThemeIcon className="size-5 text-slate-700 dark:text-slate-200 hover:scale-110 transition-transform duration-300" />
           ) : (
-            <IoMoon className="size-5 text-blue-600 hover:rotate-12 transition-transform duration-300" />
+            <LightThemeIcon className="size-5 text-slate-700 dark:text-slate-200 hover:scale-110 transition-transform duration-300" />
           )}
         </button>
       </div>

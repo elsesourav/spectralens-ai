@@ -1,5 +1,4 @@
-import { IoSunny, IoMoon } from "react-icons/io5";
-import { SystemThemeIcon } from "./Icons.jsx";
+import { SystemThemeIcon, DarkThemeIcon, LightThemeIcon } from "./Icons.jsx";
 import { useTheme } from "../hooks/useThemeHook.jsx";
 import appIconUrl from "../assets/icons/128.png";
 
@@ -47,9 +46,9 @@ export default function Header() {
                      {theme === "system" ? (
                         <SystemThemeIcon className="size-5 text-slate-200 hover:scale-110 transition-transform duration-300" />
                      ) : theme === "dark" ? (
-                        <IoSunny className="size-5 text-amber-400 hover:rotate-45 transition-transform duration-300" />
+                        <DarkThemeIcon className="size-5 text-slate-200 hover:scale-110 transition-transform duration-300" />
                      ) : (
-                        <IoMoon className="size-5 text-blue-400 hover:rotate-12 transition-transform duration-300" />
+                        <LightThemeIcon className="size-5 text-slate-200 hover:scale-110 transition-transform duration-300" />
                      )}
                   </button>
                </div>
