@@ -4,6 +4,8 @@ const initialState = {
    theme: "system",
    isDarkMode: true,
    contrastMode: "medium",
+   contextKey: "menu",
+   pageTheme: null,
    setTheme: () => null,
    setContrastMode: () => null,
 };

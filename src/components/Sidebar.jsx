@@ -108,10 +108,10 @@ export default function Sidebar({ activeTab, onSelectTab, onNewChat }) {
           className="size-9 rounded-xl grid place-items-center transition-all duration-300 bg-slate-200/80 dark:bg-white/10 hover:bg-slate-300/90 dark:hover:bg-white/15 cursor-pointer focus:outline-none"
           title={
             theme === "system"
-              ? "Theme: System (Click for Dark Mode)"
+              ? "Theme: Page / Tab Theme (Click for Dark Mode)"
               : theme === "dark"
                 ? "Theme: Dark (Click for Light Mode)"
-                : "Theme: Light (Click for System Mode)"
+                : "Theme: Light (Click for Page / Tab Mode)"
           }
         >
           {theme === "system" ? (

@@ -281,6 +281,8 @@ export function ThemeProvider({
     theme,
     isDarkMode,
     contrastMode,
+    contextKey,
+    pageTheme,
     setTheme,
     setContrastMode,
   };

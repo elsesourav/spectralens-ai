@@ -727,8 +727,8 @@ import("../scripts/update-version.js").then(({ calculateNextVersion, normalizeVe
   assert(bgUtilsScript.includes("floatingWidgetHostTabs.add(tabId)"), "bgUtils.js registers host tab on widget injection");
   assert(widgetContentScript.includes("IF_B_REGISTER_HOST"), "widgetContent.js notifies background of widget host registration");
   assert(widgetContentScript.includes("IF_B_PAGE_RELOADED"), "widgetContent.js notifies background of page unload/reload");
-  // 20. 3-State Theme Toggle (System, Dark, Light) & Custom Theme Icons Audit:
-  console.log("\n20. 3-State Theme Toggle (System, Dark, Light) & Custom Theme Icons Audit:");
+  // 20. 3-State Theme Toggle (System, Dark, Light) & Floating vs Popup Icons Audit:
+  console.log("\n20. 3-State Theme Toggle (System, Dark, Light) & Floating vs Popup Icons Audit:");
   const iconsJsx = fs.readFileSync(path.join(rootDir, "src", "components", "Icons.jsx"), "utf-8");
   const sidebarJsx = fs.readFileSync(path.join(rootDir, "src", "components", "Sidebar.jsx"), "utf-8");
   const headerJsx = fs.readFileSync(path.join(rootDir, "src", "components", "Header.jsx"), "utf-8");
@@ -737,18 +737,19 @@ import("../scripts/update-version.js").then(({ calculateNextVersion, normalizeVe
   assert(iconsJsx.includes("export function SystemThemeIcon"), "Icons.jsx exports SystemThemeIcon component");
   assert(iconsJsx.includes("export function DarkThemeIcon"), "Icons.jsx exports DarkThemeIcon component");
   assert(iconsJsx.includes("export function LightThemeIcon"), "Icons.jsx exports LightThemeIcon component");
-  assert(iconsJsx.includes("viewBox=\"0 0 718 718\""), "SystemThemeIcon has user-provided SVG viewBox");
-  assert(iconsJsx.includes("viewBox=\"0 0 810 810\""), "DarkThemeIcon has user-provided SVG viewBox");
-  assert(iconsJsx.includes("viewBox=\"0 0 792 792\""), "LightThemeIcon has user-provided SVG viewBox");
-  assert(sidebarJsx.includes("SystemThemeIcon"), "Sidebar.jsx imports and renders SystemThemeIcon");
-  assert(sidebarJsx.includes("DarkThemeIcon"), "Sidebar.jsx imports and renders DarkThemeIcon");
-  assert(sidebarJsx.includes("LightThemeIcon"), "Sidebar.jsx imports and renders LightThemeIcon");
-  assert(headerJsx.includes("SystemThemeIcon"), "Header.jsx imports and renders SystemThemeIcon");
-  assert(headerJsx.includes("DarkThemeIcon"), "Header.jsx imports and renders DarkThemeIcon");
-  assert(headerJsx.includes("LightThemeIcon"), "Header.jsx imports and renders LightThemeIcon");
-  assert(themeSectionJsx.includes("DarkThemeIcon"), "ThemeAppearanceSection.jsx renders DarkThemeIcon");
-  assert(themeSectionJsx.includes("LightThemeIcon"), "ThemeAppearanceSection.jsx renders LightThemeIcon");
-  assert(themeSectionJsx.includes("SystemThemeIcon"), "ThemeAppearanceSection.jsx renders SystemThemeIcon");
+  assert(iconsJsx.includes("export function DeviceThemeIcon"), "Icons.jsx exports DeviceThemeIcon component for popup");
+  assert(iconsJsx.includes("viewBox=\"0 0 718 718\""), "FloatingSystemThemeIcon has user-provided SVG viewBox");
+  assert(iconsJsx.includes("viewBox=\"0 0 810 810\""), "FloatingDarkThemeIcon has user-provided SVG viewBox");
+  assert(iconsJsx.includes("viewBox=\"0 0 792 792\""), "FloatingLightThemeIcon has user-provided SVG viewBox");
+  assert(iconsJsx.includes("viewBox=\"0 0 512 512\""), "DeviceThemeIcon has 512x512 device viewBox");
+  assert(sidebarJsx.includes("SystemThemeIcon"), "Sidebar.jsx imports and renders SystemThemeIcon for floating widget");
+  assert(sidebarJsx.includes("DarkThemeIcon"), "Sidebar.jsx imports and renders DarkThemeIcon for floating widget");
+  assert(sidebarJsx.includes("LightThemeIcon"), "Sidebar.jsx imports and renders LightThemeIcon for floating widget");
+  assert(headerJsx.includes("DeviceThemeIcon"), "Header.jsx imports and renders DeviceThemeIcon for popup");
+  assert(headerJsx.includes("IoSunny"), "Header.jsx uses IoSunny for popup dark/light toggle");
+  assert(headerJsx.includes("IoMoon"), "Header.jsx uses IoMoon for popup light toggle");
+  assert(themeSectionJsx.includes("DeviceThemeIcon"), "ThemeAppearanceSection.jsx renders DeviceThemeIcon in popup context");
+  assert(themeSectionJsx.includes("FloatingSystemThemeIcon"), "ThemeAppearanceSection.jsx renders FloatingSystemThemeIcon in floating context");
   // 21. Per-URL alreadyShowIntro & Daily Intro Limit Audit:
   console.log("\n21. Per-URL alreadyShowIntro & Daily Intro Limit Audit:");
   const wcScript = fs.readFileSync(path.join(rootDir, "scripts", "content", "widgetContent.js"), "utf-8");

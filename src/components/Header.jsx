@@ -1,4 +1,5 @@
-import { SystemThemeIcon, DarkThemeIcon, LightThemeIcon } from "./Icons.jsx";
+import { IoSunny, IoMoon } from "react-icons/io5";
+import { DeviceThemeIcon } from "./Icons.jsx";
 import { useTheme } from "../hooks/useThemeHook.jsx";
 import appIconUrl from "../assets/icons/128.png";
 
@@ -37,18 +38,18 @@ export default function Header() {
                      className="size-9 rounded-xl grid place-items-center transition-all duration-300 dark:bg-black/40 dark:hover:bg-black/50 bg-black/20 hover:bg-black/30 cursor-pointer focus:outline-none"
                      title={
                         theme === "system"
-                           ? "Theme: System (Click for Dark Mode)"
+                           ? "Theme: Device System (Click for Dark Mode)"
                            : theme === "dark"
                               ? "Theme: Dark (Click for Light Mode)"
                               : "Theme: Light (Click for System Mode)"
                      }
                   >
                      {theme === "system" ? (
-                        <SystemThemeIcon className="size-5 text-slate-200 hover:scale-110 transition-transform duration-300" />
+                        <DeviceThemeIcon className="size-5 text-slate-200 hover:scale-110 transition-transform duration-300" />
                      ) : theme === "dark" ? (
-                        <DarkThemeIcon className="size-5 text-slate-200 hover:scale-110 transition-transform duration-300" />
+                        <IoSunny className="size-5 text-amber-400 hover:rotate-45 transition-transform duration-300" />
                      ) : (
-                        <LightThemeIcon className="size-5 text-slate-200 hover:scale-110 transition-transform duration-300" />
+                        <IoMoon className="size-5 text-blue-400 hover:rotate-12 transition-transform duration-300" />
                      )}
                   </button>
                </div>

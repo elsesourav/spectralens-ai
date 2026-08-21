@@ -1,10 +1,16 @@
 import PropTypes from "prop-types";
-import { IoColorPaletteOutline } from "react-icons/io5";
 import {
-  SystemThemeIcon,
-  DarkThemeIcon,
-  LightThemeIcon,
+  IoColorPaletteOutline,
+  IoMoonOutline,
+  IoSunnyOutline,
+} from "react-icons/io5";
+import {
+  FloatingSystemThemeIcon,
+  FloatingDarkThemeIcon,
+  FloatingLightThemeIcon,
+  DeviceThemeIcon,
 } from "../../components/Icons.jsx";
+import { useTheme } from "../../hooks/useThemeHook.jsx";
 
 export default function ThemeAppearanceSection({
   theme,
@@ -13,11 +19,20 @@ export default function ThemeAppearanceSection({
   onChangeTheme,
   onChangeContrastMode,
 }) {
-  const themeOptions = [
-    { id: "dark", label: "Dark", icon: DarkThemeIcon },
-    { id: "light", label: "Light", icon: LightThemeIcon },
-    { id: "system", label: "System", icon: SystemThemeIcon },
-  ];
+  const { contextKey } = useTheme();
+  const isPopup = contextKey === "popup";
+
+  const themeOptions = isPopup
+    ? [
+        { id: "dark", label: "Dark", icon: IoMoonOutline },
+        { id: "light", label: "Light", icon: IoSunnyOutline },
+        { id: "system", label: "Device System", icon: DeviceThemeIcon },
+      ]
+    : [
+        { id: "dark", label: "Dark", icon: FloatingDarkThemeIcon },
+        { id: "light", label: "Light", icon: FloatingLightThemeIcon },
+        { id: "system", label: "Page / Tab", icon: FloatingSystemThemeIcon },
+      ];
 
   const contrastOptions = [
     { id: "solid", label: "Solid", desc: "100% Opaque" },
