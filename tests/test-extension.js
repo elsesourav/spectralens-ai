@@ -792,6 +792,32 @@ import("../scripts/update-version.js").then(({ calculateNextVersion, normalizeVe
   assert(authCardCode.includes("handleRetry"), "ChatAiResponseCard implements handleRetry");
   assert(authChatbotCode.includes("handleRetryProvider"), "ChatBot.jsx implements handleRetryProvider callback");
 
+  // 23. Help & Guide Tab (? Icon), Onboarding, and Uninstall Survey Hub Audit:
+  console.log("\n23. Help & Guide Tab (? Icon), Onboarding, and Uninstall Survey Hub Audit:");
+  const iconsCode2 = fs.readFileSync(path.join(rootDir, "src", "components", "Icons.jsx"), "utf-8");
+  const sidebarCode2 = fs.readFileSync(path.join(rootDir, "src", "components", "Sidebar.jsx"), "utf-8");
+  const widgetCode2 = fs.readFileSync(path.join(rootDir, "src", "inject", "AssistantWidget.jsx"), "utf-8");
+  const guideCode2 = fs.readFileSync(path.join(rootDir, "src", "components", "GuideView.jsx"), "utf-8");
+  const optionsCode2 = fs.readFileSync(path.join(rootDir, "src", "options", "OptionsApp.jsx"), "utf-8");
+  const bgCode2 = fs.readFileSync(path.join(rootDir, "scripts", "background", "background.js"), "utf-8");
+
+  assert(iconsCode2.includes("export function HelpIcon"), "Icons.jsx exports HelpIcon");
+  assert(iconsCode2.includes("export const GuideIcon = HelpIcon"), "Icons.jsx exports GuideIcon alias");
+  assert(sidebarCode2.includes("HelpIcon"), "Sidebar.jsx imports HelpIcon");
+  assert(sidebarCode2.includes("id: \"guide\""), "Sidebar.jsx registers guide tab navigation item");
+  assert(sidebarCode2.indexOf("id: \"settings\"") < sidebarCode2.indexOf("id: \"guide\""), "Sidebar.jsx places guide tab (? icon) right after settings");
+  assert(widgetCode2.includes("import GuideView"), "AssistantWidget.jsx imports GuideView");
+  assert(widgetCode2.includes("activeTab === \"guide\""), "AssistantWidget.jsx renders GuideView when activeTab is guide");
+  assert(guideCode2.includes("SpectraLens AI Guide"), "GuideView.jsx renders guide header");
+  assert(guideCode2.includes("SHORTCUTS"), "GuideView.jsx includes keyboard shortcuts reference");
+  assert(guideCode2.includes("PROVIDERS"), "GuideView.jsx includes AI models hub");
+  assert(guideCode2.includes("FAQS"), "GuideView.jsx includes FAQ section");
+  assert(optionsCode2.includes("welcome"), "OptionsApp.jsx includes welcome onboarding tab");
+  assert(optionsCode2.includes("uninstall"), "OptionsApp.jsx includes offboarding feedback survey tab");
+  assert(optionsCode2.includes("handleExportHistory"), "OptionsApp.jsx implements history data export");
+  assert(bgCode2.includes("chrome.runtime.setUninstallURL"), "background.js sets uninstall feedback URL");
+  assert(bgCode2.includes("options/options.html#welcome"), "background.js opens welcome onboarding tour on first install");
+
   // --- SUMMARY ---
   console.log(`\n========================================`);
   console.log(`Test Results: ${passed} Passed, ${failed} Failed`);

@@ -34,7 +34,7 @@ export default function WindowHeader({
             SpectraLens AI
           </span>
           <span className="text-[10px] font-medium text-slate-600 dark:text-slate-300 capitalize leading-tight mt-0.5">
-            {activeTab}
+            {activeTab === "guide" ? "Guide & Help" : activeTab}
           </span>
         </div>
       </div>

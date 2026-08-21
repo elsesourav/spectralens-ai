@@ -119,9 +119,33 @@ chrome.runtime.onStartup.addListener(() => {
   activateAlwaysActive();
   updateAlwaysActiveBadge();
 });
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener((details) => {
   activateAlwaysActive();
   updateAlwaysActiveBadge();
+
+  // Set uninstall / offboarding feedback URL
+  if (chrome.runtime.setUninstallURL) {
+    try {
+      chrome.runtime.setUninstallURL(
+        "https://github.com/elsesourav/spectralens-ai/issues/new?template=feedback.md&title=%5BUninstall+Feedback%5D+SpectraLens+AI"
+      );
+    } catch (e) {
+      console.warn("[Background] Failed to set uninstall URL:", e);
+    }
+  }
+
+  // On first install, open the onboarding welcome tour page
+  if (details && details.reason === "install") {
+    if (chrome.tabs && chrome.tabs.create) {
+      try {
+        chrome.tabs.create({
+          url: chrome.runtime.getURL("options/options.html#welcome"),
+        });
+      } catch (e) {
+        console.warn("[Background] Failed to open welcome tab on install:", e);
+      }
+    }
+  }
 });
 chrome.storage.onChanged.addListener((changes) => {
   if (changes.alwaysActiveHosts) {

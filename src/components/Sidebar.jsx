@@ -5,6 +5,7 @@ import {
   ChatIcon,
   HistoryIcon,
   SettingsIcon,
+  HelpIcon,
   SystemThemeIcon,
   DarkThemeIcon,
   LightThemeIcon,
@@ -28,6 +29,11 @@ export default function Sidebar({ activeTab, onSelectTab, onNewChat }) {
       id: "settings",
       label: "Settings",
       icon: SettingsIcon,
+    },
+    {
+      id: "guide",
+      label: "Guide & Help",
+      icon: HelpIcon,
     },
   ];
 

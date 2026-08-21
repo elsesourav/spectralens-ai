@@ -3,6 +3,7 @@ import appIconUrl from "../assets/icons/128.png";
 import ChatBot from "../components/ChatBot.jsx";
 import Controls from "../components/Controls.jsx";
 import HistoryView from "../components/HistoryView.jsx";
+import GuideView from "../components/GuideView.jsx";
 import Sidebar from "../components/Sidebar.jsx";
 import FloatingPillLauncher from "../features/launcher/FloatingPillLauncher.jsx";
 import WindowHeader from "../features/launcher/WindowHeader.jsx";
@@ -583,6 +584,13 @@ export default function AssistantWidget() {
               {activeTab === "settings" && (
                 <div className="w-full h-full overflow-y-auto custom-scrollbar animate-fade-in">
                   <Controls isMenuOpen={isChatOpen} />
+                </div>
+              )}
+
+              {/* Guide & Help View */}
+              {activeTab === "guide" && (
+                <div className="w-full h-full overflow-hidden animate-fade-in">
+                  <GuideView isMenuOpen={isChatOpen} />
                 </div>
               )}
             </div>
