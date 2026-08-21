@@ -224,4 +224,39 @@
       });
     }
   } catch {}
+
+  /* 12. Listen for storage changes in real-time across tabs */
+  try {
+    if (
+      typeof chrome !== "undefined" &&
+      Boolean(chrome?.runtime?.id) &&
+      chrome.storage?.onChanged
+    ) {
+      chrome.storage.onChanged.addListener((changes, area) => {
+        if (area === "local" && changes.enableCopyHosts) {
+          let hosts = changes.enableCopyHosts.newValue;
+          if (typeof hosts === "string") {
+            try {
+              hosts = JSON.parse(hosts);
+            } catch (e) {
+              hosts = [];
+            }
+          }
+          let hostname = null;
+          try {
+            hostname = new URL(window.location.href).hostname;
+          } catch (e) {}
+          if (
+            Array.isArray(hosts) &&
+            hostname &&
+            (hosts.includes(hostname) || hosts.includes("*"))
+          ) {
+            enableFunction();
+          } else {
+            disableFunction();
+          }
+        }
+      });
+    }
+  } catch {}
 })();

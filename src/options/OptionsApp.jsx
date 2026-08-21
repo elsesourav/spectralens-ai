@@ -1,38 +1,36 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-  IoSparkles,
   IoBookOutline,
-  IoHardwareChipOutline,
-  IoSettingsOutline,
-  IoShieldCheckmarkOutline,
   IoChatboxEllipsesOutline,
-  IoKeypadOutline,
-  IoCopyOutline,
   IoCheckmarkCircle,
-  IoAlertCircleOutline,
-  IoOpenOutline,
-  IoTrashOutline,
-  IoDownloadOutline,
-  IoSearchOutline,
   IoChevronDownOutline,
   IoChevronUpOutline,
+  IoCopyOutline,
+  IoDownloadOutline,
   IoFlashOutline,
-  IoSunnyOutline,
+  IoHardwareChipOutline,
+  IoKeypadOutline,
   IoMoonOutline,
-  IoHeartOutline,
+  IoOpenOutline,
+  IoSearchOutline,
   IoSendOutline,
+  IoSettingsOutline,
+  IoShieldCheckmarkOutline,
+  IoSparkles,
+  IoSunnyOutline,
+  IoTrashOutline,
 } from "react-icons/io5";
-import extensionUtils from "../utils/utilsModule.js";
-import { useTheme } from "../hooks/useThemeHook.jsx";
+import appIconUrl from "../assets/icons/128.png";
 import {
   ChatGptIcon,
   ClaudeIcon,
   GeminiIcon,
+  GoogleIcon,
   GrokIcon,
   PerplexityIcon,
-  GoogleIcon,
 } from "../components/Icons.jsx";
-import appIconUrl from "../assets/icons/128.png";
+import { useTheme } from "../hooks/useThemeHook.jsx";
+import extensionUtils from "../utils/utilsModule.js";
 
 const TABS = [
   { id: "welcome", label: "Welcome & Tour", icon: IoSparkles },
@@ -41,7 +39,11 @@ const TABS = [
   { id: "settings", label: "Copy & Settings", icon: IoSettingsOutline },
   { id: "shortcuts", label: "Shortcuts", icon: IoKeypadOutline },
   { id: "privacy", label: "Privacy & Data", icon: IoShieldCheckmarkOutline },
-  { id: "uninstall", label: "Feedback & Survey", icon: IoChatboxEllipsesOutline },
+  {
+    id: "uninstall",
+    label: "Feedback & Survey",
+    icon: IoChatboxEllipsesOutline,
+  },
 ];
 
 const PROVIDER_LIST = [
@@ -184,9 +186,9 @@ export default function OptionsApp() {
               }
               setIsLoading(false);
             });
-          }
+          },
         );
-      }
+      },
     );
   }, []);
 
@@ -204,11 +206,38 @@ export default function OptionsApp() {
         data.devMode = newVal;
         extensionUtils.chromeStorageSetLocal(
           extensionUtils.KEYS.CONTROLS,
-          data
+          data,
         );
-      }
+      },
     );
   };
+
+function ToggleSwitch({
+  checked,
+  onChange,
+  activeColor = "bg-emerald-600",
+  title = "",
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      title={title}
+      onClick={() => onChange(!checked)}
+      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+        checked ? activeColor : "bg-slate-300 dark:bg-slate-700"
+      }`}
+    >
+      <span
+        aria-hidden="true"
+        className={`pointer-events-none inline-block size-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+          checked ? "translate-x-5" : "translate-x-0"
+        }`}
+      />
+    </button>
+  );
+}
 
   const handleToggleGlobalCopy = (newVal) => {
     setGlobalCopy(newVal);
@@ -216,6 +245,14 @@ export default function OptionsApp() {
       extensionUtils.KEYS.ENABLE_COPY_HOSTS,
       (storedHosts) => {
         let hosts = storedHosts || [];
+        if (typeof hosts === "string") {
+          try {
+            hosts = JSON.parse(hosts);
+          } catch (e) {
+            hosts = [];
+          }
+        }
+        if (!Array.isArray(hosts)) hosts = [];
         if (newVal) {
           if (!hosts.includes("*")) hosts.push("*");
         } else {
@@ -224,9 +261,26 @@ export default function OptionsApp() {
         setCopyHosts(hosts);
         extensionUtils.chromeStorageSetLocal(
           extensionUtils.KEYS.ENABLE_COPY_HOSTS,
-          hosts
+          hosts,
+          () => {
+            if (typeof chrome !== "undefined" && chrome.tabs?.query) {
+              chrome.tabs.query({}, (tabs) => {
+                for (const tab of tabs) {
+                  if (tab.id && tab.url?.startsWith("http")) {
+                    chrome.tabs
+                      .sendMessage(tab.id, {
+                        action: newVal
+                          ? "enable_function"
+                          : "disable_function",
+                      })
+                      .catch(() => {});
+                  }
+                }
+              });
+            }
+          }
         );
-      }
+      },
     );
   };
 
@@ -235,7 +289,7 @@ export default function OptionsApp() {
     setGlobalCopy(false);
     extensionUtils.chromeStorageSetLocal(
       extensionUtils.KEYS.ENABLE_COPY_HOSTS,
-      []
+      [],
     );
   };
 
@@ -245,7 +299,7 @@ export default function OptionsApp() {
     setGlobalCopy(updated.includes("*"));
     extensionUtils.chromeStorageSetLocal(
       extensionUtils.KEYS.ENABLE_COPY_HOSTS,
-      updated
+      updated,
     );
   };
 
@@ -269,7 +323,7 @@ export default function OptionsApp() {
   const handleClearAllHistory = () => {
     if (
       window.confirm(
-        "Are you sure you want to delete all saved chat history? This cannot be undone."
+        "Are you sure you want to delete all saved chat history? This cannot be undone.",
       )
     ) {
       extensionUtils.clearAllHistory(() => {
@@ -304,7 +358,7 @@ export default function OptionsApp() {
     return FAQS.filter(
       (f) =>
         f.q.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        f.a.toLowerCase().includes(searchQuery.toLowerCase())
+        f.a.toLowerCase().includes(searchQuery.toLowerCase()),
     );
   }, [searchQuery]);
 
@@ -313,9 +367,15 @@ export default function OptionsApp() {
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#0c0d12] text-slate-600 dark:text-slate-300">
         <div className="flex flex-col items-center gap-3">
           <div className="size-10 rounded-xl bg-blue-600 animate-pulse flex items-center justify-center shadow-lg">
-            <img src={appIconUrl} alt="Loading" className="size-6 object-contain" />
+            <img
+              src={appIconUrl}
+              alt="Loading"
+              className="size-6 object-contain"
+            />
           </div>
-          <span className="text-sm font-semibold">Loading SpectraLens AI Hub...</span>
+          <span className="text-sm font-semibold">
+            Loading SpectraLens AI Hub...
+          </span>
         </div>
       </div>
     );
@@ -410,7 +470,9 @@ export default function OptionsApp() {
                     Supercharge your browsing with Multi-Engine AI.
                   </h2>
                   <p className="text-sm lg:text-base text-blue-100 leading-relaxed">
-                    Compare ChatGPT, Claude, Gemini, Grok, and Perplexity side-by-side on any webpage, scan visual elements, unblock restricted copy, and boost productivity.
+                    Compare ChatGPT, Claude, Gemini, Grok, and Perplexity
+                    side-by-side on any webpage, scan visual elements, unblock
+                    restricted copy, and boost productivity.
                   </p>
                   <div className="pt-2 flex flex-wrap items-center gap-3">
                     <button
@@ -441,7 +503,8 @@ export default function OptionsApp() {
                   </div>
                   <h3 className="text-sm font-bold">1. Pin the Extension</h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                    Click the puzzle icon in Chrome’s top toolbar and pin SpectraLens AI for instant one-click access.
+                    Click the puzzle icon in Chrome’s top toolbar and pin
+                    SpectraLens AI for instant one-click access.
                   </p>
                 </div>
 
@@ -451,7 +514,12 @@ export default function OptionsApp() {
                   </div>
                   <h3 className="text-sm font-bold">2. Press Option + A</h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                    Press <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-white/10 font-mono text-[11px]">Alt+A</kbd> on any page to open the floating AI assistant widget immediately.
+                    Press{" "}
+                    <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-white/10 font-mono text-[11px]">
+                      Alt+A
+                    </kbd>{" "}
+                    on any page to open the floating AI assistant widget
+                    immediately.
                   </p>
                 </div>
 
@@ -459,9 +527,12 @@ export default function OptionsApp() {
                   <div className="size-9 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center font-black text-sm">
                     3
                   </div>
-                  <h3 className="text-sm font-bold">3. Inspect & Scan Any Element</h3>
+                  <h3 className="text-sm font-bold">
+                    3. Inspect & Scan Any Element
+                  </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                    Click the crosshair tool to point and click any chart, paragraph, or code snippet directly into your prompt.
+                    Click the crosshair tool to point and click any chart,
+                    paragraph, or code snippet directly into your prompt.
                   </p>
                 </div>
               </div>
@@ -477,34 +548,44 @@ export default function OptionsApp() {
                     <div>
                       <span className="font-bold block">Zero API Costs</span>
                       <p className="text-slate-500 dark:text-slate-400 mt-0.5">
-                        Works directly with your active web sessions on ChatGPT, Claude, Gemini, Grok, and Perplexity.
+                        Works directly with your active web sessions on ChatGPT,
+                        Claude, Gemini, Grok, and Perplexity.
                       </p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
                     <IoCheckmarkCircle className="size-5 text-emerald-500 shrink-0 mt-0.5" />
                     <div>
-                      <span className="font-bold block">Adaptive Theme Harmonization</span>
+                      <span className="font-bold block">
+                        Adaptive Theme Harmonization
+                      </span>
                       <p className="text-slate-500 dark:text-slate-400 mt-0.5">
-                        In 'Page Theme' mode, the widget dynamically detects host website colors to blend in naturally.
+                        In 'Page Theme' mode, the widget dynamically detects
+                        host website colors to blend in naturally.
                       </p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
                     <IoCheckmarkCircle className="size-5 text-emerald-500 shrink-0 mt-0.5" />
                     <div>
-                      <span className="font-bold block">Universal Copy Unblocker</span>
+                      <span className="font-bold block">
+                        Universal Copy Unblocker
+                      </span>
                       <p className="text-slate-500 dark:text-slate-400 mt-0.5">
-                        Removes text selection and context menu restrictions on restricted sites.
+                        Removes text selection and context menu restrictions on
+                        restricted sites.
                       </p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
                     <IoCheckmarkCircle className="size-5 text-emerald-500 shrink-0 mt-0.5" />
                     <div>
-                      <span className="font-bold block">100% On-Device Privacy</span>
+                      <span className="font-bold block">
+                        100% On-Device Privacy
+                      </span>
                       <p className="text-slate-500 dark:text-slate-400 mt-0.5">
-                        All session history and preferences remain purely on your machine.
+                        All session history and preferences remain purely on
+                        your machine.
                       </p>
                     </div>
                   </div>
@@ -517,9 +598,12 @@ export default function OptionsApp() {
           {activeTab === "guide" && (
             <div className="space-y-6 animate-fade-in">
               <div className="space-y-2">
-                <h2 className="text-2xl font-bold">User Guide & Documentation</h2>
+                <h2 className="text-2xl font-bold">
+                  User Guide & Documentation
+                </h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Comprehensive reference for all SpectraLens AI features and capabilities.
+                  Comprehensive reference for all SpectraLens AI features and
+                  capabilities.
                 </p>
               </div>
 
@@ -544,7 +628,9 @@ export default function OptionsApp() {
                   </h3>
                 </div>
                 <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                  SpectraLens AI sends your prompt simultaneously to all selected AI engines. You can toggle providers on/off using the circular model badges in the bottom toolbar.
+                  SpectraLens AI sends your prompt simultaneously to all
+                  selected AI engines. You can toggle providers on/off using the
+                  circular model badges in the bottom toolbar.
                 </p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-2">
                   {PROVIDER_LIST.map((p) => {
@@ -556,8 +642,12 @@ export default function OptionsApp() {
                       >
                         <Icon className={`size-5 ${p.color}`} size={20} />
                         <div>
-                          <span className="text-xs font-bold block">{p.name}</span>
-                          <span className="text-[10px] text-slate-400">{p.company}</span>
+                          <span className="text-xs font-bold block">
+                            {p.name}
+                          </span>
+                          <span className="text-[10px] text-slate-400">
+                            {p.company}
+                          </span>
                         </div>
                       </div>
                     );
@@ -574,7 +664,11 @@ export default function OptionsApp() {
                   </h3>
                 </div>
                 <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                  Instead of copying and pasting text manually, trigger the crosshair tool. You can click any paragraph, table cell, image, or code block. SpectraLens AI automatically parses structured DOM elements into Markdown tables or clean code blocks ready for prompt context.
+                  Instead of copying and pasting text manually, trigger the
+                  crosshair tool. You can click any paragraph, table cell,
+                  image, or code block. SpectraLens AI automatically parses
+                  structured DOM elements into Markdown tables or clean code
+                  blocks ready for prompt context.
                 </p>
               </div>
 
@@ -623,7 +717,8 @@ export default function OptionsApp() {
               <div className="space-y-2">
                 <h2 className="text-2xl font-bold">AI Models & Connectivity</h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  SpectraLens AI bridges directly with your signed-in web sessions without extra API costs.
+                  SpectraLens AI bridges directly with your signed-in web
+                  sessions without extra API costs.
                 </p>
               </div>
 
@@ -653,7 +748,9 @@ export default function OptionsApp() {
                       </div>
 
                       <div className="pt-2 border-t border-slate-100 dark:border-white/[0.05] flex items-center justify-between">
-                        <span className="text-[11px] text-slate-400">Session bridge</span>
+                        <span className="text-[11px] text-slate-400">
+                          Session bridge
+                        </span>
                         <button
                           onClick={() => handleOpenExternal(p.loginUrl)}
                           className="flex items-center gap-1 text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer focus:outline-none"
@@ -673,9 +770,12 @@ export default function OptionsApp() {
           {activeTab === "settings" && (
             <div className="space-y-6 animate-fade-in">
               <div className="space-y-2">
-                <h2 className="text-2xl font-bold">Extension Controls & Copy Settings</h2>
+                <h2 className="text-2xl font-bold">
+                  Extension Controls & Copy Settings
+                </h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Configure browser powers, copy unblocker rules, and developer modes.
+                  Configure browser powers, copy unblocker rules, and developer
+                  modes.
                 </p>
               </div>
 
@@ -694,19 +794,17 @@ export default function OptionsApp() {
                       Enable Copy Globally (All Websites)
                     </span>
                     <span className="text-xs text-slate-500 dark:text-slate-400 block">
-                      Automatically strips anti-selection and anti-copy locks on every website you visit.
+                      Automatically strips anti-selection and anti-copy locks on
+                      every website you visit.
                     </span>
                   </div>
 
-                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                    <input
-                      type="checkbox"
-                      className="sr-only peer"
-                      checked={globalCopy}
-                      onChange={(e) => handleToggleGlobalCopy(e.target.checked)}
-                    />
-                    <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                  </label>
+                  <ToggleSwitch
+                    checked={globalCopy}
+                    onChange={handleToggleGlobalCopy}
+                    activeColor="bg-emerald-600 shadow-sm shadow-emerald-500/30"
+                    title="Toggle Global Copy Unblocker"
+                  />
                 </div>
 
                 {/* Per-site whitelist */}
@@ -759,19 +857,17 @@ export default function OptionsApp() {
                       Verbose Debug Logging
                     </span>
                     <span className="text-xs text-slate-500 dark:text-slate-400 block">
-                      Logs detailed adapter state and bridge execution to browser DevTools.
+                      Logs detailed adapter state and bridge execution to
+                      browser DevTools.
                     </span>
                   </div>
 
-                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                    <input
-                      type="checkbox"
-                      className="sr-only peer"
-                      checked={devMode}
-                      onChange={(e) => handleToggleDevMode(e.target.checked)}
-                    />
-                    <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                  </label>
+                  <ToggleSwitch
+                    checked={devMode}
+                    onChange={handleToggleDevMode}
+                    activeColor="bg-blue-600 shadow-sm shadow-blue-500/30"
+                    title="Toggle Developer Mode"
+                  />
                 </div>
               </div>
             </div>
@@ -783,7 +879,8 @@ export default function OptionsApp() {
               <div className="space-y-2">
                 <h2 className="text-2xl font-bold">Keyboard Shortcuts</h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Master fast navigation and control without touching your mouse.
+                  Master fast navigation and control without touching your
+                  mouse.
                 </p>
               </div>
 
@@ -821,7 +918,9 @@ export default function OptionsApp() {
                       className="p-3.5 rounded-xl border border-slate-100 dark:border-white/[0.05] bg-slate-50 dark:bg-black/20 flex items-center justify-between gap-4"
                     >
                       <div className="space-y-0.5">
-                        <span className="text-xs font-bold block">{sc.label}</span>
+                        <span className="text-xs font-bold block">
+                          {sc.label}
+                        </span>
                         <p className="text-[11px] text-slate-500 dark:text-slate-400">
                           {sc.desc}
                         </p>
@@ -845,7 +944,9 @@ export default function OptionsApp() {
                     Want to customize global browser shortcuts?
                   </span>
                   <button
-                    onClick={() => handleOpenExternal("chrome://extensions/shortcuts")}
+                    onClick={() =>
+                      handleOpenExternal("chrome://extensions/shortcuts")
+                    }
                     className="flex items-center gap-1 text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
                   >
                     Open Chrome Shortcut Settings
@@ -902,9 +1003,17 @@ export default function OptionsApp() {
               <div className="p-6 rounded-2xl border border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-[#14161e] space-y-3">
                 <h3 className="text-sm font-bold">Privacy Principles</h3>
                 <ul className="text-xs text-slate-500 dark:text-slate-400 space-y-2 list-disc list-inside leading-relaxed">
-                  <li>Zero analytics, advertising scripts, or user telemetry.</li>
-                  <li>No external proxy servers; your queries travel directly from your browser to the official AI providers.</li>
-                  <li>All prompt histories and preferences are encrypted within Chrome’s sandboxed local storage.</li>
+                  <li>
+                    Zero analytics, advertising scripts, or user telemetry.
+                  </li>
+                  <li>
+                    No external proxy servers; your queries travel directly from
+                    your browser to the official AI providers.
+                  </li>
+                  <li>
+                    All prompt histories and preferences are encrypted within
+                    Chrome’s sandboxed local storage.
+                  </li>
                 </ul>
               </div>
             </div>
@@ -914,7 +1023,9 @@ export default function OptionsApp() {
           {activeTab === "uninstall" && (
             <div className="space-y-6 animate-fade-in">
               <div className="space-y-2">
-                <h2 className="text-2xl font-bold">Offboarding & Feedback Survey</h2>
+                <h2 className="text-2xl font-bold">
+                  Offboarding & Feedback Survey
+                </h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
                   Help us improve SpectraLens AI. Tell us what we can do better!
                 </p>
@@ -923,9 +1034,12 @@ export default function OptionsApp() {
               {feedbackSubmitted ? (
                 <div className="p-8 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-center space-y-3">
                   <IoCheckmarkCircle className="size-12 mx-auto text-emerald-500" />
-                  <h3 className="text-lg font-bold">Thank you for your feedback!</h3>
+                  <h3 className="text-lg font-bold">
+                    Thank you for your feedback!
+                  </h3>
                   <p className="text-xs text-slate-600 dark:text-slate-300 max-w-md mx-auto">
-                    Your insights help our engineering team continuously refine model adapters and user interface performance.
+                    Your insights help our engineering team continuously refine
+                    model adapters and user interface performance.
                   </p>
                 </div>
               ) : (
@@ -985,7 +1099,7 @@ export default function OptionsApp() {
                       type="button"
                       onClick={() =>
                         handleOpenExternal(
-                          "https://github.com/elsesourav/spectralens-ai/issues/new"
+                          "https://github.com/elsesourav/spectralens-ai/issues/new",
                         )
                       }
                       className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-white cursor-pointer"
