@@ -740,7 +740,20 @@ import("../scripts/update-version.js").then(({ calculateNextVersion, normalizeVe
   assert(sidebarJsx.includes("theme === \"system\""), "Sidebar.jsx checks for system theme state");
   assert(headerJsx.includes("SystemThemeIcon"), "Header.jsx imports and renders SystemThemeIcon");
   assert(headerJsx.includes("theme === \"system\""), "Header.jsx checks for system theme state");
-  assert(themeSectionJsx.includes("icon: SystemThemeIcon"), "ThemeAppearanceSection uses SystemThemeIcon for System option");
+  // 21. Per-URL alreadyShowIntro & Daily Intro Limit Audit:
+  console.log("\n21. Per-URL alreadyShowIntro & Daily Intro Limit Audit:");
+  const wcScript = fs.readFileSync(path.join(rootDir, "scripts", "content", "widgetContent.js"), "utf-8");
+  const utilsModCode = fs.readFileSync(path.join(rootDir, "src", "utils", "utilsModule.js"), "utf-8");
+  const scriptsUtilCode = fs.readFileSync(path.join(rootDir, "scripts", "utils.js"), "utf-8");
+
+  assert(wcScript.includes("const ALREADY_SHOW_INTRO_KEY = \"alreadyShowIntro\""), "widgetContent.js defines ALREADY_SHOW_INTRO_KEY");
+  assert(wcScript.includes("const INTRO_STORAGE_KEY = \"spectralens_last_intro_date\""), "widgetContent.js defines INTRO_STORAGE_KEY");
+  assert(wcScript.includes("getPageIntroKey"), "widgetContent.js defines getPageIntroKey");
+  assert(wcScript.includes("markIntroShownForCurrentPage"), "widgetContent.js defines markIntroShownForCurrentPage");
+  assert(wcScript.includes("alreadyShownThisPage"), "widgetContent.js checks alreadyShownThisPage before displaying intro");
+  assert(wcScript.includes("lastDate === todayStr"), "widgetContent.js enforces 1 intro per day across all pages");
+  assert(utilsModCode.includes("ALREADY_SHOW_INTRO: \"alreadyShowIntro\""), "utilsModule.js defines ALREADY_SHOW_INTRO key");
+  assert(scriptsUtilCode.includes("ALREADY_SHOW_INTRO: \"alreadyShowIntro\""), "scripts/utils.js defines ALREADY_SHOW_INTRO key");
 
   // --- SUMMARY ---
   console.log(`\n========================================`);

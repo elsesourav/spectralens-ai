@@ -32,13 +32,54 @@ const applyViewportBoundaryConstraint = (left, top) => {
 };
 
 const INTRO_STORAGE_KEY = "spectralens_last_intro_date";
+const ALREADY_SHOW_INTRO_KEY = "alreadyShowIntro";
 
 function getTodayDateString() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+function getPageIntroKey() {
+  try {
+    return window.location.origin + window.location.pathname;
+  } catch {
+    return window.location.hostname || "global";
+  }
+}
+
+function markIntroShownForCurrentPage() {
+  try {
+    if (
+      typeof chrome === "undefined" ||
+      !Boolean(chrome?.runtime?.id) ||
+      !chrome.storage?.local
+    )
+      return;
+
+    const pageKey = getPageIntroKey();
+    const hostKey = window.location.hostname;
+
+    chrome.storage.local.get([ALREADY_SHOW_INTRO_KEY], (res) => {
+      try {
+        let introMap = res?.[ALREADY_SHOW_INTRO_KEY];
+        if (typeof introMap !== "object" || introMap === null) {
+          introMap = {};
+        }
+        introMap[pageKey] = true;
+        if (hostKey) {
+          introMap[hostKey] = true;
+        }
+        if (window.location.href) {
+          introMap[window.location.href] = true;
+        }
+        chrome.storage.local.set({ [ALREADY_SHOW_INTRO_KEY]: introMap });
+      } catch {}
+    });
+  } catch {}
+}
+
 function removeIntroOverlay() {
+  markIntroShownForCurrentPage();
   const overlay = document.getElementById("spectralens-tour-overlay");
   if (overlay) {
     overlay.remove();
@@ -55,16 +96,45 @@ function checkAndShowDailyIntro(left, top) {
       return;
 
     const todayStr = getTodayDateString();
-    chrome.storage.local.get([INTRO_STORAGE_KEY], (res) => {
+    const pageKey = getPageIntroKey();
+    const hostKey = window.location.hostname;
+
+    chrome.storage.local.get([INTRO_STORAGE_KEY, ALREADY_SHOW_INTRO_KEY], (res) => {
       try {
-        const lastDate = res?.[INTRO_STORAGE_KEY];
-        if (lastDate === todayStr) {
-          // Max 1 time per day across all tabs
+        let introMap = res?.[ALREADY_SHOW_INTRO_KEY];
+        if (typeof introMap !== "object" || introMap === null) {
+          introMap = {};
+        }
+
+        // 1. If already shown on this URL before (alreadyShowIntro is true), never show again on any day
+        const alreadyShownThisPage = Boolean(
+          introMap[pageKey] ||
+          (hostKey && introMap[hostKey]) ||
+          introMap[window.location.href]
+        );
+        if (alreadyShownThisPage) {
           return;
         }
 
-        // Save today's date so it only shows once in a single day
-        chrome.storage.local.set({ [INTRO_STORAGE_KEY]: todayStr });
+        // 2. In a single day, only show max 1 intro across all pages
+        const lastDate = res?.[INTRO_STORAGE_KEY];
+        if (lastDate === todayStr) {
+          return;
+        }
+
+        // 3. Mark this URL as alreadyShowIntro = true and record today's date
+        introMap[pageKey] = true;
+        if (hostKey) {
+          introMap[hostKey] = true;
+        }
+        if (window.location.href) {
+          introMap[window.location.href] = true;
+        }
+
+        chrome.storage.local.set({
+          [INTRO_STORAGE_KEY]: todayStr,
+          [ALREADY_SHOW_INTRO_KEY]: introMap,
+        });
 
         document.getElementById("spectralens-tour-overlay")?.remove();
 

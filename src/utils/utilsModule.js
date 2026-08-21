@@ -18,6 +18,8 @@ const KEYS = {
   ENABLE_COPY_HOSTS: "enableCopyHosts",
   MENU_HOSTS: "menuHosts",
   WIDGET_HINT_SEEN: "spectralens_widget_hint_seen",
+  ALREADY_SHOW_INTRO: "alreadyShowIntro",
+  LAST_INTRO_DATE: "spectralens_last_intro_date",
 };
 
 /* ----------- Developer Mode (Universal Log & Error Control) ----------- */

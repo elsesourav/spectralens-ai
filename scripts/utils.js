@@ -8,6 +8,8 @@ const KEYS = {
   ALWAYS_ACTIVE_HOSTS: "alwaysActiveHosts",
   ENABLE_COPY_HOSTS: "enableCopyHosts",
   MENU_HOSTS: "menuHosts",
+  ALREADY_SHOW_INTRO: "alreadyShowIntro",
+  LAST_INTRO_DATE: "spectralens_last_intro_date",
 };
 
 /* ----------- Developer Mode (Universal Log & Error Control) ----------- */
