@@ -94,6 +94,9 @@ const __SELECT__ = injectScreenSelector;
 
 /* ---------------- injects floating menu widget ---------------- */
 function injectFloatingMenuWidget(tabId) {
+   if (typeof floatingWidgetHostTabs !== "undefined" && floatingWidgetHostTabs?.add) {
+      floatingWidgetHostTabs.add(tabId);
+   }
    executeScript(
       tabId,
       () => {

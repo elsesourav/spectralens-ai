@@ -325,6 +325,17 @@
       for (const [providerId] of this.persistentProviderTabs.entries()) {
         this.closeProviderTab(providerId);
       }
+      if (
+        Array.isArray(this.activeAiTabs) &&
+        typeof chrome !== "undefined" &&
+        chrome.tabs?.remove
+      ) {
+        for (const tabId of this.activeAiTabs) {
+          try {
+            chrome.tabs.remove(tabId, () => {});
+          } catch {}
+        }
+      }
       this.persistentProviderTabs.clear();
       this.activeProviderLocks.clear();
       this.activeAiTabs = [];

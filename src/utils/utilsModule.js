@@ -32,7 +32,7 @@ const KEYS = {
  * calls are silenced across Background, Content, and Popup scripts.
  * =========================================================================
  */
-let IN_CODE_DEV_MODE = true; // <-- Change to true to force logs on in code, or false to silence
+let IN_CODE_DEV_MODE = false; // <-- Change to true to force logs on in code, or false to silence
 
 let __isDevMode = IN_CODE_DEV_MODE;
 
@@ -387,11 +387,11 @@ async function saveChatSession(sessionData, callback) {
       providers: sessionProviders,
       hasImage: Boolean(
         sessionData.turns?.some((t) => t.questionImage || t.image) ||
-          sessionData.image,
+        sessionData.image,
       ),
       hasPage: Boolean(
         sessionData.turns?.some((t) => t.questionPage || t.page) ||
-          sessionData.page,
+        sessionData.page,
       ),
     };
 

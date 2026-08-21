@@ -157,6 +157,18 @@ const cleanupAlwaysActiveHosts = () => {
 
 // Backend tracking: Set of tab IDs where Floating AI Widget is active
 const floatingWidgetHostTabs = new Set();
+globalThis.floatingWidgetHostTabs = floatingWidgetHostTabs;
+
+const registerWidgetHostTab = (senderTabId) => {
+  if (!senderTabId) return;
+  const isAiTab =
+    (typeof activeAiTabs !== "undefined" && activeAiTabs.includes(senderTabId)) ||
+    (typeof persistentProviderTabs !== "undefined" &&
+      Array.from(persistentProviderTabs.values()).some((e) => e.tabId === senderTabId));
+  if (!isAiTab) {
+    floatingWidgetHostTabs.add(senderTabId);
+  }
+};
 
 chrome.tabs.onRemoved.addListener(async (tabId) => {
   cleanupAlwaysActiveHosts();
@@ -179,23 +191,78 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
     }
   } catch {}
 });
+
 chrome.tabs.onActivated.addListener((activeInfo) => {
   chrome.tabs.get(activeInfo.tabId, (tab) => {
     if (tab) updateAlwaysActiveBadge(tab.id, tab.url);
   });
 });
+
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  const currentUrl = changeInfo.url || tab?.url || "";
+
   if (changeInfo.url || tab?.url) {
     cleanupAlwaysActiveHosts();
-    updateAlwaysActiveBadge(tabId, changeInfo.url || tab?.url);
+    updateAlwaysActiveBadge(tabId, currentUrl);
   }
 
-  // Backend tracking: ONLY if a tracked Floating AI Widget host page reloads or navigates, close the open AI worker window
-  if (floatingWidgetHostTabs.has(tabId) && (changeInfo.status === "loading" || changeInfo.url)) {
-    console.log(`[SpectraLens:Background] 🔄 Tracked Floating AI Widget page #${tabId} reloaded or navigated. Closing its open AI window...`);
-    floatingWidgetHostTabs.delete(tabId);
-    if (typeof resetAllProviderSessions === "function") {
-      resetAllProviderSessions();
+  // Never reset if the reload or update event came from an internal AI worker tab
+  const isAiTab =
+    (typeof activeAiTabs !== "undefined" && activeAiTabs.includes(tabId)) ||
+    (typeof persistentProviderTabs !== "undefined" &&
+      Array.from(persistentProviderTabs.values()).some((e) => e.tabId === tabId));
+  if (isAiTab) return;
+
+  // Track page reload lifecycle ("loading" or "complete")
+  if (changeInfo.status === "loading" || changeInfo.status === "complete" || changeInfo.url) {
+    let hostname = "";
+    if (currentUrl && currentUrl.startsWith("http")) {
+      try {
+        hostname = new URL(currentUrl).hostname;
+      } catch {}
+    }
+
+    const checkAndKillWorkerTabs = (reason) => {
+      const hasOpenAiTabs =
+        (typeof persistentProviderTabs !== "undefined" && persistentProviderTabs.size > 0) ||
+        (typeof activeAiTabs !== "undefined" && activeAiTabs.length > 0);
+
+      if (hasOpenAiTabs) {
+        console.log(
+          `[SpectraLens:Background] 🔄 ${reason} on tab #${tabId} (${hostname || currentUrl}) [status: ${changeInfo.status || "navigated"}]. Killing open AI provider tabs...`,
+        );
+        if (typeof resetAllProviderSessions === "function") {
+          resetAllProviderSessions();
+        }
+      }
+    };
+
+    if (floatingWidgetHostTabs.has(tabId)) {
+      checkAndKillWorkerTabs("Tracked Floating AI Widget host page reloaded/navigated");
+    } else if (hostname && typeof chromeStorageGetLocal === "function") {
+      chromeStorageGetLocal(["alwaysActiveHosts", KEYS.MENU_HOSTS], (res) => {
+        let alwaysHosts = res?.alwaysActiveHosts || [];
+        let menuHosts = res?.[KEYS.MENU_HOSTS] || [];
+        if (typeof menuHosts === "string") {
+          try {
+            menuHosts = JSON.parse(menuHosts);
+          } catch {
+            menuHosts = [];
+          }
+        }
+        if (!Array.isArray(alwaysHosts)) alwaysHosts = [];
+        if (!Array.isArray(menuHosts)) menuHosts = [];
+
+        const isEnabledHost =
+          alwaysHosts.includes(hostname) ||
+          menuHosts.includes(hostname) ||
+          menuHosts.includes("*");
+
+        if (isEnabledHost) {
+          floatingWidgetHostTabs.add(tabId);
+          checkAndKillWorkerTabs("Enabled AI Widget host page reloaded/navigated");
+        }
+      });
     }
   }
 });
@@ -213,13 +280,21 @@ runtimeOnMessage("IF_B_PAGE_RELOADED", (_, sender) => {
 
   if (isAiTab) return;
 
-  if (floatingWidgetHostTabs.has(senderTabId)) {
-    floatingWidgetHostTabs.delete(senderTabId);
-    console.log(`[SpectraLens:Background] 🔄 Tracked host page #${senderTabId} beforeunload/pagehide received. Resetting AI worker window...`);
-    if (typeof resetAllProviderSessions === "function") {
-      resetAllProviderSessions();
-    }
+  console.log(
+    `[SpectraLens:Background] 🔄 Host page #${senderTabId} beforeunload/pagehide received. Killing open AI provider tabs...`,
+  );
+  if (typeof resetAllProviderSessions === "function") {
+    resetAllProviderSessions();
   }
+});
+
+// Register active host tab when floating widget is injected or interacted with
+runtimeOnMessage("IF_B_REGISTER_HOST", (_, sender, sendResponse) => {
+  const senderTabId = sender?.tab?.id;
+  if (senderTabId) {
+    registerWidgetHostTab(senderTabId);
+  }
+  sendResponse && sendResponse({ status: "registered" });
 });
 
 // Live monitor for disabled AI providers in Settings to close background tabs immediately
@@ -361,7 +436,10 @@ runtimeOnMessage("P_B_TOGGLE", async (_, __, sendResponse) => {
   return sendResponse("ok");
 });
 
-runtimeOnMessage("IF_B_NEW_CHAT", (_, __, sendResponse) => {
+runtimeOnMessage("IF_B_NEW_CHAT", (_, sender, sendResponse) => {
+  if (sender?.tab?.id) {
+    registerWidgetHostTab(sender.tab.id);
+  }
   resetAllProviderSessions();
   sendResponse && sendResponse({ status: "reset" });
 });
@@ -506,12 +584,18 @@ runtimeOnMessage("TAB_LOG", (data, sender) => {
   console.log(`[SpectraLens:${tag}] ${msg} ${extra}`);
 });
 
-runtimeOnMessage("IF_B_STOP_FETCH", (_, __, sendResponse) => {
+runtimeOnMessage("IF_B_STOP_FETCH", (_, sender, sendResponse) => {
+  if (sender?.tab?.id) {
+    registerWidgetHostTab(sender.tab.id);
+  }
   cancelAllAiRequests();
   sendResponse({ status: "cancelled" });
 });
 
 runtimeOnMessage("IF_B_CAPTURE_SCREEN", (payload, sender, sendResponse) => {
+  if (sender?.tab?.id) {
+    registerWidgetHostTab(sender.tab.id);
+  }
   const windowId = sender?.tab?.windowId;
   const captureOptions = { format: "png" };
 
@@ -542,6 +626,9 @@ runtimeOnMessage("IF_B_CAPTURE_SCREEN", (payload, sender, sendResponse) => {
 });
 
 runtimeOnMessage("IF_B_GET_ANSWER", async (payload, sender, sendResponse) => {
+  if (sender?.tab?.id) {
+    registerWidgetHostTab(sender.tab.id);
+  }
   const data = payload?.data || payload || {};
   const provider = data.provider || "google";
   const requestId = data.requestId;

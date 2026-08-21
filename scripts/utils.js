@@ -22,7 +22,7 @@ const KEYS = {
  * calls are silenced across Background, Content, and Popup scripts.
  * =========================================================================
  */
-let IN_CODE_DEV_MODE = true; // <-- Change to true to force logs on in code, or false to silence
+let IN_CODE_DEV_MODE = false; // <-- Change to true to force logs on in code, or false to silence
 
 let __isDevMode = IN_CODE_DEV_MODE;
 
@@ -83,7 +83,11 @@ function isExtensionContextValid() {
   }
 }
 
-if (typeof chrome !== "undefined" && isExtensionContextValid() && chrome.storage?.local) {
+if (
+  typeof chrome !== "undefined" &&
+  isExtensionContextValid() &&
+  chrome.storage?.local
+) {
   // Initialize devMode state
   try {
     chrome.storage.local
@@ -302,15 +306,18 @@ function chromeStorageSetLocal(key, value, callback) {
       return;
     }
     const serialized = JSON.stringify(value);
-    chrome.storage.local.set({ [key]: serialized }).then(() => {
-      if (chrome.runtime?.lastError) {
-        console.error("Error setting item:", chrome.runtime.lastError);
-      } else if (callback) {
-        callback(true);
-      }
-    }).catch(() => {
-      callback && callback(false);
-    });
+    chrome.storage.local
+      .set({ [key]: serialized })
+      .then(() => {
+        if (chrome.runtime?.lastError) {
+          console.error("Error setting item:", chrome.runtime.lastError);
+        } else if (callback) {
+          callback(true);
+        }
+      })
+      .catch(() => {
+        callback && callback(false);
+      });
   } catch {
     callback && callback(false);
   }
@@ -328,29 +335,32 @@ function chromeStorageGetLocal(key, callback) {
         resolve(null);
         return;
       }
-      chrome.storage.local.get([key]).then((result) => {
-        if (chrome.runtime?.lastError) {
-          console.error("Error getting item:", chrome.runtime.lastError);
-          callback && callback(null);
-          resolve(null);
-        } else {
-          let parsed = null;
-          if (result && typeof result[key] === "string") {
-            try {
-              parsed = JSON.parse(result[key]);
-            } catch {
+      chrome.storage.local
+        .get([key])
+        .then((result) => {
+          if (chrome.runtime?.lastError) {
+            console.error("Error getting item:", chrome.runtime.lastError);
+            callback && callback(null);
+            resolve(null);
+          } else {
+            let parsed = null;
+            if (result && typeof result[key] === "string") {
+              try {
+                parsed = JSON.parse(result[key]);
+              } catch {
+                parsed = result[key];
+              }
+            } else if (result && result[key] !== undefined) {
               parsed = result[key];
             }
-          } else if (result && result[key] !== undefined) {
-            parsed = result[key];
+            callback && callback(parsed);
+            resolve(parsed);
           }
-          callback && callback(parsed);
-          resolve(parsed);
-        }
-      }).catch(() => {
-        callback && callback(null);
-        resolve(null);
-      });
+        })
+        .catch(() => {
+          callback && callback(null);
+          resolve(null);
+        });
     } catch {
       callback && callback(null);
       resolve(null);
@@ -455,11 +465,11 @@ async function saveChatSession(sessionData, callback) {
       providers: sessionProviders,
       hasImage: Boolean(
         sessionData.turns?.some((t) => t.questionImage || t.image) ||
-          sessionData.image,
+        sessionData.image,
       ),
       hasPage: Boolean(
         sessionData.turns?.some((t) => t.questionPage || t.page) ||
-          sessionData.page,
+        sessionData.page,
       ),
     };
 
@@ -578,7 +588,13 @@ function injectScript(src, type, doc = document || document.documentElement) {
 }
 
 /** Inject a CSS file into a document */
-function injectCSSFile(src, ref = "stylesheet", type = "text/css", crossorigin, doc = document || document.documentElement) {
+function injectCSSFile(
+  src,
+  ref = "stylesheet",
+  type = "text/css",
+  crossorigin,
+  doc = document || document.documentElement,
+) {
   try {
     if (!isExtensionContextValid() || !chrome.runtime?.getURL) return;
     const link = document.createElement("link");

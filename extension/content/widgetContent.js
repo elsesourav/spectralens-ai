@@ -953,6 +953,9 @@ try {
     window.location.hostname,
   );
   if (!isAiProviderDomain) {
+    try {
+      runtimeSendMessage("IF_B_REGISTER_HOST");
+    } catch {}
     window.addEventListener("beforeunload", () => {
       try {
         runtimeSendMessage("IF_B_PAGE_RELOADED");

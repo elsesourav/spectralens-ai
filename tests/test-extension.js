@@ -711,6 +711,24 @@ import("../scripts/update-version.js").then(({ calculateNextVersion, normalizeVe
   assert(grokAdapterJs.includes("isUserMessageElement(el)"), "grok.js delegates isUserMessageElement");
   assert(detectorsSource.includes("class GrokCompletionDetector"), "detectors.js defines GrokCompletionDetector");
 
+  // 19. AI Provider Tab Kill on Page Reload & Widget Host Tracking Audit:
+  console.log("\n19. AI Provider Tab Kill on Page Reload & Widget Host Tracking Audit:");
+  const bgScript = fs.readFileSync(path.join(rootDir, "scripts", "background", "background.js"), "utf-8");
+  const bgUtilsScript = fs.readFileSync(path.join(rootDir, "scripts", "background", "bgUtils.js"), "utf-8");
+  const widgetContentScript = fs.readFileSync(path.join(rootDir, "scripts", "content", "widgetContent.js"), "utf-8");
+  const reqAiScript = fs.readFileSync(path.join(rootDir, "scripts", "background", "requestAi.js"), "utf-8");
+
+  assert(bgScript.includes("const floatingWidgetHostTabs = new Set()"), "background.js creates floatingWidgetHostTabs set");
+  assert(bgScript.includes("registerWidgetHostTab"), "background.js defines registerWidgetHostTab");
+  assert(bgScript.includes("IF_B_REGISTER_HOST"), "background.js listens for IF_B_REGISTER_HOST");
+  assert(bgScript.includes("IF_B_PAGE_RELOADED"), "background.js listens for IF_B_PAGE_RELOADED");
+  assert(bgScript.includes("changeInfo.status === \"complete\""), "background.js tracks reload complete status");
+  assert(bgScript.includes("checkAndKillWorkerTabs"), "background.js defines checkAndKillWorkerTabs on page reload");
+  assert(bgUtilsScript.includes("floatingWidgetHostTabs.add(tabId)"), "bgUtils.js registers host tab on widget injection");
+  assert(widgetContentScript.includes("IF_B_REGISTER_HOST"), "widgetContent.js notifies background of widget host registration");
+  assert(widgetContentScript.includes("IF_B_PAGE_RELOADED"), "widgetContent.js notifies background of page unload/reload");
+  assert(reqAiScript.includes("resetAllProviderSessions"), "requestAi.js defines resetAllProviderSessions");
+
   // --- SUMMARY ---
   console.log(`\n========================================`);
   console.log(`Test Results: ${passed} Passed, ${failed} Failed`);
