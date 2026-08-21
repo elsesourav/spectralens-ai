@@ -10,7 +10,7 @@ const packageJsonPath = path.join(rootDir, "package.json");
 const manifestPath = path.join(rootDir, "scripts", "manifest.json");
 
 /**
- * Enforces the version limits: Max 9 (Major) . 99 (Minor) . 99 (Patch)
+ * Enforces the version limits: Max 99 (Major) . 9 (Minor) . 99 (Patch) -> Max 99.9.99
  * Automatically rolls over overflowed parts to the next higher level.
  */
 export function normalizeVersion(major, minor, patch) {
@@ -20,16 +20,16 @@ export function normalizeVersion(major, minor, patch) {
     patch = patch % 100;
   }
 
-  // Handle minor rollover (max 99 -> rolls over to major)
-  if (minor > 99) {
-    major += Math.floor(minor / 100);
-    minor = minor % 100;
+  // Handle minor rollover (max 9 -> rolls over to major)
+  if (minor > 9) {
+    major += Math.floor(minor / 10);
+    minor = minor % 10;
   }
 
-  // Handle major boundary (max 9.99.99)
-  if (major > 9 || (major === 9 && minor >= 99 && patch >= 99)) {
-    major = 9;
-    minor = 99;
+  // Handle major boundary (max 99.9.99)
+  if (major > 99 || (major === 99 && minor >= 9 && patch >= 99)) {
+    major = 99;
+    minor = 9;
     patch = 99;
   }
 
@@ -38,14 +38,14 @@ export function normalizeVersion(major, minor, patch) {
 
 /**
  * Automatically increases version +1 on every build (one by one)
- * - Format: Major (max 9) . Minor (max 99) . Patch (max 99)
- * - Every build increments patch by +1 (e.g., 2.8.0 -> 2.8.1 -> 2.8.2)
+ * - Format: Major (max 99) . Minor (max 9) . Patch (max 99)
+ * - Every build increments patch by +1 (e.g., 2.9.80 -> 2.9.81)
  * - When patch > 99 -> patch = 0, minor += 1 (e.g., 2.8.99 -> 2.9.0)
- * - When minor > 99  -> minor = 0, major += 1 (e.g., 2.99.99 -> 3.0.0)
- * - Max boundary: 9.99.99
+ * - When minor > 9   -> minor = 0, major += 1 (e.g., 2.9.99 -> 3.0.0)
+ * - Max boundary limit: 99.9.99
  */
 export function calculateNextVersion(currentVersion) {
-  const parts = String(currentVersion || "2.8.0")
+  const parts = String(currentVersion || "2.9.80")
     .split(".")
     .map((n) => parseInt(n, 10) || 0);
   while (parts.length < 3) parts.push(0);

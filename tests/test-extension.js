@@ -175,8 +175,8 @@ for (const rel of scriptsToValidate) {
   }
 }
 
-// --- TEST SUITE 6: Auto-Versioning 9.99.99 Schema & Rollover ---
-console.log("\n6. Auto-Versioning 9.99.99 Schema & Rollover:");
+// --- TEST SUITE 6: Auto-Versioning 99.9.99 Schema & Rollover ---
+console.log("\n6. Auto-Versioning 99.9.99 Schema & Rollover:");
 import("../scripts/update-version.js").then(({ calculateNextVersion, normalizeVersion }) => {
   // Test incremental per-build increment (+1 one by one)
   const v1 = calculateNextVersion("2.8.0");
@@ -189,13 +189,17 @@ import("../scripts/update-version.js").then(({ calculateNextVersion, normalizeVe
   const v2 = calculateNextVersion("2.8.99");
   assert(v2 === "2.9.0", `Patch rollover 2.8.99 -> 2.9.0 (got ${v2})`);
 
-  // Test 2-digit minor rollover to major (e.g. 2.99.99 -> 3.0.0)
-  const v3 = calculateNextVersion("2.99.99");
-  assert(v3 === "3.0.0", `Minor/Patch rollover 2.99.99 -> 3.0.0 (got ${v3})`);
+  // Test 1-digit minor rollover to major (e.g. 2.9.99 -> 3.0.0)
+  const v3 = calculateNextVersion("2.9.99");
+  assert(v3 === "3.0.0", `Minor/Patch rollover 2.9.99 -> 3.0.0 (got ${v3})`);
 
-  // Test max boundary limit 9.99.99
-  const v4 = calculateNextVersion("9.99.99");
-  assert(v4 === "9.99.99", `Max boundary limit 9.99.99 (got ${v4})`);
+  // Test 2-digit major support (e.g. 15.9.99 -> 16.0.0)
+  const v3b = calculateNextVersion("15.9.99");
+  assert(v3b === "16.0.0", `2-digit major rollover 15.9.99 -> 16.0.0 (got ${v3b})`);
+
+  // Test max boundary limit 99.9.99
+  const v4 = calculateNextVersion("99.9.99");
+  assert(v4 === "99.9.99", `Max boundary limit 99.9.99 (got ${v4})`);
 
   // --- TEST SUITE 7: Theme-Aware Isolated Response & Dynamic CSS Engine ---
   console.log("\n7. Theme-Aware Isolated Response & Dynamic CSS Engine:");
