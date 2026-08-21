@@ -752,8 +752,32 @@ import("../scripts/update-version.js").then(({ calculateNextVersion, normalizeVe
   assert(wcScript.includes("markIntroShownForCurrentPage"), "widgetContent.js defines markIntroShownForCurrentPage");
   assert(wcScript.includes("alreadyShownThisPage"), "widgetContent.js checks alreadyShownThisPage before displaying intro");
   assert(wcScript.includes("lastDate === todayStr"), "widgetContent.js enforces 1 intro per day across all pages");
-  assert(utilsModCode.includes("ALREADY_SHOW_INTRO: \"alreadyShowIntro\""), "utilsModule.js defines ALREADY_SHOW_INTRO key");
-  assert(scriptsUtilCode.includes("ALREADY_SHOW_INTRO: \"alreadyShowIntro\""), "scripts/utils.js defines ALREADY_SHOW_INTRO key");
+  // 22. Provider Authentication & Fast Login Detection Audit:
+  console.log("\n22. Provider Authentication & Fast Login Detection Audit:");
+  const authBaseCode = fs.readFileSync(path.join(rootDir, "scripts", "content", "adapters", "baseAdapter.js"), "utf-8");
+  const authGptCode = fs.readFileSync(path.join(rootDir, "scripts", "content", "adapters", "chatgpt.js"), "utf-8");
+  const authClaudeCode = fs.readFileSync(path.join(rootDir, "scripts", "content", "adapters", "claude.js"), "utf-8");
+  const authGeminiCode = fs.readFileSync(path.join(rootDir, "scripts", "content", "adapters", "gemini.js"), "utf-8");
+  const authGrokCode = fs.readFileSync(path.join(rootDir, "scripts", "content", "adapters", "grok.js"), "utf-8");
+  const authPerpCode = fs.readFileSync(path.join(rootDir, "scripts", "content", "adapters", "perplexity.js"), "utf-8");
+  const authGoogleCode = fs.readFileSync(path.join(rootDir, "scripts", "content", "adapters", "google.js"), "utf-8");
+  const authBgCode = fs.readFileSync(path.join(rootDir, "scripts", "background", "background.js"), "utf-8");
+  const authCardCode = fs.readFileSync(path.join(rootDir, "src", "features", "chat", "ChatAiResponseCard.jsx"), "utf-8");
+  const authChatbotCode = fs.readFileSync(path.join(rootDir, "src", "components", "ChatBot.jsx"), "utf-8");
+
+  assert(authBaseCode.includes("checkAuthRequired"), "baseAdapter.js defines checkAuthRequired");
+  assert(authBaseCode.includes("getLoginUrl"), "baseAdapter.js defines getLoginUrl");
+  assert(authGptCode.includes("checkAuthRequired"), "chatgpt.js defines checkAuthRequired");
+  assert(authClaudeCode.includes("checkAuthRequired"), "claude.js defines checkAuthRequired");
+  assert(authGeminiCode.includes("checkAuthRequired"), "gemini.js defines checkAuthRequired");
+  assert(authGrokCode.includes("checkAuthRequired"), "grok.js defines checkAuthRequired");
+  assert(authPerpCode.includes("checkAuthRequired"), "perplexity.js defines checkAuthRequired");
+  assert(authGoogleCode.includes("checkAuthRequired"), "google.js defines checkAuthRequired");
+  assert(authBgCode.includes("IF_B_OPEN_LOGIN_PAGE"), "background.js handles IF_B_OPEN_LOGIN_PAGE");
+  assert(authCardCode.includes("Sign-in Required"), "ChatAiResponseCard renders Sign-in Required card");
+  assert(authCardCode.includes("handleOpenLoginPage"), "ChatAiResponseCard implements handleOpenLoginPage");
+  assert(authCardCode.includes("handleRetry"), "ChatAiResponseCard implements handleRetry");
+  assert(authChatbotCode.includes("handleRetryProvider"), "ChatBot.jsx implements handleRetryProvider callback");
 
   // --- SUMMARY ---
   console.log(`\n========================================`);

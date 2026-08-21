@@ -27,7 +27,39 @@
 
     /** Check if provider page is ready for interaction */
     isReady() {
+      if (this.checkAuthRequired()) {
+        return false;
+      }
       return Boolean(this.findInput());
+    }
+
+    /** Check if the provider page is on a login/signup wall or requires authentication */
+    checkAuthRequired() {
+      return false;
+    }
+
+    /** Alias for checkAuthRequired */
+    isAuthRequired() {
+      return this.checkAuthRequired();
+    }
+
+    /** Return the primary direct login URL for this provider */
+    getLoginUrl() {
+      switch ((this.id || "").toLowerCase()) {
+        case "chatgpt":
+          return "https://chatgpt.com/auth/login";
+        case "claude":
+          return "https://claude.ai/login";
+        case "gemini":
+          return "https://gemini.google.com/";
+        case "grok":
+          return "https://grok.com/";
+        case "perplexity":
+          return "https://www.perplexity.ai/";
+        case "google":
+        default:
+          return "https://www.google.com/";
+      }
     }
 
     /** Check if the current page matches this provider */
@@ -374,15 +406,58 @@
         }
       }
 
+      // 0a. Fast Authentication Check
+      if (this.checkAuthRequired()) {
+        tabLog(
+          this.id,
+          `[SL REQUEST] ${reqId} provider=${this.id} event=AUTH_REQUIRED timestamp=${Date.now()}`,
+        );
+        return {
+          success: false,
+          requestId: reqId,
+          provider: this.id,
+          phase: "AUTH",
+          error: "AUTH_REQUIRED",
+          authRequired: true,
+          loginUrl: this.getLoginUrl(),
+        };
+      }
+
       // 1. Locate Input
       const locateStart = Date.now();
       let input = this.findInput();
       while (!input && Date.now() - locateStart < this.INPUT_TIMEOUT) {
+        if (this.checkAuthRequired()) {
+          tabLog(
+            this.id,
+            `[SL REQUEST] ${reqId} provider=${this.id} event=AUTH_REQUIRED timestamp=${Date.now()}`,
+          );
+          return {
+            success: false,
+            requestId: reqId,
+            provider: this.id,
+            phase: "AUTH",
+            error: "AUTH_REQUIRED",
+            authRequired: true,
+            loginUrl: this.getLoginUrl(),
+          };
+        }
         await new Promise((r) => setTimeout(r, isReused ? 200 : 350));
         input = this.findInput();
       }
 
       if (!input) {
+        if (this.checkAuthRequired()) {
+          return {
+            success: false,
+            requestId: reqId,
+            provider: this.id,
+            phase: "AUTH",
+            error: "AUTH_REQUIRED",
+            authRequired: true,
+            loginUrl: this.getLoginUrl(),
+          };
+        }
         return {
           success: false,
           requestId: reqId,
@@ -810,9 +885,12 @@
     /** Perform self-health check of adapter and DOM bindings */
     healthCheck() {
       const input = this.findInput();
+      const authRequired = this.checkAuthRequired();
       return {
         id: this.id,
-        ready: Boolean(input),
+        ready: Boolean(input) && !authRequired,
+        authRequired,
+        loginUrl: this.getLoginUrl(),
         isStreaming: this.isStreaming(),
         inputFound: Boolean(input),
         url: typeof window !== "undefined" ? window.location.href : "",

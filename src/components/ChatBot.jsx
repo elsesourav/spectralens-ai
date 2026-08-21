@@ -1013,6 +1013,54 @@ export default function ChatBot({
     ],
   );
 
+  // Retry a single provider for a specific turn (e.g. after user logs in)
+  const handleRetryProvider = useCallback(
+    (providerId, turnId = null) => {
+      if (isSubmittingRef.current) return;
+      const targetTurn = turnId
+        ? turns.find((t) => t.id === turnId)
+        : turns[turns.length - 1];
+      if (!targetTurn) return;
+
+      const question = targetTurn.question || "";
+      const questionImage = targetTurn.questionImage || null;
+      const requestId =
+        "req_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
+      currentRequestIdRef.current = requestId;
+
+      setIsLoading(true);
+      setSelectedProvider(providerId);
+
+      setTurns((prev) => {
+        const next = prev.map((t) => {
+          if (t.id === targetTurn.id) {
+            const cleanAnswers = { ...(t.answers || {}) };
+            delete cleanAnswers[providerId];
+            return {
+              ...t,
+              isLoading: true,
+              loadingProviders: Array.from(
+                new Set([...(t.loadingProviders || []), providerId]),
+              ),
+              answers: cleanAnswers,
+            };
+          }
+          return t;
+        });
+        turnsRef.current = next;
+        return next;
+      });
+
+      dispatchAiRequestToBackground(
+        question,
+        providerId,
+        requestId,
+        questionImage,
+      );
+    },
+    [turns, dispatchAiRequestToBackground],
+  );
+
   const handleInputChange = (e) => {
     const val = e.target.value;
     setInput(val);
@@ -1355,7 +1403,9 @@ export default function ChatBot({
                 selectedProvider={currentProviderId}
                 messageTime={turn.messageTime}
                 contrastMode={contrastMode}
+                turnId={turn.id}
                 onCopyAiResponse={handleCopyAiResponse}
+                onRetryProvider={handleRetryProvider}
               />
             </div>
           );

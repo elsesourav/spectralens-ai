@@ -1,12 +1,12 @@
 import PropTypes from "prop-types";
+import { IoAdd, IoMoon, IoSunny } from "react-icons/io5";
+import { useTheme } from "../hooks/useThemeHook.jsx";
 import {
   ChatIcon,
   HistoryIcon,
   SettingsIcon,
   SystemThemeIcon,
 } from "./Icons.jsx";
-import { IoSunny, IoMoon, IoAdd } from "react-icons/io5";
-import { useTheme } from "../hooks/useThemeHook.jsx";
 
 export default function Sidebar({ activeTab, onSelectTab, onNewChat }) {
   const { theme, setTheme, contrastMode } = useTheme();
@@ -56,7 +56,9 @@ export default function Sidebar({ activeTab, onSelectTab, onNewChat }) {
       : "bg-transparent border-r border-slate-200/50 dark:border-white/[0.06]";
 
   return (
-    <aside className={`w-[48px] h-full flex flex-col items-center justify-between py-3 shrink-0 select-none z-20 ${sidebarBgClass}`}>
+    <aside
+      className={`w-[48px] h-full flex flex-col items-center justify-between py-3 shrink-0 select-none z-20 ${sidebarBgClass}`}
+    >
       {/* Top Navigation */}
       <div className="flex flex-col items-center gap-2 w-full px-1">
         {/* New Chat Button */}

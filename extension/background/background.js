@@ -452,6 +452,18 @@ runtimeOnMessage("IF_B_CLOSE_PROVIDER_TAB", (data, __, sendResponse) => {
   sendResponse && sendResponse({ status: "ok" });
 });
 
+runtimeOnMessage("IF_B_OPEN_LOGIN_PAGE", async (data, __, sendResponse) => {
+  try {
+    const url = data?.url || data?.loginUrl || "https://google.com";
+    if (typeof chrome !== "undefined" && chrome.tabs?.create) {
+      await chrome.tabs.create({ url, active: true });
+    }
+  } catch (err) {
+    console.error("[SpectraLens:Background] Failed to open login page:", err);
+  }
+  sendResponse && sendResponse({ status: "ok" });
+});
+
 runtimeOnMessage("P_B_RESET_WIDGET_POSITION", async (_, __, sendResponse) => {
   const tabs = await getTabs();
   for (const tab of tabs) {

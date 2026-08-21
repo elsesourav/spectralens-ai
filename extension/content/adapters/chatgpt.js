@@ -14,6 +14,35 @@
       super("chatgpt", "ChatGPT", /chatgpt\.com|chat\.openai\.com/);
     }
 
+    checkAuthRequired() {
+      if (typeof window === "undefined") return false;
+      const url = window.location.href || "";
+      const pathname = window.location.pathname || "";
+      if (
+        pathname.startsWith("/auth") ||
+        url.includes("/auth/login") ||
+        url.includes("/auth/signup") ||
+        url.includes("/login")
+      ) {
+        return true;
+      }
+      const loginBtn = document.querySelector(
+        'button[data-testid="login-button"], a[href*="/auth/login"], button[data-testid="welcome-login-button"], [data-testid="login-button"]',
+      );
+      if (loginBtn) return true;
+      if (!this.findInput()) {
+        const signupBtn = document.querySelector(
+          'button[data-testid="signup-button"], a[href*="/auth/signup"]',
+        );
+        if (signupBtn) return true;
+      }
+      return false;
+    }
+
+    getLoginUrl() {
+      return "https://chatgpt.com/auth/login";
+    }
+
     findInput() {
       return SendModule.findInput ? SendModule.findInput.call(this) : null;
     }

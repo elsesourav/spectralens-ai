@@ -36,11 +36,21 @@
       grok: "Grok",
       perplexity: "Perplexity",
     };
+    const loginUrls = {
+      chatgpt: "https://chatgpt.com/auth/login",
+      claude: "https://claude.ai/login",
+      gemini: "https://gemini.google.com/",
+      grok: "https://grok.com/",
+      perplexity: "https://www.perplexity.ai/",
+      google: "https://www.google.com/",
+    };
+    const normProv = (providerId || "").toLowerCase();
     const name =
-      providerNames[providerId?.toLowerCase()] ||
+      providerNames[normProv] ||
       (providerId
         ? providerId.charAt(0).toUpperCase() + providerId.slice(1)
         : "AI Provider");
+    const loginUrl = loginUrls[normProv] || "https://google.com";
 
     const cleanShort = shortReason
       ? String(shortReason)
@@ -50,7 +60,7 @@
           .slice(0, 60)
       : "No response";
 
-    return `> ⚠️ **Please log in to ${name}**\n>\n> Unable to load response. Make sure you are signed in to **${name}** in your browser and have an active session, then ask again.\n\n*Error: ${cleanShort}*`;
+    return `<!--SPECTRALENS_AUTH_REQUIRED:${normProv}:${encodeURIComponent(loginUrl)}-->\n> ⚠️ **Please log in to ${name}**\n>\n> Unable to load response. Make sure you are signed in to **${name}** in your browser and have an active session, then ask again.\n\n*Error: ${cleanShort}*`;
   }
 
   global.ProviderAdapterRegistry = ProviderAdapterRegistry;

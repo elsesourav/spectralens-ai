@@ -14,6 +14,23 @@
       super("perplexity", "Perplexity", /perplexity\.ai/);
     }
 
+    checkAuthRequired() {
+      if (typeof window === "undefined") return false;
+      const url = window.location.href || "";
+      if (url.includes("/login") || url.includes("/signup")) {
+        return true;
+      }
+      const signinBtn = document.querySelector(
+        'button[aria-label="Sign In"], button[aria-label="Sign in"], a[href*="/login"], [data-testid="signin-button"]',
+      );
+      if (signinBtn && !this.findInput()) return true;
+      return false;
+    }
+
+    getLoginUrl() {
+      return "https://www.perplexity.ai/";
+    }
+
     findInput() {
       return SendModule.findInput ? SendModule.findInput.call(this) : null;
     }

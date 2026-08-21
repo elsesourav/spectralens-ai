@@ -14,6 +14,22 @@
       super("google", "Google AI Overview", /google\.com/);
     }
 
+    checkAuthRequired() {
+      if (typeof window === "undefined") return false;
+      const url = window.location.href || "";
+      if (
+        url.includes("/sorry/index") ||
+        document.querySelector('#captcha-form, form[action*="CaptchaRedirect"]')
+      ) {
+        return true;
+      }
+      return false;
+    }
+
+    getLoginUrl() {
+      return "https://www.google.com/";
+    }
+
     async ensureAiMode() {
       return SendModule.ensureAiMode
         ? await SendModule.ensureAiMode.call(this)

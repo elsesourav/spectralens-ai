@@ -14,6 +14,25 @@
       super("gemini", "Gemini", /gemini\.google\.com/);
     }
 
+    checkAuthRequired() {
+      if (typeof window === "undefined") return false;
+      const url = window.location.href || "";
+      if (url.includes("accounts.google.com")) {
+        return true;
+      }
+      const signinBtn = document.querySelector(
+        'a[href*="accounts.google.com/ServiceLogin"], a[href*="accounts.google.com/InteractiveLogin"], [aria-label*="Sign in"], [aria-label*="Sign In"]',
+      );
+      if (signinBtn && !this.findInput()) {
+        return true;
+      }
+      return false;
+    }
+
+    getLoginUrl() {
+      return "https://gemini.google.com/";
+    }
+
     findInput() {
       return SendModule.findInput ? SendModule.findInput.call(this) : null;
     }

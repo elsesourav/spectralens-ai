@@ -14,6 +14,28 @@
       super("grok", "Grok", /grok\.com/);
     }
 
+    checkAuthRequired() {
+      if (typeof window === "undefined") return false;
+      const url = window.location.href || "";
+      const pathname = window.location.pathname || "";
+      if (
+        pathname.startsWith("/login") ||
+        url.includes("/auth") ||
+        url.includes("/login")
+      ) {
+        return true;
+      }
+      const loginBtn = document.querySelector(
+        'a[href*="/login"], a[href*="/auth"], button[aria-label*="Sign in"], button[aria-label*="Log in"]',
+      );
+      if (loginBtn && !this.findInput()) return true;
+      return false;
+    }
+
+    getLoginUrl() {
+      return "https://grok.com/";
+    }
+
     findInput() {
       return SendModule.findInput ? SendModule.findInput.call(this) : null;
     }

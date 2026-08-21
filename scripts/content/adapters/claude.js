@@ -14,6 +14,33 @@
       super("claude", "Claude", /claude\.ai/);
     }
 
+    checkAuthRequired() {
+      if (typeof window === "undefined") return false;
+      const url = window.location.href || "";
+      const pathname = window.location.pathname || "";
+      if (
+        pathname.startsWith("/login") ||
+        pathname.startsWith("/signup") ||
+        url.includes("/login") ||
+        url.includes("/signup")
+      ) {
+        return true;
+      }
+      const emailInput = document.querySelector(
+        'input[type="email"][name="email"], input[id*="email"]',
+      );
+      if (emailInput && !this.findInput()) return true;
+      const loginBtn = document.querySelector(
+        'a[href*="/login"], button[data-testid="login-button"]',
+      );
+      if (loginBtn && !this.findInput()) return true;
+      return false;
+    }
+
+    getLoginUrl() {
+      return "https://claude.ai/login";
+    }
+
     findInput() {
       return SendModule.findInput ? SendModule.findInput.call(this) : null;
     }
