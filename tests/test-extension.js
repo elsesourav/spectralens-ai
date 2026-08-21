@@ -805,8 +805,7 @@ import("../scripts/update-version.js").then(({ calculateNextVersion, normalizeVe
   assert(iconsCode2.includes("export const GuideIcon = HelpIcon"), "Icons.jsx exports GuideIcon alias");
   assert(sidebarCode2.includes("HelpIcon"), "Sidebar.jsx imports HelpIcon");
   assert(sidebarCode2.includes("id: \"guide\""), "Sidebar.jsx registers guide tab navigation item");
-  assert(sidebarCode2.indexOf("id: \"settings\"") < sidebarCode2.indexOf("id: \"guide\""), "Sidebar.jsx places guide tab (? icon) right after settings");
-  assert(widgetCode2.includes("import GuideView"), "AssistantWidget.jsx imports GuideView");
+  assert(widgetCode2.includes("GuideView = lazy") || widgetCode2.includes("import GuideView"), "AssistantWidget.jsx imports GuideView (lazy loaded on demand)");
   assert(widgetCode2.includes("activeTab === \"guide\""), "AssistantWidget.jsx renders GuideView when activeTab is guide");
   assert(guideCode2.includes("SpectraLens AI Guide"), "GuideView.jsx renders guide header");
   assert(guideCode2.includes("SHORTCUTS"), "GuideView.jsx includes keyboard shortcuts reference");

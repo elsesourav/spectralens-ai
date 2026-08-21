@@ -613,7 +613,48 @@ function ToggleSwitch({
   const handleSubmitFeedback = (e) => {
     e.preventDefault();
     if (!feedbackReason && !feedbackText) return;
+
+    const payload = {
+      id: Date.now(),
+      reason: feedbackReason || "General Feedback",
+      text: feedbackText || "No additional comments",
+      timestamp: new Date().toISOString(),
+      version: "2.9.76",
+    };
+
+    // Save feedback draft locally on machine
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      chrome.storage.local.get(["SpectraLens-Feedback-Drafts"], (res) => {
+        const existing = Array.isArray(res?.["SpectraLens-Feedback-Drafts"])
+          ? res["SpectraLens-Feedback-Drafts"]
+          : [];
+        chrome.storage.local.set({
+          "SpectraLens-Feedback-Drafts": [payload, ...existing].slice(0, 50),
+        });
+      });
+    }
+
     setFeedbackSubmitted(true);
+  };
+
+  const getFeedbackGithubUrl = () => {
+    const title = encodeURIComponent(
+      `[Feedback] ${feedbackReason || "SpectraLens AI User Suggestion"}`
+    );
+    const body = encodeURIComponent(
+      `### Feedback Category\n${feedbackReason || "General"}\n\n### Suggestions / Details\n${feedbackText || "N/A"}\n\n---\n*SpectraLens Version*: 2.9.76\n*User Agent*: ${navigator.userAgent}`
+    );
+    return `https://github.com/elsesourav/spectralens-ai/issues/new?title=${title}&body=${body}`;
+  };
+
+  const getFeedbackMailtoUrl = () => {
+    const subject = encodeURIComponent(
+      `[SpectraLens AI Feedback] ${feedbackReason || "User Suggestion"}`
+    );
+    const body = encodeURIComponent(
+      `Feedback Category: ${feedbackReason || "General"}\n\nSuggestions / Details:\n${feedbackText || "N/A"}\n\n---\nSpectraLens Version: 2.9.76`
+    );
+    return `mailto:elsesourav.auth@gmail.com?subject=${subject}&body=${body}`;
   };
 
   const filteredFaqs = useMemo(() => {
@@ -1709,15 +1750,45 @@ function ToggleSwitch({
               </div>
 
               {feedbackSubmitted ? (
-                <div className="p-8 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-center space-y-3">
+                <div className="p-8 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-center space-y-4">
                   <IoCheckmarkCircle className="size-12 mx-auto text-emerald-500" />
-                  <h3 className="text-lg font-bold">
-                    Thank you for your feedback!
-                  </h3>
-                  <p className="text-xs text-slate-600 dark:text-slate-300 max-w-md mx-auto">
-                    Your insights help our engineering team continuously refine
-                    model adapters and user interface performance.
-                  </p>
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-bold">
+                      Thank you for your feedback!
+                    </h3>
+                    <p className="text-xs text-slate-600 dark:text-slate-300 max-w-md mx-auto">
+                      Your feedback has been saved locally. Would you also like to dispatch it directly to GitHub or email?
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                    <button
+                      onClick={() => handleOpenExternal(getFeedbackGithubUrl())}
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold shadow-md hover:opacity-90 cursor-pointer focus:outline-none"
+                    >
+                      <IoOpenOutline className="size-4" />
+                      <span>Publish to GitHub Issues</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleOpenExternal(getFeedbackMailtoUrl())}
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-bold shadow-md hover:bg-blue-700 cursor-pointer focus:outline-none"
+                    >
+                      <IoSendOutline className="size-4" />
+                      <span>Send via Email</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setFeedbackSubmitted(false);
+                        setFeedbackReason("");
+                        setFeedbackText("");
+                      }}
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-slate-200 text-xs font-bold hover:bg-slate-300 dark:hover:bg-white/20 cursor-pointer focus:outline-none"
+                    >
+                      <span>Submit Another Feedback</span>
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <form

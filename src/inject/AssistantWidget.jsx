@@ -1,14 +1,24 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import appIconUrl from "../assets/icons/128.png";
 import ChatBot from "../components/ChatBot.jsx";
 import Controls from "../components/Controls.jsx";
 import HistoryView from "../components/HistoryView.jsx";
-import GuideView from "../components/GuideView.jsx";
 import Sidebar from "../components/Sidebar.jsx";
 import FloatingPillLauncher from "../features/launcher/FloatingPillLauncher.jsx";
 import WindowHeader from "../features/launcher/WindowHeader.jsx";
 import { useTheme } from "../hooks/useThemeHook.jsx";
 import ES from "./../utils/utilsModule.js";
+
+// Lazy-load GuideView only when the user clicks the '?' guide tab
+const GuideView = lazy(() => import("../components/GuideView.jsx"));
 
 export default function AssistantWidget() {
   const { isDarkMode, contrastMode } = useTheme();
@@ -587,10 +597,19 @@ export default function AssistantWidget() {
                 </div>
               )}
 
-              {/* Guide & Help View */}
+              {/* Guide & Help View (Lazy-loaded on first click) */}
               {activeTab === "guide" && (
                 <div className="w-full h-full overflow-hidden animate-fade-in">
-                  <GuideView isMenuOpen={isChatOpen} />
+                  <Suspense
+                    fallback={
+                      <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-xs text-slate-400">
+                        <div className="size-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                        <span>Loading Guide...</span>
+                      </div>
+                    }
+                  >
+                    <GuideView isMenuOpen={isChatOpen} />
+                  </Suspense>
                 </div>
               )}
             </div>
